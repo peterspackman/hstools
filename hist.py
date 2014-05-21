@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# This module contains methods for the creation and manipulation of histograms
 import re
 import sys
 import numpy as np
