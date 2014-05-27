@@ -1,4 +1,7 @@
 #!/bin/sh
+# This script is designed to run multiple instances of tonto
+# in order to calculate .cxs files from .cif inputs
+
 LOG=batch_cif.log
 DIR=$1
 

@@ -1,18 +1,23 @@
+#core imports
 import re
 import sys
 import os
 import glob
 import time
-
-import hist
-
+# library imports
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from matplotlib.colors import from_levels_and_colors
+# local imports
+import hist
 
-# Hacky way to find the de_vals etc in a cxs file
+
 def readcxsfile(fname):
+  """ Hacky way to find the de_vals and di_vals  in a cxs file
+  Currently this is a bit inefficient, could be improved by not 
+  going through EVERY line in the file
+  """
   i = 0
   devals = []
   divals = []
@@ -23,6 +28,7 @@ def readcxsfile(fname):
     content = f.readlines()
 
     for n in range( len(content) ):
+      # I have a feeling this is really inefficient
       match = re.search('begin d_(.) (\d+)', content[n])
 
       if match:
@@ -36,17 +42,20 @@ def readcxsfile(fname):
             devals.append(float(content[n]))
           else:
             divals.append(float(content[n]))
-
+  # We have a problem. i.e. de_vals or di_vals will be empty
   if(matches < 2):
     print 'Input file is likely missing necessary data from tonto'
     sys.exit(0)
 
   return devals, divals
 
-# Plot the data to file
 
 def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
+  """ Construct a histogram, plot it, then write the image as a png
+  to a given filename.
+  """
 
+  # Not sure why i've bothered with linear and log as options
   if(type == 'linear'):
     H , xedges, yedges = hist.bin_data(x,y,bins=nbins)
   else:
@@ -59,8 +68,8 @@ def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
 
   fig = plt.figure()
   
-
-  #cmap, norm = from_levels_and_colors([1,10,50,100,200],['gray','blue','green','black'])
+  # provides a different way to colorize
+  # cmap, norm = from_levels_and_colors([1,10,50,100,200],['gray','blue','green','black'])
 
   plt.pcolormesh(xedges,yedges,H,norm=mpl.colors.LogNorm())
   plt.axis("equal")
@@ -77,6 +86,7 @@ def process_file(fname,resolution=10,write_png=False):
   x,y = readcxsfile(fname)
   h = hist.bin_data(x,y,resolution)
   cname =  os.path.basename(os.path.splitext(fname)[0])
+
   if(write_png):
     outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
     plotfile(x,y,fname=outfile,nbins=resolution) 
