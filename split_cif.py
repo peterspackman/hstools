@@ -1,8 +1,6 @@
 import sys
-import argparse
 import os
 import shutil
-import glob
 
 def split_cif(fname):  
   dir_name = os.path.dirname(fname)
@@ -40,39 +38,8 @@ def needs_splitting(fname):
         count += 1
   return count > 1
 
-def batch_split(dname):
-  files = os.path.join(dname,'*.cif')
-
-  for f in glob.glob(files):
-    if(needs_splitting(f)):
-      split_cif(f)
-    else:
-      print "Passing on {0}, doesn't need splitting".format(f)
-
-def cl_options():
-  parser = argparse.ArgumentParser(description='Split cif files into constituent molecules')
-  parser.add_argument('-f','--file',help='the file to be processed')
-  parser.add_argument('-d','--dir',help='A directory of files to be processed')
-
-  return parser.parse_args()
-
-def main():
-  opts = cl_options()
-
-  if opts.dir:
-    print 'Processing cif files in '+opts.dir
-    batch_split(opts.dir)
-    sys.exit(0)
-
-  if opts.file:
-    print 'Processing '+opts.file
-    
-    if(needs_splitting(opts.file)):
-      split_cif(opts.file)
-    else:
-      print "Passing on {0}, doesn't need splitting".format(opts.file)
-    
-  sys.exit(0)
-
 if __name__ == '__main__':
-  main()
+  if(needs_splitting(sys.argv[1])):
+    split_cif(sys.argv[1])
+  else:
+    print "Passing on {0}, doesn't need splitting".format(sys.argv[1])
