@@ -1,9 +1,15 @@
 import re
 import sys
+import os
+import glob
+import time
+
 import hist
+
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+from matplotlib.colors import from_levels_and_colors
 
 # Hacky way to find the de_vals etc in a cxs file
 def readcxsfile(fname):
@@ -52,7 +58,57 @@ def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
   Hmasked = np.ma.masked_where(H==0,H) # Mask 0 pixels
 
   fig = plt.figure()
+  
+
+  #cmap, norm = from_levels_and_colors([1,10,50,100,200],['gray','blue','green','black'])
 
   plt.pcolormesh(xedges,yedges,H,norm=mpl.colors.LogNorm())
   plt.axis("equal")
+  print 'Saving histogram plot to {0} bin size:{1}'.format(fname,nbins)
   fig.savefig(fname,bbox_inches='tight')
+  
+  plt.clf()
+  plt.close()
+
+def process_file(fname,resolution=10,write_png=False):
+  """ Read a file from fname, generate a histogram and potentially write
+      the png of it to file
+  """
+  x,y = readcxsfile(fname)
+  h = hist.bin_data(x,y,resolution)
+  cname =  os.path.basename(os.path.splitext(fname)[0])
+  if(write_png):
+    outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
+    plotfile(x,y,fname=outfile,nbins=resolution) 
+  
+  return h, cname
+
+
+
+def batch_process(dirname, suffix='.cxs', resolution=10,
+                  write_png=False):
+  """Generate n histograms from a directory, returning a list of them
+  """
+
+  files = os.path.join(dirname,'*'+suffix) 
+
+  histograms = []
+  names = []
+  for f in glob.glob(files):
+
+    #TIMING
+    start_time = time.time()
+    #END TIMING
+
+    h, cname = process_file(f,resolution=resolution,write_png =write_png) 
+    #TIMING
+    print 'Reading {0}.cxs took {1} seconds'.format(cname, time.time() - start_time)
+    #END TIMING 
+
+    #Can add bounds = true to make the bins the same values throughout histograms
+    histograms.append(h)
+    names.append(cname)
+    
+  return (histograms, names)
+
+
