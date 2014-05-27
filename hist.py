@@ -45,3 +45,5 @@ def bin_data(x, y, bins = 10, bounds=False):
 def bin_data_log(x, y, bins = 10):
   return bin_data(np.log(x), np.log(y), bins)
 
+
+  

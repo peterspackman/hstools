@@ -5,6 +5,7 @@ import os
 import glob
 import time
 # library imports
+import progressbar
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
@@ -15,13 +16,12 @@ import hist
 
 def readcxsfile(fname):
   """ Hacky way to find the de_vals and di_vals  in a cxs file
-  Currently this is a bit inefficient, could be improved by not 
-  going through EVERY line in the file
+      Ideally I'd write a file parser especially for cxs files 
+      but this is not yet done
   """
   i = 0
   devals = []
   divals = []
-  matches = 0
 
   with open(fname) as f:
     
@@ -29,21 +29,24 @@ def readcxsfile(fname):
 
     for n in range( len(content) ):
       # I have a feeling this is really inefficient
-      match = re.search('begin d_(.) (\d+)', content[n])
+      # match = re.search('begin d_(.) (\d+)', content[n])
 
-      if match:
-        matches += 1
-
-        for i in range( int(match.group(2)) ):
-
+      if content[n].startswith('begin d_e '):
+        words = content[n].split()
+        for i in range( int(words[2]) ):
           n = n + 1
+          devals.append(float(content[n]))
 
-          if(match.group(1) == 'e'):
-            devals.append(float(content[n]))
-          else:
-            divals.append(float(content[n]))
+      elif content[n].startswith('begin d_i '):
+        words = content[n].split()
+        for i in range( int(words[2]) ):
+          n = n + 1
+          divals.append(float(content[n]))
+      
+      if devals and divals:
+        break
   # We have a problem. i.e. de_vals or di_vals will be empty
-  if(matches < 2):
+  if not devals or not divals:
     print 'Input file is likely missing necessary data from tonto'
     sys.exit(0)
 
@@ -100,25 +103,28 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
   """Generate n histograms from a directory, returning a list of them
   """
 
-  files = os.path.join(dirname,'*'+suffix) 
+  files = glob.glob(os.path.join(dirname,'*'+suffix))
 
   histograms = []
   names = []
-  for f in glob.glob(files):
-
-    #TIMING
-    start_time = time.time()
-    #END TIMING
-
+  widgets = ['Reading files:',' ', 
+              progressbar.Bar(marker=unichr(0x2592)),
+              ' ',progressbar.ETA()]
+  pbar = progressbar.ProgressBar(widgets = widgets, maxval = len(files))
+  pbar.start()
+  start_time = time.time()  
+  for i,f in enumerate(files):
+    
     h, cname = process_file(f,resolution=resolution,write_png =write_png) 
-    #TIMING
-    print 'Reading {0}.cxs took {1} seconds'.format(cname, time.time() - start_time)
-    #END TIMING 
-
+    
     #Can add bounds = true to make the bins the same values throughout histograms
     histograms.append(h)
     names.append(cname)
-    
+    pbar.update(i)
+  
+  pbar.finish()
+  print 'Reading {0} files took {1} seconds'.format(len(files), time.time() - start_time)
+ 
   return (histograms, names)
 
 

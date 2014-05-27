@@ -7,6 +7,7 @@ import os
 import hist
 import calc
 import fileio as fio
+import visual
 
 test_f = {'sp':calc.spearman_roc,'kt':calc.kendall_tau}
 test_names = {'sp':'Spearman rank order coefficient',
@@ -63,7 +64,8 @@ def main():
     # Provides no real result unless -p flag is invoked
     
     print 'Generating histogram from {1}'.format(tname,opts.file)
-    hist,name = fio.process_file(opts.file, resolution=opts.bins,write_png=opts.png)
+    x,y = fio.readcxsfile(opts.file)
+    visual.scatter(x,y)
     sys.exit(0)
 
   # If we got here, the program wasn't called correctly

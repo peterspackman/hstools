@@ -3,6 +3,7 @@ import re
 import sys
 import numpy as np
 import cv2
+import time
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import scipy.stats as stats
@@ -43,19 +44,21 @@ def get_correl_mat(histograms,test=spearman_roc):
   n = len(histograms)
 
   print "Creating a {0}x{0} matrix using coefficients from {1}".format(n,test.__name__)
+  start_time = time.time()
 
   mat = np.zeros( (n,n) )
-  
+    
   for i, (H1,x1,y1) in enumerate(histograms):
     for j, (H2,x2,y2) in enumerate(histograms):
       r, p = test(np.array(H1),np.array(H2))
       mat[i][j] = r
   # Becuase these tests give correlations not distances i.e. higher r => closer,
   # we must modify the values to give a distance equivalent
-
+  
   if test==spearman_roc or test ==kendall_tau:
     # np.round() is used here because of floating point rounding (getting 1.0 - 1.0 != 0.0)
     mat = 1.0 - np.round(mat,decimals=5)
+  print 'matrix took {0} seconds to create'.format(time.time() - start_time)
   return mat
 
 
@@ -66,10 +69,11 @@ def cluster(mat,names,tname):
 
   # Remove redundant distances from the NxN array (turning it into more of a triangle)
   distArray = scipy.spatial.distance.squareform(mat)
-  
+  start_time = time.time()  
   # This is the clustering
+  print 'Clustering {0} data points...'.format(len(names))
   Z = fc.linkage(distArray,method='single',metric='euclidean')
-  
+  print 'took {0} seconds'.format(time.time()-start_time)
   # Create a dendrogram
   R = dendrogram(Z,labels=names)
 

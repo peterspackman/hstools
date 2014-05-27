@@ -1,50 +1,36 @@
 #!/usr/bin/python
-import sys
-import scipy
-import hist
 import numpy as np
-import fileio as fio
-import cv2 as cv
+import matplotlib.pyplot as plt
+from scipy.cluster.vq import kmeans,vq
+colors = ['b','g','r','c','m','y','k']
 
-def num_hotspots(h,n,threshold = 0.05):
-  h = h.flatten()
-  vals = np.where(h >n*threshold,1,0)
-  print vals
-  return sum(vals)
-
-def compute_histogram(src,h_bins=30,s_bins=32,scale=10):
-  #create images
-  src = cv.cvtColor(src,cv.CV_BGR2HSV)
-
-  hrange = (0,180)
-  srange = (0,256)
-  ranges = [hrange,srange]
-
-  channels = [0,1]
-
-  
-  #compute histogram
-  hist = cv.calcHist(src,channels,cv.Mat(),
-  return hist
-
-def main():
-  src_base = cv.imread(sys.argv[1])
-  src_test1 = cv.imread(sys.argv[2])
-  src_test2 =cv.imread(sys.argv[3])
-
-  hist_base = compute_histogram(src_base)
-  hist1 = compute_histogram(src_test1)
-  hist2 = compute_histogram(src_test2)
-
-  sc = cv.CompareHist(hist1,hist2,cv.CV_COMP_BHATTACHARYYA)
-
-  print sc
-
-  planes = [hplane,splane]
-
-  
+def scatter(x,y,km=True):
+  """
+  Produce a 2D scatter plot of x and y
+  """
+  data = np.array(zip(x,y))
+  print data
+  n = 7
+  centroids, _ = kmeans(data,n)
+  idx, _ = vq(data,centroids)
 
 
-if __name__ == '__main__':
- main()
+  for i in range(0,n):
+    plt.scatter(data[idx==i,0],data[idx==i,1],c=colors[i])
+  plt.plot(centroids[:,0],centroids[:,1],'sg',markersize=8)
+  plt.show()
 
+
+class DripHist:
+  "A class to construct a drip histogram"
+
+  def __init__(self,radius=0.05):
+    UserDict.__init__(self)
+    self.drops = []
+ 
+  def getDrops(self):
+    return self.drops
+
+
+  def add_point(p):
+    pass
