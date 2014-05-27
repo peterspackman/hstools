@@ -1,0 +1,3 @@
+'what distinguishes a good clustering is that the data is partitioned into coherent groups or clusters.  i.e. on average two instances fromt he same clusterhave more in common than two instances from separate clusters
+
+soft clustering - where instances can have a degree of membership in more than one cluster is likely to be useful here

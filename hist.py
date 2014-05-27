@@ -5,10 +5,17 @@ import sys
 import numpy as np
 import scipy.sparse
 
-def bin_data(x, y, bins = 10):
+def bin_data(x, y, bins = 10, bounds=False):
+  
   nx = ny = bins
-  xmin, xmax = min(x), max(x)
-  ymin, ymax = min(y), max(y)
+  
+  if not bounds:
+    xmin, xmax = min(x), max(x)
+    ymin, ymax = min(y), max(y)
+  else:
+    xmin, ymin = 0, 0
+    xmax, ymax = 3., 3.
+  
   dx = (xmax -xmin) / (nx - 1.0)
   dy = (ymax - ymin) / (ny -1.0)
 
