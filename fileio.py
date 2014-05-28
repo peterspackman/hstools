@@ -5,6 +5,7 @@ import os
 import glob
 import time
 # library imports
+from joblib import Parallel, delayed
 import progressbar
 import numpy as np
 import matplotlib as mpl
@@ -76,7 +77,7 @@ def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
 
   plt.pcolormesh(xedges,yedges,H,norm=mpl.colors.LogNorm())
   plt.axis("equal")
-  print 'Saving histogram plot to {0} bin size:{1}'.format(fname,nbins)
+  # print 'Saving histogram plot to {0} bin size:{1}'.format(fname,nbins)
   fig.savefig(fname,bbox_inches='tight')
   
   plt.clf()
@@ -107,22 +108,16 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
 
   histograms = []
   names = []
-  widgets = ['Reading files:',' ', 
-              progressbar.Bar(marker=unichr(0x2592)),
-              ' ',progressbar.ETA()]
-  pbar = progressbar.ProgressBar(widgets = widgets, maxval = len(files))
-  pbar.start()
-  start_time = time.time()  
-  for i,f in enumerate(files):
-    
-    h, cname = process_file(f,resolution=resolution,write_png =write_png) 
-    
-    #Can add bounds = true to make the bins the same values throughout histograms
-    histograms.append(h)
-    names.append(cname)
-    pbar.update(i)
   
-  pbar.finish()
+  start_time = time.time()  
+  
+  vals = Parallel(n_jobs=4,verbose=3)(
+               delayed(process_file)(f, resolution=resolution,write_png=write_png)
+               for f in files)
+  
+  # unzip the output
+  histograms,names = zip(*vals)
+  
   print 'Reading {0} files took {1} seconds'.format(len(files), time.time() - start_time)
  
   return (histograms, names)
