@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import cv2
 import time
+import functools
 
 import matplotlib as mpl
 from matplotlib import pyplot as plt
@@ -11,23 +12,26 @@ import scipy.spatial.distance
 import fastcluster as fc
 from scipy.cluster.hierarchy import dendrogram
 import scipy.stats as stats
+
 import hist  as h
 
-
-def spearman_roc(hist1, hist2):
+def spearman_roc(H1, H2):
   """ Calculate the Spearman rank-order correlation coefficient from 2 histograms
   This may need to be modified, I'm uncertain whether or not 2 zeroes are ignored
   READ likely that they aren't, as such artificially high correlations are probable
   """ 
-
+  hist1,_,_ = H1
+  hist2,_,_ = H2
   x = hist1.flatten()
   y = hist2.flatten()
  
   r,p = stats.spearmanr(x,y)
   return r
 
-def kendall_tau(hist1, hist2):
+def kendall_tau(H1, H2):
   """ Calculate Kendall's Tau from the given histograms"""
+  hist1,_,_ = H1
+  hist2,_,_ = H2
   x = hist1.flatten()
   y = hist2.flatten()
   r,p = stats.kendalltau(x,y)
@@ -48,8 +52,7 @@ def get_correl_mat(histograms,test=spearman_roc):
   start_time = time.time()
 
   # this will be O(n^2) but I don't see a way around that
-  mat = [[test(np.array(H1),np.array(H2)) for H1,_,_ in histograms]  \
-          for i,(H2,_,_) in enumerate(histograms)]
+  mat = [[test(H1,H2) for H1 in histograms] for H2 in histograms]
   
   mat = np.array(mat)
 
@@ -119,6 +122,7 @@ def cluster(mat,names,tname):
   plt.xlabel('Compound Name')
   plt.ylabel('Dissimilarity')
   plt.suptitle('Clustering dendrogram of {0} compounds using {1}'.format(len(names),tname))
-  plt.show()
+  plt.savefig('dendrogram.png')
+  plt.close()
 
 
