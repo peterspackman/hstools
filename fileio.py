@@ -13,7 +13,6 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import from_levels_and_colors
 # local imports
 import hist
-ticklabelpad = mpl.rcParams['xtick.major.pad']
 
 def readcxsfile(fname):
   """ Hacky way to find the de_vals and di_vals  in a cxs file
@@ -78,16 +77,9 @@ def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
   plt.pcolormesh(xedges,yedges,H,norm=mpl.colors.LogNorm())
   plt.xlim([0.5,2.5])
   plt.ylim([0.5,2.5])
-  plt.xticks(np.arange(0.5,2.5,0.2))
-  plt.yticks(np.arange(0.5,2.5,0.2))
-  plt.grid()
-
-  plt.annotate(r'$d_e$',fontsize=20,xy=(1,0),xytext=(5,-ticklabelpad),
-               ha='left',va='top', xycoords='axes fraction',textcoords='offset points')
-  plt.annotate(r'$d_i$',fontsize=20,xy=(0,1.02),xytext=(5,-ticklabelpad), 
-               ha='right',va='bottom', xycoords='axes fraction',textcoords='offset points')
- # print 'Saving histogram plot to {0} bin size:{1}'.format(fname,nbins)
-  fig.savefig(fname,bbox_inches='tight') 
+  # print 'Saving histogram plot to {0} bin size:{1}'.format(fname,nbins)
+  fig.savefig(fname,bbox_inches='tight')
+  
   plt.clf()
   plt.close()
 
