@@ -14,7 +14,6 @@ from matplotlib.colors import from_levels_and_colors
 # local imports
 import hist
 
-
 def readcxsfile(fname):
   """ Hacky way to find the de_vals and di_vals  in a cxs file
       Ideally I'd write a file parser especially for cxs files 
@@ -76,7 +75,8 @@ def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
   # cmap, norm = from_levels_and_colors([1,10,50,100,200],['gray','blue','green','black'])
 
   plt.pcolormesh(xedges,yedges,H,norm=mpl.colors.LogNorm())
-  plt.axis("equal")
+  plt.xlim([0.5,2.5])
+  plt.ylim([0.5,2.5])
   # print 'Saving histogram plot to {0} bin size:{1}'.format(fname,nbins)
   fig.savefig(fname,bbox_inches='tight')
   
@@ -88,8 +88,9 @@ def process_file(fname,resolution=10,write_png=False):
       the png of it to file
   """
   x,y = readcxsfile(fname)
-  h = hist.bin_data(x,y,resolution)
   cname =  os.path.basename(os.path.splitext(fname)[0])
+  h = hist.bin_data(x,y,resolution)
+
 
   if(write_png):
     outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
@@ -100,8 +101,11 @@ def process_file(fname,resolution=10,write_png=False):
 
 
 def batch_process(dirname, suffix='.cxs', resolution=10,
-                  write_png=False):
+                  write_png=False,threads=4):
   """Generate n histograms from a directory, returning a list of them
+     and their corresponding substance names
+
+     threads would be more accurately called 'processes'
   """
 
   files = glob.glob(os.path.join(dirname,'*'+suffix))
@@ -111,14 +115,14 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
   
   start_time = time.time()  
   
-  vals = Parallel(n_jobs=4,verbose=3)(
+  vals = Parallel(n_jobs=threads,verbose=3)(
                delayed(process_file)(f, resolution=resolution,write_png=write_png)
                for f in files)
   
   # unzip the output
   histograms,names = zip(*vals)
   
-  print 'Reading {0} files took {1} seconds'.format(len(files), time.time() - start_time)
+  print 'Reading {0} files took {1} seconds using {2} threads.'.format(len(files), time.time() - start_time,threads)
  
   return (histograms, names)
 

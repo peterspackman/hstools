@@ -2,6 +2,7 @@
 # Core imports
 import sys
 import argparse
+import time
 import os
 # local imports
 import hist
@@ -42,20 +43,28 @@ def main():
   parser.add_argument('-p','--png',action='store_true',
                       help='Plot histograms calculated and save them  \
                             to file while processing')
-
+  parser.add_argument('-n','--threads',metavar='N',
+                      help='The number of threads/processes to use when \
+                            file processing. By default, 4 will be used',
+                            type=int,default=4)
   opts = parser.parse_args()
   # Variables for which test we are doing (and its string name)
   mtest = test_f[opts.test]
   tname =  test_names[opts.test]
 
+  # END OF ARGUMENT PROCESSING
+
   if opts.dir:
     
     # Program is being run to batch process a directory of cxs files
-
-    histograms,names = fio.batch_process(opts.dir, resolution=opts.bins,write_png=opts.png)
+    start_time = time.time()
+    histograms,names = fio.batch_process(opts.dir, resolution=opts.bins,
+                                         write_png=opts.png,threads=opts.threads)
+    
     print 'Generating matrix using {0}'.format(tname)
     mat = calc.get_correl_mat(histograms,test=mtest)
     calc.cluster(mat,names,tname)
+    print 'Process completed in {0} seconds'.format(time.time() -start_time)
     sys.exit(0)
   
   if opts.file:

@@ -21,16 +21,4 @@ def scatter(x,y,km=True):
   plt.show()
 
 
-class DripHist:
-  "A class to construct a drip histogram"
 
-  def __init__(self,radius=0.05):
-    UserDict.__init__(self)
-    self.drops = []
- 
-  def getDrops(self):
-    return self.drops
-
-
-  def add_point(p):
-    pass

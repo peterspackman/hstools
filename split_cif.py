@@ -3,7 +3,7 @@ import argparse
 import os
 import shutil
 import glob
-
+import progressbar as pb
 def split_cif(fname):  
   dir_name = os.path.dirname(fname)
 
@@ -41,14 +41,19 @@ def needs_splitting(fname):
   return count > 1
 
 def batch_split(dname):
-  files = os.path.join(dname,'*.cif')
-
-  for f in glob.glob(files):
+  files = glob.glob(os.path.join(dname,'*.cif'))
+  widgets = ['Reading files:',' ', 
+               pb.Bar(marker=unichr(0x2592)),
+                             ' ',pb.ETA()]
+  pbar = pb.ProgressBar(widgets=widgets,maxval = len(files)) 
+  pbar.start()
+  for i,f in enumerate(files):
+    
     if(needs_splitting(f)):
       split_cif(f)
     else:
       print "Passing on {0}, doesn't need splitting".format(f)
-
+    pbar.update(i)
 def cl_options():
   parser = argparse.ArgumentParser(description='Split cif files into constituent molecules')
   parser.add_argument('-f','--file',help='the file to be processed')
