@@ -88,14 +88,11 @@ def main():
         # print 'Processing input from {0}'.format(opts.file)
         x, y, a = fio.readcxsfile(opts.file)
 
-        formula, atoms, de_face_atoms, di_face_atoms, atoms_inside, atoms_outside = a
-        contrib, contrib_p = calc.get_contrib_percentage(atoms,
-                                                         de_face_atoms,
-                                                         di_face_atoms,
-                                                         atoms_inside,
-                                                         atoms_outside)
+        formula, internal, external = a
+        contrib, contrib_p = calc.get_contrib_percentage(internal, external)
         print 'Molecular Formula: {0}'.format(formula)
-        print contrib_p
+        for key in contrib_p:
+            print '{0} contribution: {1} %'.format(key, contrib_p[key])
         sys.exit(0)
 
     # If we got here, the program wasn't called correctly

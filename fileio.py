@@ -91,7 +91,7 @@ def readcxsfile(fname):
             if content[n].startswith('begin atoms_outside'):
                 words = content[n].split()
                 r = int(words[2])
-                x = np.zeros(r,dtype=np.int32)
+                x = np.zeros(r, dtype=np.int32)
                 for i in range(r):
                     n = n + 1
                     words = content[n].split()
@@ -100,13 +100,19 @@ def readcxsfile(fname):
             if content[n].startswith('begin atoms_inside'):
                 words = content[n].split()
                 r = int(words[2])
-                x = np.zeros(r,dtype=np.int32)
+                x = np.zeros(r, dtype=np.int32)
                 for i in range(r):
                     n = n + 1
                     words = content[n].split()
                     x[i] = int(words[0])
                 atoms_inside = x
 
+    l = de_face_atoms.size
+    external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
+    internal = np.chararray(l, itemsize=2)
+    for i in range(l):
+        external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
+        internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
 
     # We have a problem. i.e. de_vals or di_vals will be empty
     if not devals.any() or not divals.any():
@@ -114,8 +120,7 @@ def readcxsfile(fname):
         print 'Input file is likely missing necessary data from tonto'
         sys.exit(0)
 
-    return divals, devals, (formula, atoms, de_face_atoms,
-                            di_face_atoms, atoms_inside, atoms_outside)
+    return divals, devals, (formula, internal, external)
 
 
 def plotfile(x, y, fname='out.png', type='linear', nbins=10):
