@@ -1,12 +1,11 @@
 # Core imports
-import re
 import sys
 import os
 import glob
 import time
+from StringIO import StringIO
 # Library imports
 from joblib import Parallel, delayed
-import progressbar
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
@@ -51,37 +50,50 @@ def readcxsfile(fname):
             # D_E VALUES
             if content[n].startswith('begin d_e '):
                 words = content[n].split()
-                for i in range(int(words[2])):
+                r = int(words[2])
+                # Update the line counter
+                x = np.zeros(r)
+                for i in range(r):
                     n = n + 1
-                    devals.append(float(content[n]))
+                    x[i] = float(content[n])
+                devals = x
             # D_I VALUES
             if content[n].startswith('begin d_i '):
                 words = content[n].split()
-                for i in range(int(words[2])):
+                r = int(words[2])
+                # Update the line counter
+                x = np.zeros(r)
+                for i in range(r):
                     n = n + 1
-                    divals.append(float(content[n]))
+                    x[i] = float(content[n])
+                divals = x
             # D_I FACE ATOMS
             if content[n].startswith('begin d_i_face_atoms'):
                 words = content[n].split()
-                for i in range(int(words[2])):
+                r = int(words[2])
+                x = np.zeros(r, dtype=np.int32) 
+                for i in range(r):
                     n = n + 1
-                    # THIS LINE IS QUESTIONABLE,
                     # NOT SURE HOW THEY'RE INDEXED IN THE FILE
-                    di_face_atoms.append(int(content[n]) % len(atoms))
+                    x[i] = int(content[n]) % len(atoms)
+                di_face_atoms = x
             # D_E FACE ATOMS
             if content[n].startswith('begin d_e_face_atoms'):
                 words = content[n].split()
-                for i in range(int(words[2])):
+                r = int(words[2])
+                x = np.zeros(r, dtype=np.int32)
+                for i in range(r):
                     n = n + 1
-                    de_face_atoms.append(int(content[n]) % len(atoms))
+                    x[i] = int(content[n]) % len(atoms)
+                de_face_atoms = x
 
     # We have a problem. i.e. de_vals or di_vals will be empty
-    if not devals or not divals:
+    if not devals.any() or not divals.any():
         print 'FATAL: missing either d_e or d_i values'
         print 'Input file is likely missing necessary data from tonto'
         sys.exit(0)
 
-    return devals, divals, (formula, atoms, de_face_atoms, di_face_atoms)
+    return divals, devals, (formula, atoms, de_face_atoms, di_face_atoms)
 
 
 def plotfile(x, y, fname='out.png', type='linear', nbins=10):
@@ -114,10 +126,10 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     plt.grid()
 
     # Label our graph axes in nice places !
-    plt.annotate(r'$d_e$', fontsize=20, xy=(1, 0), xytext=(5, - ticklabelpad),
+    plt.annotate(r'$d_i$', fontsize=20, xy=(1, 0), xytext=(5, - ticklabelpad),
                  ha='left', va='top', xycoords='axes fraction',
                  textcoords='offset points')
-    plt.annotate(r'$d_i$', fontsize=20, xy=(0, 1.02),
+    plt.annotate(r'$d_e$', fontsize=20, xy=(0, 1.02),
                  xytext=(5, - ticklabelpad), ha='right',
                  va='bottom', xycoords='axes fraction',
                  textcoords='offset points')
@@ -135,6 +147,7 @@ def process_file(fname, resolution=10, write_png=False):
         the png of it to file
     """
     # note that a is unused currently due to recent change to readcxsfile
+    # in essence, the x-axis is di_values (internal) while y is d_e
     x, y, a = readcxsfile(fname)
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)

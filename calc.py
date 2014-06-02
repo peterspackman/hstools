@@ -1,18 +1,17 @@
 #!/usr/bin/python
+# Core imports
 import re
 import sys
-import numpy as np
-import cv2
 import time
-import functools
-
+# Library imports
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import scipy.spatial.distance
 import fastcluster as fc
+import numpy as np
 from scipy.cluster.hierarchy import dendrogram
 import scipy.stats as stats
-
+# Local imports
 import hist as h
 
 
@@ -50,13 +49,14 @@ def get_correl_mat(histograms, test=spearman_roc):
         half roughly but cutting out the inefficiency."""
     n = len(histograms)
 
-    output = "Creating a {0}x{0} matrix using coefficients from {1}".
+    output = "Creating a {0}x{0} matrix using coefficients from {1}"
     print output.format(n, test.__name__)
     start_time = time.time()
 
     # this will be O(n^2) but I don't see a way around that
     mat = [[test(H1, H2) for H1 in histograms] for H2 in histograms]
 
+    # Ensure it is a np.array (though it should be already)
     mat = np.array(mat)
 
     # Because these tests give correlations not distances,

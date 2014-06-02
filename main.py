@@ -9,7 +9,6 @@ import hist
 import calc
 import fileio as fio
 import visual
-from collections import Counter
 
 version = "0.1"
 progname = "sherlock"
@@ -86,7 +85,7 @@ def main():
         # Generate the percentage contribution of each element in the surface
         # Provides no real result unless -p flag is invoked
 
-        print 'Processing input from {0}'.format(opts.file)
+        # print 'Processing input from {0}'.format(opts.file)
         x, y, a = fio.readcxsfile(opts.file)
 
         formula, atoms, de_face_atoms, di_face_atoms = a
