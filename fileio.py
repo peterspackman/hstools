@@ -13,6 +13,8 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import from_levels_and_colors
 # local imports
 import hist
+
+# A temporary variable for the formatting of the histogram plots
 ticklabelpad = mpl.rcParams['xtick.major.pad']
 
 def readcxsfile(fname):
@@ -23,35 +25,60 @@ def readcxsfile(fname):
   i = 0
   devals = []
   divals = []
+  atoms = []
+  de_face_atoms = []
+  di_face_atoms = []
+  formula = ""
 
   with open(fname) as f:
     
     content = f.readlines()
 
     for n in range( len(content) ):
-      # I have a feeling this is really inefficient
-      # match = re.search('begin d_(.) (\d+)', content[n])
-
+      # Basically going through line by line matching patterns and saving data
+      # FORMULA
+      if content[n].startswith('   formula'):
+        formula = content[n].split('\"')[1]  
+      # LIST OF ATOMS
+      if content[n].startswith('begin unit_cell'):
+        words = content[n].split()
+        for i in range( int(words[2]) ):
+          n = n + 1
+          words = content[n].split()
+          atoms.append(words[1])
+      # D_E VALUES
       if content[n].startswith('begin d_e '):
         words = content[n].split()
         for i in range( int(words[2]) ):
           n = n + 1
           devals.append(float(content[n]))
-
-      elif content[n].startswith('begin d_i '):
+      # D_I VALUES
+      if content[n].startswith('begin d_i '):
         words = content[n].split()
         for i in range( int(words[2]) ):
           n = n + 1
           divals.append(float(content[n]))
-      
-      if devals and divals:
-        break
+      # D_I FACE ATOMS
+      if content[n].startswith('begin d_i_face_atoms'):
+        words = content[n].split()
+        for i in range( int(words[2]) ):
+          n = n + 1
+          # THIS LINE IS QUESTIONABLE, NOT SURE HOW THEY'RE INDEXED IN THE FILE
+          di_face_atoms.append(int(content[n]) % len(atoms))
+      # D_E FACE ATOMS
+      if content[n].startswith('begin d_e_face_atoms'):
+        words = content[n].split()
+        for i in range( int(words[2]) ):
+          n = n + 1
+          de_face_atoms.append(int(content[n]) % len(atoms))
+
   # We have a problem. i.e. de_vals or di_vals will be empty
   if not devals or not divals:
+    print 'FATAL: missing either d_e or d_i values'
     print 'Input file is likely missing necessary data from tonto'
     sys.exit(0)
 
-  return devals, divals
+  return devals, divals, (formula, atoms, de_face_atoms,di_face_atoms)
 
 
 def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
@@ -64,30 +91,35 @@ def plotfile(x , y, fname = 'out.png', type='linear', nbins=10):
     H , xedges, yedges = hist.bin_data(x,y,bins=nbins)
   else:
     H , xedges, yedges = hist.bin_data_log(x,y,bins=nbins)
-
+  
+  # NEED TO ROTATE AXES
   H = np.rot90(H)
   H = np.flipud(H)
 
-  Hmasked = np.ma.masked_where(H==0,H) # Mask 0 pixels
+  Hmasked = np.ma.masked_where(H==0,H) # Mask pixels where the bins contain nothing
 
   fig = plt.figure()
   
-  # provides a different way to colorize
-  # cmap, norm = from_levels_and_colors([1,10,50,100,200],['gray','blue','green','black'])
-
+  # this is the key step, the rest is formatting
   plt.pcolormesh(xedges,yedges,H,norm=mpl.colors.LogNorm())
+  
+  # set x and y limits, the values to draw ticks, and turn on the grid
   plt.xlim([0.5,2.5])
   plt.ylim([0.5,2.5])
   plt.xticks(np.arange(0.5,2.5,0.2))
   plt.yticks(np.arange(0.5,2.5,0.2))
   plt.grid()
 
+  # Label our graph axes in nice places !
   plt.annotate(r'$d_e$',fontsize=20,xy=(1,0),xytext=(5,-ticklabelpad),
                ha='left',va='top', xycoords='axes fraction',textcoords='offset points')
   plt.annotate(r'$d_i$',fontsize=20,xy=(0,1.02),xytext=(5,-ticklabelpad), 
                ha='right',va='bottom', xycoords='axes fraction',textcoords='offset points')
- # print 'Saving histogram plot to {0} bin size:{1}'.format(fname,nbins)
-  fig.savefig(fname,bbox_inches='tight') 
+  
+  # SAVE TO PNG WITH LITTLE TO NO BORDER
+  fig.savefig(fname,bbox_inches='tight')
+
+  # CLOSE UP
   plt.clf()
   plt.close()
 
@@ -95,7 +127,8 @@ def process_file(fname,resolution=10,write_png=False):
   """ Read a file from fname, generate a histogram and potentially write
       the png of it to file
   """
-  x,y = readcxsfile(fname)
+  # note that a is unused currently due to recent change to readcxsfile
+  x,y,a = readcxsfile(fname)
   cname =  os.path.basename(os.path.splitext(fname)[0])
   h = hist.bin_data(x,y,resolution)
 
