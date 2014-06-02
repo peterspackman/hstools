@@ -28,6 +28,8 @@ def readcxsfile(fname):
     atoms = []
     de_face_atoms = []
     di_face_atoms = []
+    atoms_outside = []
+    atoms_inside = []
     formula = ""
 
     with open(fname) as f:
@@ -71,11 +73,11 @@ def readcxsfile(fname):
             if content[n].startswith('begin d_i_face_atoms'):
                 words = content[n].split()
                 r = int(words[2])
-                x = np.zeros(r, dtype=np.int32) 
+                x = np.zeros(r, dtype=np.int32)
                 for i in range(r):
                     n = n + 1
                     # NOT SURE HOW THEY'RE INDEXED IN THE FILE
-                    x[i] = int(content[n]) % len(atoms)
+                    x[i] = int(content[n])
                 di_face_atoms = x
             # D_E FACE ATOMS
             if content[n].startswith('begin d_e_face_atoms'):
@@ -84,8 +86,27 @@ def readcxsfile(fname):
                 x = np.zeros(r, dtype=np.int32)
                 for i in range(r):
                     n = n + 1
-                    x[i] = int(content[n]) % len(atoms)
+                    x[i] = int(content[n])
                 de_face_atoms = x
+            if content[n].startswith('begin atoms_outside'):
+                words = content[n].split()
+                r = int(words[2])
+                x = np.zeros(r,dtype=np.int32)
+                for i in range(r):
+                    n = n + 1
+                    words = content[n].split()
+                    x[i] = int(words[0])
+                atoms_outside = x
+            if content[n].startswith('begin atoms_inside'):
+                words = content[n].split()
+                r = int(words[2])
+                x = np.zeros(r,dtype=np.int32)
+                for i in range(r):
+                    n = n + 1
+                    words = content[n].split()
+                    x[i] = int(words[0])
+                atoms_inside = x
+
 
     # We have a problem. i.e. de_vals or di_vals will be empty
     if not devals.any() or not divals.any():
@@ -93,7 +114,8 @@ def readcxsfile(fname):
         print 'Input file is likely missing necessary data from tonto'
         sys.exit(0)
 
-    return divals, devals, (formula, atoms, de_face_atoms, di_face_atoms)
+    return divals, devals, (formula, atoms, de_face_atoms,
+                            di_face_atoms, atoms_inside, atoms_outside)
 
 
 def plotfile(x, y, fname='out.png', type='linear', nbins=10):

@@ -88,11 +88,12 @@ def main():
         # print 'Processing input from {0}'.format(opts.file)
         x, y, a = fio.readcxsfile(opts.file)
 
-        formula, atoms, de_face_atoms, di_face_atoms = a
-
+        formula, atoms, de_face_atoms, di_face_atoms, atoms_inside, atoms_outside = a
         contrib, contrib_p = calc.get_contrib_percentage(atoms,
                                                          de_face_atoms,
-                                                         di_face_atoms)
+                                                         di_face_atoms,
+                                                         atoms_inside,
+                                                         atoms_outside)
         print 'Molecular Formula: {0}'.format(formula)
         print contrib_p
         sys.exit(0)

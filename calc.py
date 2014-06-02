@@ -95,14 +95,15 @@ def cluster(mat, names, tname):
     plt.close()
 
 
-def get_contrib_percentage(atoms, de_face_atoms, di_face_atoms):
+def get_contrib_percentage(atoms, de_face_atoms, di_face_atoms,
+                           atoms_inside, atoms_outside):
     contrib = {}
     contrib_p = {}
 
     for i in range(len(de_face_atoms)):
         # Key in the form "internal -> external" e.g. "F -> H"
-        key = "{0} -> {1}".format(atoms[di_face_atoms[i]],
-                                  atoms[de_face_atoms[i]])
+        key = "{0} -> {1}".format(atoms[atoms_inside[di_face_atoms[i]-1]-1],
+                                  atoms[atoms_outside[de_face_atoms[i]-1]-1])
         if key in contrib:
             contrib[key] += 1
         else:
