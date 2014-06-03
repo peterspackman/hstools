@@ -95,7 +95,7 @@ def cluster(mat, names, tname):
     plt.close()
 
 
-def get_contrib_percentage(internal, external,dp=3):
+def get_contrib_percentage(internal, external, dp=3):
     contrib = {}
     contrib_p = {}
 

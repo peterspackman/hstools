@@ -20,7 +20,7 @@ ticklabelpad = mpl.rcParams['xtick.major.pad']
 def get_vals(lines, t=float):
     """ return a numpy array, interpreting the first word on each line
         as the value to be stored """
-    return  [t(line.strip()[0]) for line in lines]
+    return [t(line.strip()[0]) for line in lines]
 
 
 def readcxsfile(fname):
@@ -54,7 +54,7 @@ def readcxsfile(fname):
             if line.startswith('begin unit_cell'):
                 r = get_count(line)
                 n = n + 1
-                atoms = get_vals(content[n:n+r],t=str)
+                atoms = get_vals(content[n:n+r], t=str)
                 n = n + r
 
             # D_E VALUES
@@ -75,30 +75,29 @@ def readcxsfile(fname):
             if line.startswith('begin d_i_face_atoms'):
                 r = get_count(line)
                 n = n + 1
-                di_face_atoms = np.array(get_vals(content[n:n+r],t=int))
+                di_face_atoms = np.array(get_vals(content[n:n+r], t=int))
                 n = n + r
 
             # D_E FACE ATOMS
             if line.startswith('begin d_e_face_atoms'):
                 r = get_count(line)
                 n = n + 1
-                de_face_atoms = np.array(get_vals(content[n:n+r],t=int))
+                de_face_atoms = np.array(get_vals(content[n:n+r], t=int))
                 n = n + r
 
             # ATOMS OUTSIDE SURFACE
             if line.startswith('begin atoms_outside'):
                 r = get_count(line)
                 n = n + 1
-                atoms_outside = np.array(get_vals(content[n:n+r],t=int))
+                atoms_outside = np.array(get_vals(content[n:n+r], t=int))
                 n = n + r
 
             # ATOMS INSIDE SURFACE
             if line.startswith('begin atoms_inside'):
                 r = get_count(line)
                 n = n + 1
-                atoms_inside = np.array(get_vals(content[n:n+r],t=int))
+                atoms_inside = np.array(get_vals(content[n:n+r], t=int))
                 n = n + r
-
 
     l = de_face_atoms.size  # NUMBER OF POINTS TO DEAL WITH
     external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
