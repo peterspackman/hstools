@@ -17,12 +17,18 @@ import hist
 ticklabelpad = mpl.rcParams['xtick.major.pad']
 
 
+def get_vals(lines, t=float):
+    """ return a numpy array, interpreting the first word on each line
+        as the value to be stored """
+
+    a = [t(line.strip()[0]) for line in lines]
+
+
 def readcxsfile(fname):
     """ Hacky way to find the de_vals and di_vals  in a cxs file
         Ideally I'd write a file parser especially for cxs files
         but this is not yet done
     """
-    i = 0
     devals = []
     divals = []
     atoms = []
@@ -38,19 +44,23 @@ def readcxsfile(fname):
 
         for n in range(len(content)):
             # Basically going through line by line matching
-            # patterns and saving data
+            # patterns and storing data contained within
+            line = content[n]
+
             # FORMULA
-            if content[n].startswith('   formula'):
+            if line.startswith('   formula'):
                 formula = content[n].split('\"')[1]
+
             # LIST OF ATOMS
-            if content[n].startswith('begin unit_cell'):
+            if line.startswith('begin unit_cell'):
                 words = content[n].split()
                 for i in range(int(words[2])):
                     n = n + 1
                     words = content[n].split()
                     atoms.append(words[1])
+
             # D_E VALUES
-            if content[n].startswith('begin d_e '):
+            if line.startswith('begin d_e '):
                 words = content[n].split()
                 r = int(words[2])
                 # Update the line counter
@@ -59,8 +69,9 @@ def readcxsfile(fname):
                     n = n + 1
                     x[i] = float(content[n])
                 devals = x
+
             # D_I VALUES
-            if content[n].startswith('begin d_i '):
+            if line.startswith('begin d_i '):
                 words = content[n].split()
                 r = int(words[2])
                 # Update the line counter
@@ -69,8 +80,9 @@ def readcxsfile(fname):
                     n = n + 1
                     x[i] = float(content[n])
                 divals = x
+
             # D_I FACE ATOMS
-            if content[n].startswith('begin d_i_face_atoms'):
+            if line.startswith('begin d_i_face_atoms'):
                 words = content[n].split()
                 r = int(words[2])
                 x = np.zeros(r, dtype=np.int32)
@@ -79,8 +91,9 @@ def readcxsfile(fname):
                     # NOT SURE HOW THEY'RE INDEXED IN THE FILE
                     x[i] = int(content[n])
                 di_face_atoms = x
+
             # D_E FACE ATOMS
-            if content[n].startswith('begin d_e_face_atoms'):
+            if line.startswith('begin d_e_face_atoms'):
                 words = content[n].split()
                 r = int(words[2])
                 x = np.zeros(r, dtype=np.int32)
@@ -88,7 +101,9 @@ def readcxsfile(fname):
                     n = n + 1
                     x[i] = int(content[n])
                 de_face_atoms = x
-            if content[n].startswith('begin atoms_outside'):
+
+            # ATOMS OUTSIDE SURFACE
+            if line.startswith('begin atoms_outside'):
                 words = content[n].split()
                 r = int(words[2])
                 x = np.zeros(r, dtype=np.int32)
@@ -97,7 +112,9 @@ def readcxsfile(fname):
                     words = content[n].split()
                     x[i] = int(words[0])
                 atoms_outside = x
-            if content[n].startswith('begin atoms_inside'):
+
+            # ATOMS INSIDE SURFACE
+            if line.startswith('begin atoms_inside'):
                 words = content[n].split()
                 r = int(words[2])
                 x = np.zeros(r, dtype=np.int32)
@@ -107,15 +124,18 @@ def readcxsfile(fname):
                     x[i] = int(words[0])
                 atoms_inside = x
 
-    l = de_face_atoms.size
+    l = de_face_atoms.size  # NUMBER OF POINTS TO DEAL WITH
     external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
     internal = np.chararray(l, itemsize=2)
+
+    # Here we resolve the (nested) references to atomic symbols
     for i in range(l):
+        # The indices have to be decremented due to fortran indexing
         external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
         internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
-
+        # There is something awry with the indexing (wrong di/de mapped)
     # We have a problem. i.e. de_vals or di_vals will be empty
-    if not devals.any() or not divals.any():
+    if not (devals.any() and divals.any()):
         print 'FATAL: missing either d_e or d_i values'
         print 'Input file is likely missing necessary data from tonto'
         sys.exit(0)
@@ -169,16 +189,34 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     plt.close()
 
 
-def process_file(fname, resolution=10, write_png=False):
+def process_file(fname, resolution=10, write_png=False, i=None, e=None):
     """ Read a file from fname, generate a histogram and potentially write
-        the png of it to file
+        the png of it to file. i restricts internal atom, e restricts external
     """
-    # note that a is unused currently due to recent change to readcxsfile
     # in essence, the x-axis is di_values (internal) while y is d_e
     x, y, a = readcxsfile(fname)
-    cname = os.path.basename(os.path.splitext(fname)[0])
-    h = hist.bin_data(x, y, resolution)
+    oldx = x.size
+    oldy = y.size
+    formula, internal, external = a
+    if i:
+        for ind in range(x.size):
+            if not (internal[ind] == i):
+                x[ind] = 0.
+                y[ind] = 0.
+    if e:
+        for ind in range(y.size):
+            if not (external[ind] == e):
+                x[ind] = 0.
+                y[ind] = 0.
+    if i or e:
+        x = x[np.nonzero(x)]
+        y = y[np.nonzero(y)]
 
+    cname = os.path.basename(os.path.splitext(fname)[0])
+    if x.size < 1 or y.size < 1:
+        print '{0} has no {1} -> {2} interactions'.format(fname, i, e)
+        return
+    h = hist.bin_data(x, y, resolution)
     if(write_png):
         outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
         plotfile(x, y, fname=outfile, nbins=resolution)
@@ -187,7 +225,7 @@ def process_file(fname, resolution=10, write_png=False):
 
 
 def batch_process(dirname, suffix='.cxs', resolution=10,
-                  write_png=False, threads=4):
+                  write_png=False, threads=4, i=None, e=None):
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names
        Note that the 'threads' here are actually processes"""
@@ -203,12 +241,13 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
     vals = Parallel(n_jobs=threads,
                     verbose=3)(delayed(process_file)(f,
                                                      resolution=resolution,
-                                                     write_png=write_png)
+                                                     write_png=write_png,
+                                                     i=i, e=e)
                                for f in files)
 
     # unzip the output
+    vals = [i for i in vals if i]
     histograms, names = zip(*vals)
-
     output = 'Reading {0} files took {1} seconds using {2} threads.'
     print output.format(len(files), time.time() - start_time, threads)
 
