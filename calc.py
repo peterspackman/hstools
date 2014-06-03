@@ -95,7 +95,7 @@ def cluster(mat, names, tname):
     plt.close()
 
 
-def get_contrib_percentage(internal, external):
+def get_contrib_percentage(internal, external,dp=3):
     contrib = {}
     contrib_p = {}
 
@@ -108,7 +108,7 @@ def get_contrib_percentage(internal, external):
             contrib[key] = 1
 
     for x in contrib:
-        p = np.round(contrib[x] * 100.0 / sum(contrib.values()), decimals=3)
+        p = np.round(contrib[x] * 100.0 / sum(contrib.values()), decimals=dp)
         contrib_p[x] = p
 
     return contrib, contrib_p

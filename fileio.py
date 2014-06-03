@@ -20,8 +20,7 @@ ticklabelpad = mpl.rcParams['xtick.major.pad']
 def get_vals(lines, t=float):
     """ return a numpy array, interpreting the first word on each line
         as the value to be stored """
-
-    a = [t(line.strip()[0]) for line in lines]
+    return  [t(line.strip()[0]) for line in lines]
 
 
 def readcxsfile(fname):
@@ -39,7 +38,7 @@ def readcxsfile(fname):
     formula = ""
 
     with open(fname) as f:
-
+        get_count = lambda x: int(x.split()[2])
         content = f.readlines()
 
         for n in range(len(content)):
@@ -53,76 +52,53 @@ def readcxsfile(fname):
 
             # LIST OF ATOMS
             if line.startswith('begin unit_cell'):
-                words = content[n].split()
-                for i in range(int(words[2])):
-                    n = n + 1
-                    words = content[n].split()
-                    atoms.append(words[1])
+                r = get_count(line)
+                n = n + 1
+                atoms = get_vals(content[n:n+r],t=str)
+                n = n + r
 
             # D_E VALUES
             if line.startswith('begin d_e '):
-                words = content[n].split()
-                r = int(words[2])
-                # Update the line counter
-                x = np.zeros(r)
-                for i in range(r):
-                    n = n + 1
-                    x[i] = float(content[n])
-                devals = x
+                r = get_count(line)
+                n = n + 1
+                devals = np.array(get_vals(content[n:n+r]))
+                n = n + r
 
             # D_I VALUES
             if line.startswith('begin d_i '):
-                words = content[n].split()
-                r = int(words[2])
-                # Update the line counter
-                x = np.zeros(r)
-                for i in range(r):
-                    n = n + 1
-                    x[i] = float(content[n])
-                divals = x
+                r = get_count(line)
+                n = n + 1
+                divals = np.array(get_vals(content[n:n+r]))
+                n = n + r
 
             # D_I FACE ATOMS
             if line.startswith('begin d_i_face_atoms'):
-                words = content[n].split()
-                r = int(words[2])
-                x = np.zeros(r, dtype=np.int32)
-                for i in range(r):
-                    n = n + 1
-                    # NOT SURE HOW THEY'RE INDEXED IN THE FILE
-                    x[i] = int(content[n])
-                di_face_atoms = x
+                r = get_count(line)
+                n = n + 1
+                di_face_atoms = np.array(get_vals(content[n:n+r],t=int))
+                n = n + r
 
             # D_E FACE ATOMS
             if line.startswith('begin d_e_face_atoms'):
-                words = content[n].split()
-                r = int(words[2])
-                x = np.zeros(r, dtype=np.int32)
-                for i in range(r):
-                    n = n + 1
-                    x[i] = int(content[n])
-                de_face_atoms = x
+                r = get_count(line)
+                n = n + 1
+                de_face_atoms = np.array(get_vals(content[n:n+r],t=int))
+                n = n + r
 
             # ATOMS OUTSIDE SURFACE
             if line.startswith('begin atoms_outside'):
-                words = content[n].split()
-                r = int(words[2])
-                x = np.zeros(r, dtype=np.int32)
-                for i in range(r):
-                    n = n + 1
-                    words = content[n].split()
-                    x[i] = int(words[0])
-                atoms_outside = x
+                r = get_count(line)
+                n = n + 1
+                atoms_outside = np.array(get_vals(content[n:n+r],t=int))
+                n = n + r
 
             # ATOMS INSIDE SURFACE
             if line.startswith('begin atoms_inside'):
-                words = content[n].split()
-                r = int(words[2])
-                x = np.zeros(r, dtype=np.int32)
-                for i in range(r):
-                    n = n + 1
-                    words = content[n].split()
-                    x[i] = int(words[0])
-                atoms_inside = x
+                r = get_count(line)
+                n = n + 1
+                atoms_inside = np.array(get_vals(content[n:n+r],t=int))
+                n = n + r
+
 
     l = de_face_atoms.size  # NUMBER OF POINTS TO DEAL WITH
     external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
@@ -133,7 +109,8 @@ def readcxsfile(fname):
         # The indices have to be decremented due to fortran indexing
         external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
         internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
-        # There is something awry with the indexing (wrong di/de mapped)
+        # NOTE something awry with the indexing (wrong di/de mapped)
+
     # We have a problem. i.e. de_vals or di_vals will be empty
     if not (devals.any() and divals.any()):
         print 'FATAL: missing either d_e or d_i values'
