@@ -75,7 +75,7 @@ def main():
     tname = test_names[opts.test]
     i_atom = None
     e_atom = None
-    # END OF ARGUMENT PROCESSING
+    # ########################## END OF ARGUMENT PROCESSING ##################
 
     if opts.dir:
 

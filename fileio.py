@@ -3,7 +3,7 @@ import sys
 import os
 import glob
 import time
-from StringIO import StringIO
+import string
 # Library imports
 from joblib import Parallel, delayed
 import numpy as np
@@ -12,15 +12,15 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import from_levels_and_colors
 # Local imports
 import hist
-
+import visual
 # A temporary variable for the formatting of the histogram plots
 ticklabelpad = mpl.rcParams['xtick.major.pad']
 
 
-def get_vals(lines, t=float):
+def get_vals(lines, t=np.float64):
     """ return a numpy array, interpreting the first word on each line
         as the value to be stored """
-    return [t(line.strip()[0]) for line in lines]
+    return [t(line.split()[0]) for line in lines]
 
 
 def readcxsfile(fname):
@@ -29,12 +29,8 @@ def readcxsfile(fname):
         but this is not yet done
     """
     devals = []
-    divals = []
-    atoms = []
-    de_face_atoms = []
-    di_face_atoms = []
-    atoms_outside = []
-    atoms_inside = []
+    external = []
+    internal = []
     formula = ""
 
     with open(fname) as f:
@@ -50,13 +46,6 @@ def readcxsfile(fname):
             if line.startswith('   formula'):
                 formula = content[n].split('\"')[1]
 
-            # LIST OF ATOMS
-            if line.startswith('begin unit_cell'):
-                r = get_count(line)
-                n = n + 1
-                atoms = get_vals(content[n:n+r], t=str)
-                n = n + r
-
             # D_E VALUES
             if line.startswith('begin d_e '):
                 r = get_count(line)
@@ -71,51 +60,25 @@ def readcxsfile(fname):
                 divals = np.array(get_vals(content[n:n+r]))
                 n = n + r
 
-            # D_I FACE ATOMS
-            if line.startswith('begin d_i_face_atoms'):
+            # D_I ATOM SYMBOLS
+            if line.startswith('begin d_i_chemical'):
                 r = get_count(line)
                 n = n + 1
-                di_face_atoms = np.array(get_vals(content[n:n+r], t=int))
+                internal = np.array(get_vals(content[n:n+r],t=str))
                 n = n + r
 
-            # D_E FACE ATOMS
-            if line.startswith('begin d_e_face_atoms'):
+            # D_E ATOM SYMBOLS
+            if line.startswith('begin d_e_chemical'):
                 r = get_count(line)
                 n = n + 1
-                de_face_atoms = np.array(get_vals(content[n:n+r], t=int))
+                external = np.array(get_vals(content[n:n+r],t=str))
                 n = n + r
-
-            # ATOMS OUTSIDE SURFACE
-            if line.startswith('begin atoms_outside'):
-                r = get_count(line)
-                n = n + 1
-                atoms_outside = np.array(get_vals(content[n:n+r], t=int))
-                n = n + r
-
-            # ATOMS INSIDE SURFACE
-            if line.startswith('begin atoms_inside'):
-                r = get_count(line)
-                n = n + 1
-                atoms_inside = np.array(get_vals(content[n:n+r], t=int))
-                n = n + r
-
-    l = de_face_atoms.size  # NUMBER OF POINTS TO DEAL WITH
-    external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
-    internal = np.chararray(l, itemsize=2)
-
-    # Here we resolve the (nested) references to atomic symbols
-    for i in range(l):
-        # The indices have to be decremented due to fortran indexing
-        external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
-        internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
-        # NOTE something awry with the indexing (wrong di/de mapped)
 
     # We have a problem. i.e. de_vals or di_vals will be empty
     if not (devals.any() and divals.any()):
         print 'FATAL: missing either d_e or d_i values'
         print 'Input file is likely missing necessary data from tonto'
         sys.exit(0)
-
     return divals, devals, (formula, internal, external)
 
 
@@ -222,7 +185,8 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
                                for f in files)
 
     # unzip the output
-    vals = [i for i in vals if i]
+    if (i or e):
+        vals = [(h, n) for h, n in vals if h and n]
     histograms, names = zip(*vals)
     output = 'Reading {0} files took {1} seconds using {2} threads.'
     print output.format(len(files), time.time() - start_time, threads)
