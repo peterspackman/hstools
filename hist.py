@@ -20,8 +20,8 @@ def bin_data(x, y, bins=10, bounds=False):
         xmin, xmax = min(x), max(x)
         ymin, ymax = min(y), max(y)
     else:
-        xmin, ymin = 0, 0
-        xmax, ymax = 3., 3.
+        xmin, ymin = 0.5, 0.5
+        xmax, ymax = 2.5, 2.5
 
     dx = (xmax - xmin) / (nx - 1.0)
     dy = (ymax - ymin) / (ny - 1.0)

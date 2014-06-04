@@ -3,12 +3,14 @@
 import re
 import sys
 import time
+import json
 # Library imports
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import scipy.spatial.distance
 import fastcluster as fc
 import numpy as np
+import scipy.cluster.hierarchy
 from scipy.cluster.hierarchy import dendrogram
 import scipy.stats as stats
 # Local imports
@@ -37,6 +39,16 @@ def kendall_tau(H1, H2):
     y = hist2.flatten()
     r, p = stats.kendalltau(x, y)
     return r
+
+
+def hdistance(H1, H2):
+    hist1, _, _ = H1
+    hist2, _, _ = H2
+    x = hist1
+    y = hist2
+    dmat = x - y
+    d = np.sum(dmat)
+    return abs(d)
 
 
 def get_correl_mat(histograms, test=spearman_roc):
@@ -85,14 +97,50 @@ def cluster(mat, names, tname):
     print 'took {0} seconds'.format(time.time() - start_time)
     # Create a dendrogram
     R = dendrogram(Z, labels=names)
-
     # Plot stuff
     plt.xlabel('Compound Name')
     plt.ylabel('Dissimilarity')
     plt.suptitle("""Clustering dendrogram of {0}
                  compounds using {1}""".format(len(names), tname))
-    plt.savefig('dendrogram.png')
+    plt.savefig('dendrogram.png',dpi=800)
     plt.close()
+
+    T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
+    d = dict(children=[], name="Root1")
+    add_node(T, d)
+
+    label_tree(d["children"][0], names)
+    json.dump(d, open("d3-dendrogram.json", 'w'), sort_keys=True, indent=4)
+
+
+def add_node(node, parent):
+    """ A Helper method for outputting the dendrogram
+    linkage for visualisation in d3.js"""
+    newNode = dict(node_id=node.id, children=[])
+    parent["children"].append(newNode)
+    # Recursively add the current node's children
+    if node.left: add_node(node.left, newNode)
+    if node.right: add_node(node.right, newNode)
+
+
+def label_tree(n, names):
+    id2name = dict(zip(range(len(names)), names))
+    # If it's a leaf node we have the name
+    if len(n["children"]) == 0:
+        leafNames = [id2name[n["node_id"]]]
+    # Otherwise flatten all the leaves in the subtree
+    else:
+        leafNames = reduce(lambda ls, c: ls + label_tree(c, names),
+                           n["children"], [])
+    # Delete the node id as it is no longer needed
+    del n["node_id"]
+
+    n["name"] = name = "-".join(sorted(map(str, leafNames)))
+    if len(n["name"]) > 16:
+        n["name"] = n["name"][:16] + '...'
+    # Labeling convention: "-" separates leaf names
+
+    return leafNames
 
 
 def get_contrib_percentage(internal, external, dp=3):

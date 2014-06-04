@@ -12,10 +12,12 @@ import visual
 
 version = "0.15"
 progname = "shlk"
-test_f = {'sp': calc.spearman_roc, 'kt': calc.kendall_tau}
+test_f = {'sp': calc.spearman_roc,
+          'kt': calc.kendall_tau,
+          'hd': calc.hdistance}
 test_names = {'sp': 'Spearman rank order coefficient',
               'kt': 'Kendall Tau',
-              'hd': 'Hausdorff distance'}
+              'hd': 'Custom histogram distance'}
 
 
 # *******        MAIN PROGRAM           ****** #
@@ -50,7 +52,8 @@ def main():
                         help='Process all cxs files in DIRNAME.')
     parser.add_argument('-t', '--test', default='sp',
                         help='Select which test to use for batch processing. \
-                        Valid options are: sp, kt, hd')
+                        Valid options are: sp, kt, hd. Currently, sp is far \
+                        and away the best choice for clustering.')
     parser.add_argument('-p', '--png', action='store_true',
                         help='Plot histograms calculated and save them  \
                               to file while processing')
@@ -62,12 +65,12 @@ def main():
                         help="""Restrict the histogram generated to
                         only parts of the surface where the closest
                         internal atom is the one given. May be used
-                        in conjunction with -e. NOT WORKING""")
+                        in conjunction with -e.""")
     parser.add_argument('-e', '--external', metavar='ATOMIC SYMBOL',
                         help="""Restrict the histogram generated to
                         only parts of the surface where the closest
                         external atom is the one given. May be used
-                        in conjunction with -i NOT WORKING""")
+                        in conjunction with -i""")
 
     opts = parser.parse_args()
     # Variables for which test we are doing (and its string name)
@@ -81,6 +84,7 @@ def main():
 
         # Program is being run to batch process a directory of cxs files
         start_time = time.time()
+        restrict_str = '{0} -> {1}'
         if opts.internal:
             i_atom = opts.internal
         if opts.external:
@@ -92,6 +96,7 @@ def main():
 
         print 'Generating matrix using {0}'.format(tname)
         mat = calc.get_correl_mat(histograms, test=mtest)
+        print mat
         calc.cluster(mat, names, tname)
         print 'Process complete: {0} s'.format(time.time() - start_time)
         sys.exit(0)

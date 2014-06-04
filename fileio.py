@@ -64,19 +64,20 @@ def readcxsfile(fname):
             if line.startswith('begin d_i_chemical'):
                 r = get_count(line)
                 n = n + 1
-                internal = np.array(get_vals(content[n:n+r],t=str))
+                internal = np.array(get_vals(content[n:n+r], t=str))
                 n = n + r
 
             # D_E ATOM SYMBOLS
             if line.startswith('begin d_e_chemical'):
                 r = get_count(line)
                 n = n + 1
-                external = np.array(get_vals(content[n:n+r],t=str))
+                external = np.array(get_vals(content[n:n+r], t=str))
                 n = n + r
-
-    # We have a problem. i.e. de_vals or di_vals will be empty
-    if not (devals.any() and divals.any()):
-        print 'FATAL: missing either d_e or d_i values'
+    fail1 = type(devals) is list or type(divals) is list
+    fail2 = type(internal) is list or type(external) is list
+    # If we have a problem. i.e. de_vals or di_vals will be empty
+    if fail1 or fail2:
+        print 'FATAL: missing values'
         print 'Input file is likely missing necessary data from tonto'
         sys.exit(0)
     return divals, devals, (formula, internal, external)
@@ -134,16 +135,14 @@ def process_file(fname, resolution=10, write_png=False, i=None, e=None):
     """
     # in essence, the x-axis is di_values (internal) while y is d_e
     x, y, a = readcxsfile(fname)
-    oldx = x.size
-    oldy = y.size
     formula, internal, external = a
     if i:
-        for ind in range(x.size):
+        for ind in range(internal.size):
             if not (internal[ind] == i):
                 x[ind] = 0.
                 y[ind] = 0.
     if e:
-        for ind in range(y.size):
+        for ind in range(external.size):
             if not (external[ind] == e):
                 x[ind] = 0.
                 y[ind] = 0.
