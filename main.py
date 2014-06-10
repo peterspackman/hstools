@@ -71,6 +71,9 @@ def main():
                         only parts of the surface where the closest
                         external atom is the one given. May be used
                         in conjunction with -i""")
+    parser.add_argument('-j', '--json', default=False,
+                        help=""" Dump the contents of the dendrogram
+                        tree to JSON for visualisation using d3.js""")
 
     opts = parser.parse_args()
     # Variables for which test we are doing (and its string name)
@@ -97,7 +100,7 @@ def main():
         print 'Generating matrix using {0}'.format(tname)
         mat = calc.get_correl_mat(histograms, test=mtest)
         print mat
-        calc.cluster(mat, names, tname)
+        calc.cluster(mat, names, tname, dump=opts.json)
         print 'Process complete: {0} s'.format(time.time() - start_time)
         sys.exit(0)
 
@@ -111,8 +114,10 @@ def main():
         start_time = time.time()
         x, y, a = fio.readcxsfile(opts.file)
         print 'Took {0}s'.format(time.time() - start_time)
-        formula, internal, external = a
-        contrib, contrib_p = calc.get_contrib_percentage(internal,
+        formula, vertices, indices, internal, external = a
+        contrib, contrib_p = calc.get_contrib_percentage(vertices,
+                                                         indices,
+                                                         internal,
                                                          external,
                                                          dp=1)
         print 'Molecular Formula: {0}'.format(formula)

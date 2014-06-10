@@ -83,7 +83,7 @@ def get_correl_mat(histograms, test=spearman_roc):
     return mat
 
 
-def cluster(mat, names, tname):
+def cluster(mat, names, tname, dump=False):
     """ Takes an NxN array of distances and an array of names with
       the same indices, performs cluster analysis and shows a dendrogram
     """
@@ -102,15 +102,16 @@ def cluster(mat, names, tname):
     plt.ylabel('Dissimilarity')
     plt.suptitle("""Clustering dendrogram of {0}
                  compounds using {1}""".format(len(names), tname))
-    plt.savefig('dendrogram.png',dpi=800)
+    plt.savefig('dendrogram.png', dpi=800)
     plt.close()
-
-    T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
-    d = dict(children=[], name="Root1")
-    add_node(T, d)
-
-    label_tree(d["children"][0], names)
-    json.dump(d, open("d3-dendrogram.json", 'w'), sort_keys=True, indent=4)
+    if dump:
+        d3 = "d3-dendrogram.json"
+        print 'Dumping tree structure in {0}'.format(d3)
+        T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
+        d = dict(children=[], name="Root1")
+        add_node(T, d)
+        label_tree(d["children"][0], names)
+        json.dump(d, open(d3, 'w'), sort_keys=True, indent=4)
 
 
 def add_node(node, parent):
@@ -119,8 +120,10 @@ def add_node(node, parent):
     newNode = dict(node_id=node.id, children=[])
     parent["children"].append(newNode)
     # Recursively add the current node's children
-    if node.left: add_node(node.left, newNode)
-    if node.right: add_node(node.right, newNode)
+    if node.left:
+        add_node(node.left, newNode)
+    if node.right:
+        add_node(node.right, newNode)
 
 
 def label_tree(n, names):
@@ -143,17 +146,24 @@ def label_tree(n, names):
     return leafNames
 
 
-def get_contrib_percentage(internal, external, dp=3):
+# Calculate the area of a triangle with given by points a,b,c
+def area_tri(a, b, c):
+    return np.linalg.norm(np.cross(a - b, c - b)) / 2
+
+
+def get_contrib_percentage(vertices, indices, internal, external, dp=3):
     contrib = {}
     contrib_p = {}
 
     for i in range(internal.size):
         # Key in the form "internal -> external" e.g. "F -> H"
         key = "{0} -> {1}".format(internal[i], external[i])
+        tri = [vertices[n] for n in indices[i]]
+        area = area_tri(tri[0], tri[1], tri[2])
         if key in contrib:
-            contrib[key] += 1
+            contrib[key] += area
         else:
-            contrib[key] = 1
+            contrib[key] = area
 
     for x in contrib:
         p = np.round(contrib[x] * 100.0 / sum(contrib.values()), decimals=dp)
