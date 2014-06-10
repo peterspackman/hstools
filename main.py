@@ -112,7 +112,7 @@ def main():
 
         print 'Processing input from {0}'.format(opts.file)
         start_time = time.time()
-        x, y, a = fio.readcxsfile(opts.file)
+        x, y, a = fio.readcxsfile(opts.file, sa=True)
         print 'Took {0}s'.format(time.time() - start_time)
         formula, vertices, indices, internal, external = a
         contrib, contrib_p = calc.get_contrib_percentage(vertices,

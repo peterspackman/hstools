@@ -16,13 +16,13 @@ import visual
 ticklabelpad = mpl.rcParams['xtick.major.pad']
 
 
-def get_vals(lines, t=np.float64):
+def get_vals(lines, t=np.float64, index=0):
     """ return a numpy array, interpreting the first word on each line
         as the value to be stored """
-    return [t(line.split()[0]) for line in lines]
+    return [t(line.split()[index]) for line in lines]
 
 
-def readcxsfile(fname):
+def readcxsfile(fname, sa=False):
     """ Hacky way to find the de_vals and di_vals  in a cxs file
         Ideally I'd write a file parser especially for cxs files
         but this is not yet done
@@ -33,6 +33,12 @@ def readcxsfile(fname):
     external = []
     internal = []
     formula = ""
+    # Temp for testing
+    atoms = []
+    de_face_atoms = []
+    di_face_atoms = []
+    atoms_outside = []
+    atoms_inside = []
 
     with open(fname) as f:
         get_count = lambda x: int(x.split()[2])
@@ -44,26 +50,57 @@ def readcxsfile(fname):
             # Basically going through line by line matching
             # patterns and storing data contained within
             line = content[n]
-
-            # FORMULA
-            if line.startswith('   formula'):
-                formula = content[n].split('\"')[1]
-
-            # VERTICES
-            if line.startswith('begin vertices'):
-                r = get_count(line)
-                vertices = np.zeros((r, 3))
-                for i in range(r):
+            if sa:
+                # FORMULA
+                if line.startswith('   formula'):
+                    formula = content[n].split('\"')[1]
+                # LIST OF ATOMS
+                if content[n].startswith('begin unit_cell'):
+                    r = get_count(line)
                     n = n + 1
-                    vertices[i] = get_vertices(content[n])
-
-            # INDICES
-            if line.startswith('begin indices'):
-                r = get_count(line)
-                indices = np.zeros((r, 3), dtype=np.int32)
-                for i in range(r):
+                    atoms = get_vals(content[n:n+r], t=str, index=1)
+                # D_I FACE ATOMS
+                if line.startswith('begin d_i_face_atoms'):
+                    r = get_count(line)
                     n = n + 1
-                    indices[i] = get_indices(content[n])
+                    di_face_atoms = np.array(get_vals(content[n:n+r], t=int))
+                    n = n + r
+
+                # D_E FACE ATOMS
+                if line.startswith('begin d_e_face_atoms'):
+                    r = get_count(line)
+                    n = n + 1
+                    de_face_atoms = np.array(get_vals(content[n:n+r], t=int))
+                    n = n + r
+
+                # ATOMS OUTSIDE SURFACE
+                if line.startswith('begin atoms_outside'):
+                    r = get_count(line)
+                    n = n + 1
+                    atoms_outside = np.array(get_vals(content[n:n+r], t=int))
+                    n = n + r
+
+                # ATOMS INSIDE SURFACE
+                if line.startswith('begin atoms_inside'):
+                    r = get_count(line)
+                    n = n + 1
+                    atoms_inside = np.array(get_vals(content[n:n+r], t=int))
+                    n = n + r
+                # VERTICES
+                if line.startswith('begin vertices'):
+                    r = get_count(line)
+                    vertices = np.zeros((r, 3))
+                    for i in range(r):
+                        n = n + 1
+                        vertices[i] = get_vertices(content[n])
+
+                # INDICES
+                if line.startswith('begin indices'):
+                    r = get_count(line)
+                    indices = np.zeros((r, 3), dtype=np.int32)
+                    for i in range(r):
+                        n = n + 1
+                        indices[i] = get_indices(content[n])
 
             # D_E VALUES
             if line.startswith('begin d_e '):
@@ -78,7 +115,7 @@ def readcxsfile(fname):
                 n = n + 1
                 divals = np.array(get_vals(content[n:n+r]))
                 n = n + r
-
+            """
             # D_I FACE ATOM SYMBOLS
             if line.startswith('begin d_i_face_chemical'):
                 r = get_count(line)
@@ -92,11 +129,17 @@ def readcxsfile(fname):
                 n = n + 1
                 external = np.array(get_vals(content[n:n+r], t=str))
                 n = n + r
-
+            """
+        # If we have a problem. i.e. de_vals or di_vals will be empty
+    l = de_face_atoms.size
+    external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
+    internal = np.chararray(l, itemsize=2)
+    for i in range(l):
+        external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
+        internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
     fail1 = type(devals) is list or type(divals) is list
     fail2 = type(internal) is list or type(external) is list
     fail3 = type(vertices) is list or type(indices) is list
-    # If we have a problem. i.e. de_vals or di_vals will be empty
     if fail1 or fail2 or fail3:
         print 'FATAL: missing values'
         print 'Input file is likely missing necessary data from tonto'
