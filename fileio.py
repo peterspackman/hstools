@@ -131,16 +131,15 @@ def readcxsfile(fname, sa=False):
                 n = n + r
             """
         # If we have a problem. i.e. de_vals or di_vals will be empty
-    l = de_face_atoms.size
-    external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
-    internal = np.chararray(l, itemsize=2)
-    for i in range(l):
-        external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
-        internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
+    if sa:
+        l = de_face_atoms.size
+        external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
+        internal = np.chararray(l, itemsize=2)
+        for i in range(l):
+            external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
+            internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
     fail1 = type(devals) is list or type(divals) is list
-    fail2 = type(internal) is list or type(external) is list
-    fail3 = type(vertices) is list or type(indices) is list
-    if fail1 or fail2 or fail3:
+    if fail1:
         print 'FATAL: missing values'
         print 'Input file is likely missing necessary data from tonto'
         sys.exit(0)
