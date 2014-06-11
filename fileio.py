@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 # Local imports
 import hist
 import visual
+import pack.cio as cio
 # A temporary variable for the formatting of the histogram plots
 ticklabelpad = mpl.rcParams['xtick.major.pad']
 
@@ -21,6 +22,11 @@ def get_vals(lines, t=np.float64, index=0):
         as the value to be stored """
     return [t(line.split()[index]) for line in lines]
 
+def readcxsfile_c(fname):
+    di, de, p = cio.readcxsfile(fname)
+    formula, vertices, indices, internal, external = p
+    formula = formula.split('\"')[1]
+    return di, de, (formula, vertices, indices, internal, external)
 
 def readcxsfile(fname, sa=False):
     """ Hacky way to find the de_vals and di_vals  in a cxs file
@@ -196,8 +202,12 @@ def process_file(fname, resolution=10, write_png=False, i=None, e=None):
     """ Read a file from fname, generate a histogram and potentially write
         the png of it to file. i restricts internal atom, e restricts external
     """
+    USE_C_IO = True
+    if USE_C_IO:
+        x, y, a = readcxsfile_c(fname)
+    else:
+        x, y, a = readcxsfile(fname)
     # in essence, the x-axis is di_values (internal) while y is d_e
-    x, y, a = readcxsfile(fname)
     formula, _, _, internal, external = a
     if i:
         for ind in range(internal.size):

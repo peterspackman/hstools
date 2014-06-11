@@ -19,7 +19,7 @@ test_names = {'sp': 'Spearman rank order coefficient',
               'kt': 'Kendall Tau',
               'hd': 'Custom histogram distance'}
 
-
+USE_C_FILE_IO = True
 # *******        MAIN PROGRAM           ****** #
 
 
@@ -112,7 +112,12 @@ def main():
 
         print 'Processing input from {0}'.format(opts.file)
         start_time = time.time()
-        x, y, a = fio.readcxsfile(opts.file, sa=True)
+        if USE_C_FILE_IO:
+            print 'Using C file io to read file'
+            x, y, a = fio.readcxsfile_c(opts.file)
+        else:
+            print 'Using python file io to read file'
+            x, y, a = fio.readcxsfile(opts.file, sa=True)
         print 'Took {0}s'.format(time.time() - start_time)
         formula, vertices, indices, internal, external = a
         contrib, contrib_p = calc.get_contrib_percentage(vertices,
@@ -121,8 +126,10 @@ def main():
                                                          external,
                                                          dp=1)
         print 'Molecular Formula: {0}'.format(formula)
+
         for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
             print '{0} contribution: {1} %'.format(key, contrib_p[key])
+        print 'Process complete in {0}s'.format(time.time() -start_time)
         sys.exit(0)
 
     # If we got here, the program wasn't called correctly
