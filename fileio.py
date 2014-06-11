@@ -22,11 +22,13 @@ def get_vals(lines, t=np.float64, index=0):
         as the value to be stored """
     return [t(line.split()[index]) for line in lines]
 
+
 def readcxsfile_c(fname):
     di, de, p = cio.readcxsfile(fname)
     formula, vertices, indices, internal, external = p
     formula = formula.split('\"')[1]
     return di, de, (formula, vertices, indices, internal, external)
+
 
 def readcxsfile(fname, sa=False):
     """ Hacky way to find the de_vals and di_vals  in a cxs file

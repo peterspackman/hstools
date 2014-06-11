@@ -129,7 +129,7 @@ def main():
 
         for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
             print '{0} contribution: {1} %'.format(key, contrib_p[key])
-        print 'Process complete in {0}s'.format(time.time() -start_time)
+        print 'Process complete in {0}s'.format(time.time() - start_time)
         sys.exit(0)
 
     # If we got here, the program wasn't called correctly

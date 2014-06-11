@@ -15,6 +15,7 @@ from scipy.cluster.hierarchy import dendrogram
 import scipy.stats as stats
 # Local imports
 import hist as h
+import pack.cio as cio
 
 
 def spearman_roc(H1, H2):
@@ -148,7 +149,12 @@ def label_tree(n, names):
 
 # Calculate the area of a triangle with given by points a,b,c
 def area_tri(a, b, c):
-    return np.linalg.norm(np.cross(a - b, c - b)) / 2
+    v1 = a - b
+    v2 = c - b
+    # Because these funcitons expect 6 doubles or 3 doubles as arguments
+    # we have to unpack the values!
+    x, y, z = cio.cross3D(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
+    return cio.normal3D(x, y, z) / 2
 
 
 def get_contrib_percentage(vertices, indices, internal, external, dp=3):

@@ -1,16 +1,25 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include "readcxsfile.h"
+#include "cross.h"
 static char module_docstring[] =
   "This module provides an interface for reading the data values from a .cxs file";
 static char readcxsfile_docstring[] =
   "read data values from a given .cxs file";
+static char cross3D_docstring[] =
+  "compute the cross product of 2 3D vectors";
+static char normal3D_docstring[] =
+  "compute the normal of a 3D vector";
 
 
 static PyObject * cio_readcxsfile(PyObject *self, PyObject * args);
+static PyObject * cio_cross3D(PyObject * self, PyObject * args);
+static PyObject * cio_normal3D(PyObject * sefl, PyObject * args);
 
 static PyMethodDef module_methods[] = {
   {"readcxsfile", cio_readcxsfile, METH_VARARGS, readcxsfile_docstring},
+  {"cross3D", cio_cross3D, METH_VARARGS, cross3D_docstring},
+  {"normal3D", cio_normal3D, METH_VARARGS, normal3D_docstring},
   {NULL, NULL, 0, NULL}
 };
 
@@ -59,3 +68,27 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args) {
   PyObject * ret = Py_BuildValue("OOO", divals, devals, x);
   return ret;
 }
+
+static PyObject * cio_cross3D(PyObject * self, PyObject * args) {
+  double v1[3];
+  double v2[3];
+  double r[3];
+
+  if(! PyArg_ParseTuple(args, "dddddd", &v1[0], &v1[1], &v1[2], &v2[0], &v2[1], &v2[2])) return NULL;
+
+  cross3D(v1,v2,r);
+
+  PyObject * ret = Py_BuildValue("ddd", r[0], r[1], r[2]);
+  return ret;
+}
+
+static PyObject * cio_normal3D(PyObject * self, PyObject * args) {
+  double v[3];
+
+  if(!PyArg_ParseTuple(args, "ddd", &v[0],&v[1],&v[2])) return NULL;
+  double r = normal3D(v);
+
+  PyObject * ret = Py_BuildValue("d", r);
+  return ret;
+}
+
