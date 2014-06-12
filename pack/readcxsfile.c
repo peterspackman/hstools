@@ -2,7 +2,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
-#include "readcxsfile.h"
+#include "cio.h"
 #define VERTICES 0
 #define FACE 1
 #define ATOMS 2

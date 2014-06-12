@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <math.h>
+#include "cio.h"
 
 // COMPUTE CROSS PRODUCT IN C, no error checking
 
