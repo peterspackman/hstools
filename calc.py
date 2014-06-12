@@ -160,6 +160,7 @@ def area_tri(a, b, c):
 def get_contrib_percentage(vertices, indices, internal, external, dp=3):
     contrib = {}
     contrib_p = {}
+    RESTRICT_DISTANCE = False
 
     for i in range(internal.size):
         # Key in the form "internal -> external" e.g. "F -> H"

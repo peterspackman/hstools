@@ -53,15 +53,21 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args) {
   npy_intp stride[1] = {2*sizeof(char)};
   PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
   desc->elsize = 2;
+  const int FLAGS = NPY_CARRAY | NPY_OWNDATA;
   //Construct our numpy arrays
   PyObject * divals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->divals);
   PyObject * devals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->devals);
   PyObject * vertices = PyArray_SimpleNewFromData(2, vdims, NPY_FLOAT, cxs->vertices);
   PyObject * indices = PyArray_SimpleNewFromData(2, idims, NPY_INT, cxs->indices);
   PyObject * internal = PyArray_NewFromDescr(&PyArray_Type, desc,
-                        1, exdims, stride, cxs->internal,NPY_C_CONTIGUOUS, NULL);
+                        1, exdims, stride, cxs->internal, FLAGS, NULL);
   PyObject * external = PyArray_NewFromDescr(&PyArray_Type, desc,
-                        1, exdims, stride, cxs->external,NPY_C_CONTIGUOUS, NULL);
+                        1, exdims, stride, cxs->external, FLAGS, NULL);
+  //UPDATE THE FLAGS ON SIMPLE ARRAYS
+  PyArray_UpdateFlags((PyArrayObject * ) vertices, FLAGS);
+  PyArray_UpdateFlags((PyArrayObject * ) indices, FLAGS);
+  PyArray_UpdateFlags((PyArrayObject * ) divals, FLAGS);
+  PyArray_UpdateFlags((PyArrayObject * ) devals, FLAGS);
 
   free(cxs);
   PyObject * x = Py_BuildValue("OOOOO",formula, vertices, indices, internal, external);

@@ -180,6 +180,7 @@ CXS_DATA * readcxsfile(char * fname) {
     printf("nfaces or nvertices == 0");
     return NULL;
   }
+  fclose(inputFile);
   //NOW THAT WE HAVE DATA IN ARRAYS, MANIPULATE AND RETURN;
   for(int i = 0; i < nfaces; i++) {
     memcpy(&external[2*i],&atoms[(atoms_outside[de_face_atoms[i] - 1] -1) * 2 ],2*sizeof(char));
