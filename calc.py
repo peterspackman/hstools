@@ -16,7 +16,7 @@ import scipy.stats as stats
 # Local imports
 import hist as h
 import pack.cio as cio
-
+from data import vdw_radii
 
 def spearman_roc(H1, H2):
     """ Calculate the Spearman rank-order correlation coefficient from
@@ -84,7 +84,7 @@ def get_correl_mat(histograms, test=spearman_roc):
     return mat
 
 
-def cluster(mat, names, tname, dump=False):
+def cluster(mat, names, tname, dump=None):
     """ Takes an NxN array of distances and an array of names with
       the same indices, performs cluster analysis and shows a dendrogram
     """
@@ -106,13 +106,12 @@ def cluster(mat, names, tname, dump=False):
     plt.savefig('dendrogram.png', dpi=800)
     plt.close()
     if dump:
-        d3 = "d3-dendrogram.json"
-        print 'Dumping tree structure in {0}'.format(d3)
+        print 'Dumping tree structure in {0}'.format(dump)
         T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
         d = dict(children=[], name="Root1")
         add_node(T, d)
         label_tree(d["children"][0], names)
-        json.dump(d, open(d3, 'w'), sort_keys=True, indent=4)
+        json.dump(d, open(dump, 'w'), sort_keys=True, indent=4)
 
 
 def add_node(node, parent):

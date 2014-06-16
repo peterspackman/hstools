@@ -204,6 +204,11 @@ def process_file(fname, resolution=10, write_png=False, i=None, e=None):
     """ Read a file from fname, generate a histogram and potentially write
         the png of it to file. i restricts internal atom, e restricts external
     """
+    if not os.path.isfile(fname):
+        err = 'Could not open {0} for reading, check to see if file exists'
+        print err.format(fname)
+        sys.exit(1)
+
     USE_C_IO = True
     if USE_C_IO:
         x, y, a = readcxsfile_c(fname)
@@ -242,7 +247,10 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names
        Note that the 'threads' here are actually processes"""
-
+    if not os.path.isdir(dirname):
+        err = '{0} does not appear to be a directory'
+        print err.format(dirname)
+        sys.exit(1)
     files = glob.glob(os.path.join(dirname, '*'+suffix))
 
     histograms = []
