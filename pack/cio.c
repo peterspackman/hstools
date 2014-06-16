@@ -1,7 +1,6 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
-#include "readcxsfile.h"
-#include "cross.h"
+#include "cio.h"
 static char module_docstring[] =
   "This module provides an interface for reading the data values from a .cxs file";
 static char readcxsfile_docstring[] =
@@ -44,6 +43,7 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args) {
   //UNPACK THE VALUES FROM CXS_DATA
   int nfaces = cxs->nfaces;
   int nvertices = cxs->nvertices;
+  //this is ugly but string manipulation in python is MUCH easier
   PyObject * formula =  PyString_FromString(cxs->formula);
   //dimensions etc
   npy_intp didims[1] = {nvertices};
@@ -51,6 +51,7 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args) {
   npy_intp idims[2] = {nfaces, 3};
   npy_intp exdims[1] = {nfaces};
   npy_intp stride[1] = {2*sizeof(char)};
+  //Only way to create an array of c strings with length 2 like we have
   PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
   desc->elsize = 2;
   const int FLAGS = NPY_CARRAY | NPY_OWNDATA;
