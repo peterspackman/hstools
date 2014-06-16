@@ -26,132 +26,9 @@ def get_vals(lines, t=np.float64, index=0):
 def readcxsfile_c(fname):
     di, de, p = cio.readcxsfile(fname)
     formula, vertices, indices, internal, external = p
+    # Strip the unnecessary quotes and spaces from the line
     formula = formula.split('\"')[1]
     return di, de, (formula, vertices, indices, internal, external)
-
-
-def readcxsfile(fname, sa=False):
-    """ Hacky way to find the de_vals and di_vals  in a cxs file
-        Ideally I'd write a file parser especially for cxs files
-        but this is not yet done
-    """
-    devals = []
-    vertices = []
-    indices = []
-    external = []
-    internal = []
-    formula = ""
-    # Temp for testing
-    atoms = []
-    de_face_atoms = []
-    di_face_atoms = []
-    atoms_outside = []
-    atoms_inside = []
-
-    with open(fname) as f:
-        get_count = lambda x: int(x.split()[2])
-        get_vertices = lambda x: [float(y) for y in x.split()]
-        get_indices = lambda x: [int(y) for y in x.split()]
-        content = f.readlines()
-
-        for n in range(len(content)):
-            # Basically going through line by line matching
-            # patterns and storing data contained within
-            line = content[n]
-            if sa:
-                # FORMULA
-                if line.startswith('   formula'):
-                    formula = content[n].split('\"')[1]
-                # LIST OF ATOMS
-                if content[n].startswith('begin unit_cell'):
-                    r = get_count(line)
-                    n = n + 1
-                    atoms = get_vals(content[n:n+r], t=str, index=1)
-                # D_I FACE ATOMS
-                if line.startswith('begin d_i_face_atoms'):
-                    r = get_count(line)
-                    n = n + 1
-                    di_face_atoms = np.array(get_vals(content[n:n+r], t=int))
-                    n = n + r
-
-                # D_E FACE ATOMS
-                if line.startswith('begin d_e_face_atoms'):
-                    r = get_count(line)
-                    n = n + 1
-                    de_face_atoms = np.array(get_vals(content[n:n+r], t=int))
-                    n = n + r
-
-                # ATOMS OUTSIDE SURFACE
-                if line.startswith('begin atoms_outside'):
-                    r = get_count(line)
-                    n = n + 1
-                    atoms_outside = np.array(get_vals(content[n:n+r], t=int))
-                    n = n + r
-
-                # ATOMS INSIDE SURFACE
-                if line.startswith('begin atoms_inside'):
-                    r = get_count(line)
-                    n = n + 1
-                    atoms_inside = np.array(get_vals(content[n:n+r], t=int))
-                    n = n + r
-                # VERTICES
-                if line.startswith('begin vertices'):
-                    r = get_count(line)
-                    vertices = np.zeros((r, 3))
-                    for i in range(r):
-                        n = n + 1
-                        vertices[i] = get_vertices(content[n])
-
-                # INDICES
-                if line.startswith('begin indices'):
-                    r = get_count(line)
-                    indices = np.zeros((r, 3), dtype=np.int32)
-                    for i in range(r):
-                        n = n + 1
-                        indices[i] = get_indices(content[n])
-
-            # D_E VALUES
-            if line.startswith('begin d_e '):
-                r = get_count(line)
-                n = n + 1
-                devals = np.array(get_vals(content[n:n+r]))
-                n = n + r
-
-            # D_I VALUES
-            if line.startswith('begin d_i '):
-                r = get_count(line)
-                n = n + 1
-                divals = np.array(get_vals(content[n:n+r]))
-                n = n + r
-            """
-            # D_I FACE ATOM SYMBOLS
-            if line.startswith('begin d_i_face_chemical'):
-                r = get_count(line)
-                n = n + 1
-                internal = np.array(get_vals(content[n:n+r], t=str))
-                n = n + r
-
-            # D_E ATOM SYMBOLS
-            if line.startswith('begin d_e_face_chemical'):
-                r = get_count(line)
-                n = n + 1
-                external = np.array(get_vals(content[n:n+r], t=str))
-                n = n + r
-            """
-        # If we have a problem. i.e. de_vals or di_vals will be empty
-    if sa:
-        l = de_face_atoms.size
-        external = np.chararray(l, itemsize=2)  # Array of element names (2chars)
-        internal = np.chararray(l, itemsize=2)
-        for i in range(l):
-            external[i] = atoms[atoms_outside[de_face_atoms[i] - 1] - 1]
-            internal[i] = atoms[atoms_inside[di_face_atoms[i] - 1] - 1]
-    fail1 = type(devals) is list or type(divals) is list
-    if fail1:
-        print 'FATAL: missing values'
-        print 'Input file is likely missing necessary data from tonto'
-        sys.exit(0)
-    return divals, devals, (formula, vertices, indices, internal, external)
 
 
 def plotfile(x, y, fname='out.png', type='linear', nbins=10):
@@ -209,31 +86,9 @@ def process_file(fname, resolution=10, write_png=False, i=None, e=None):
         print err.format(fname)
         sys.exit(1)
 
-    USE_C_IO = True
-    if USE_C_IO:
-        x, y, a = readcxsfile_c(fname)
-    else:
-        x, y, a = readcxsfile(fname)
-    # in essence, the x-axis is di_values (internal) while y is d_e
-    formula, _, _, internal, external = a
-    if i:
-        for ind in range(internal.size):
-            if not (internal[ind] == i):
-                x[ind] = 0.
-                y[ind] = 0.
-    if e:
-        for ind in range(external.size):
-            if not (external[ind] == e):
-                x[ind] = 0.
-                y[ind] = 0.
-    if i or e:
-        x = x[np.nonzero(x)]
-        y = y[np.nonzero(y)]
+    x, y, a = readcxsfile_c(fname)
 
     cname = os.path.basename(os.path.splitext(fname)[0])
-    if x.size < 1 or y.size < 1:
-        print '{0} has no {1} -> {2} interactions'.format(fname, i, e)
-        return
     h = hist.bin_data(x, y, resolution)
     if(write_png):
         outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
@@ -270,7 +125,7 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
     if (i or e):
         vals = [(h, n) for h, n in vals if h and n]
     histograms, names = zip(*vals)
-    output = 'Reading {0} files took {1} seconds using {2} threads.'
-    print output.format(len(files), time.time() - start_time, threads)
+    output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
+    print output.format(len(files),time.time() - start_time, threads)
 
     return (histograms, names)

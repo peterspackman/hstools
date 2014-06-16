@@ -18,6 +18,7 @@ import hist as h
 import pack.cio as cio
 from data import vdw_radii
 
+
 def spearman_roc(H1, H2):
     """ Calculate the Spearman rank-order correlation coefficient from
     2 histograms This may need to be modified, I'm uncertain whether or
@@ -79,8 +80,8 @@ def get_correl_mat(histograms, test=spearman_roc):
         # np.round() is used here because of floating point rounding
         # (getting 1.0 - 1.0 != 0.0)
         mat = 1.0 - np.round(mat, decimals=5)
-
-    print 'matrix took {0} seconds to create'.format(time.time() - start_time)
+    t = round(time.time() - start_time, 3)
+    print 'matrix took {0:.2} seconds to create'.format(t)
     return mat
 
 
@@ -93,9 +94,10 @@ def cluster(mat, names, tname, dump=None):
     start_time = time.time()
 
     # This is the actual clustering using fastcluster
-    print 'Clustering {0} data points...'.format(len(names))
     Z = fc.linkage(distArray, method='single', metric='euclidean')
-    print 'took {0} seconds'.format(time.time() - start_time)
+    outstring = 'Clustering {0} histograms'.format(len(names))
+    outstring += ' took {0:.3}s'.format(time.time() - start_time)
+    print outstring
     # Create a dendrogram
     R = dendrogram(Z, labels=names)
     # Plot stuff
