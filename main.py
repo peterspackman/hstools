@@ -31,6 +31,13 @@ Options:
     -e=ATOM, --external-atom=ATOM  Restrict the closest external atom
                                    in the histogram
     -j=FILE, --json=FILE           Dump the dendrogram tree to JSON
+
+    --no-restrict                  Don't restrict the surface area
+                                   values to only those closer than
+                                   Van Der Waal's Radii
+    --order-important              When classifying surface area,
+                                   indicate that H -> O is different
+                                   to O -> H. (i.e. order is important)
 """
 
 # Core imports
@@ -91,12 +98,14 @@ def main():
 
     # Process surface area statistics
     if args['surface']:
+        restrict = not args['--no-restrict']
+        order = args['--order-important']
         if args['<file>']:
             fname = args['<file>']
             if not fname.endswith('.cxs'):
                 print 'WARNING: {0} does not have .cxs extension'.format(fname)
             # Generate the percentage contribution of each element
-            formula, contrib_p = fio.proc_file_surface(fname)
+            formula, contrib_p = fio.proc_file_sa(fname, restrict, order=order)
             print 'Molecular Formula: {0}'.format(formula)
 
             for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
@@ -104,11 +113,16 @@ def main():
 
         elif args['<dir>']:
             dirname = args['<dir>']
-            formulae, contribs = fio.batch_surface(dirname, procs=procs)
+            formulae, contribs = fio.batch_surface(dirname, restrict,
+                                                   procs=procs, order=order)
+            if restrict:
+                print "Restricted interactions using CCDC Van Der Waal's Radii"
             for i in range(len(formulae)):
                 formula = formulae[i]
                 contrib_p = contribs[i]
                 print 'Molecular Formula: {0}'.format(formula)
+                if not contrib_p:
+                    print '-- Nil--'
                 for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
                     print '{0} contribution: {1} %'.format(key, contrib_p[key])
 
@@ -117,6 +131,5 @@ def main():
     sys.exit(0)
 
 
-# Python's way of dealing with main
 if __name__ == '__main__':
     main()

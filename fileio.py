@@ -28,8 +28,8 @@ def get_vals(lines, t=np.float64, index=0):
 
 
 def surface_helper(args):
-    fname, i, e = args
-    return proc_file_sa(fname, i=i, e=e)
+    fname, restrict, order = args
+    return proc_file_sa(fname, restrict, order=order)
 
 
 def hist_helper(args):
@@ -91,7 +91,7 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     plt.close()
 
 
-def proc_file_sa(fname, i=None, e=None):
+def proc_file_sa(fname, restrict, order=False):
     if not os.path.isfile(fname):
         err = 'Could not open {0} for reading, check to see if file exists'
         print err.format(fname)
@@ -100,7 +100,10 @@ def proc_file_sa(fname, i=None, e=None):
 
     formula, vertices, indices, internal, external = a
     contrib, contrib_p = calc.get_contrib_percentage(vertices, indices,
-                                                     internal, external, dp=1)
+                                                     internal, external,
+                                                     x + y, dp=1,
+                                                     restrict=restrict,
+                                                     order=order)
 
     return formula, contrib_p
 
@@ -150,6 +153,8 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     r = p.map_async(hist_helper, args, callback=vals.extend)
     p.close()
     done = 0
+    # Doing something I ought not to do, using private members
+    # of MapResult to check how many are done. (bad)
     while True:
         if r.ready():
             break
@@ -168,7 +173,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     return (histograms, names)
 
 
-def batch_surface(dirname, suffix='.cxs', i=None, e=None, procs=4):
+def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
@@ -176,7 +181,7 @@ def batch_surface(dirname, suffix='.cxs', i=None, e=None, procs=4):
         sys.exit(1)
     files = glob.glob(os.path.join(dirname, '*'+suffix))
     nfiles = len(files)
-    args = [(fname, i, e) for fname in files]
+    args = [(fname, restrict, order) for fname in files]
 
     formulae = []
     contribs = []

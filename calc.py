@@ -196,20 +196,35 @@ def area_tri(a, b, c):
     return cio.normal3D(x, y, z) / 2
 
 
-def get_contrib_percentage(vertices, indices, internal, external, dp=3):
+def get_contrib_percentage(vertices, indices, internal,
+                           external, distances,
+                           dp=3, restrict=True,
+                           order=False):
     contrib = {}
     contrib_p = {}
-    RESTRICT_DISTANCE = False
+    if restrict:  # Check if we can restrict
+        unique = np.unique(np.append(internal, external))
+        for sym in unique:
+            if sym not in data.vdw_radii:
+                restrict = False
 
     for i in range(internal.size):
         # Key in the form "internal -> external" e.g. "F -> H"
-        key = "{0} -> {1}".format(internal[i], external[i])
-        tri = [vertices[n] for n in indices[i]]
-        area = area_tri(tri[0], tri[1], tri[2])
-        if key in contrib:
-            contrib[key] += area
-        else:
-            contrib[key] = area
+        chsymi = internal[i]
+        chsyme = external[i]
+        if(not order):
+            chsymi, chsyme = sorted((chsymi, chsyme))
+        key = "{0} -> {1}".format(chsymi, chsyme)
+        if restrict:
+            avg_d = np.mean(distances[indices[i]])
+            threshold = data.vdw_radii[chsymi] + data.vdw_radii[chsyme]
+        if  not restrict or avg_d < threshold:
+            tri = [vertices[n] for n in indices[i]]
+            area = area_tri(tri[0], tri[1], tri[2])
+            if key in contrib:
+                contrib[key] += area
+            else:
+                contrib[key] = area
 
     for x in contrib:
         p = np.round(contrib[x] * 100.0 / sum(contrib.values()), decimals=dp)
