@@ -2,25 +2,41 @@
 import sys
 import os
 import glob
+import multiprocessing
 import time
 import string
 # Library imports
-from joblib import Parallel, delayed
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+import progressbar as pb
 # Local imports
 import hist
+import calc
 import visual
 import pack.cio as cio
 # A temporary variable for the formatting of the histogram plots
 ticklabelpad = mpl.rcParams['xtick.major.pad']
+widgets = ['Reading Files: ', pb.Percentage(), ' ',
+           pb.Bar(marker='=', left='[', right=']'),
+           ' ', pb.ETA()]
 
 
+# HELPER FUNCTIONS
 def get_vals(lines, t=np.float64, index=0):
     """ return a numpy array, interpreting the first word on each line
         as the value to be stored """
     return [t(line.split()[index]) for line in lines]
+
+
+def surface_helper(args):
+    fname, i, e = args
+    return proc_file_sa(fname, i=i, e=e)
+
+
+def hist_helper(args):
+    fname, res, save_figs = args
+    return proc_file_hist(fname, resolution=res, save_figs=save_figs)
 
 
 def readcxsfile_c(fname):
@@ -77,12 +93,28 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     plt.close()
 
 
-def process_file(fname, resolution=10, write_png=False, i=None, e=None):
+def proc_file_sa(fname, i=None, e=None):
+    if not os.path.isfile(fname):
+        err = 'Could not open {0} for reading, check to see if file exists'
+        print err.format(fname)
+        sys.exit(1)
+    x, y, a = readcxsfile_c(fname)
+
+    formula, vertices, indices, internal, external = a
+    contrib, contrib_p = calc.get_contrib_percentage(vertices, indices,
+                                                     internal, external, dp=1)
+
+    return formula, contrib_p
+
+
+def proc_file_hist(fname, resolution=10, save_figs=False):
     """ Read a file from fname, generate a histogram and potentially write
         the png of it to file. i restricts internal atom, e restricts external
     """
     if not os.path.isfile(fname):
         err = 'Could not open {0} for reading, check to see if file exists'
+        if os.path.isdir(fname):
+            err = '{0} appears to be a directory, use --batch'
         print err.format(fname)
         sys.exit(1)
 
@@ -90,15 +122,15 @@ def process_file(fname, resolution=10, write_png=False, i=None, e=None):
 
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)
-    if(write_png):
+    if(save_figs):
         outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
         plotfile(x, y, fname=outfile, nbins=resolution)
 
     return h, cname
 
 
-def batch_process(dirname, suffix='.cxs', resolution=10,
-                  write_png=False, threads=4, i=None, e=None):
+def batch_hist(dirname, suffix='.cxs', resolution=10,
+               save_figs=False, threads=4):
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names
        Note that the 'threads' here are actually processes"""
@@ -107,25 +139,72 @@ def batch_process(dirname, suffix='.cxs', resolution=10,
         print err.format(dirname)
         sys.exit(1)
     files = glob.glob(os.path.join(dirname, '*'+suffix))
+    nfiles = len(files)
+    args = [(fname, resolution, save_figs) for fname in files]
 
     histograms = []
     names = []
-
+    vals = []
+    pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
+    pbar.start()
 
-    # Now this is some ugly indentation and syntax!
-    vals = Parallel(n_jobs=threads,
-                    verbose=3)(delayed(process_file)(f,
-                                                     resolution=resolution,
-                                                     write_png=write_png,
-                                                     i=i, e=e)
-                               for f in files)
+    p = multiprocessing.Pool(threads)
+    r = p.map_async(hist_helper, args, callback=vals.extend)
+    p.close()
+    done = 0
+    while True:
+        if r.ready():
+            break
+        if (nfiles - r._number_left > done):
+            pbar.update(done)
+            done = nfiles - r._number_left
+        time.sleep(0.2)
+    p.join()
+    pbar.finish()
 
     # unzip the output
-    if (i or e):
-        vals = [(h, n) for h, n in vals if h and n]
     histograms, names = zip(*vals)
-    output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
-    print output.format(len(files),time.time() - start_time, threads)
+    output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+    print output.format(nfiles, time.time() - start_time, threads)
 
     return (histograms, names)
+
+
+def batch_surface(dirname, suffix='.cxs', i=None, e=None, threads=4):
+    """ Traverse a directory calculating the surface area contribution"""
+    if not os.path.isdir(dirname):
+        err = '{0} does not appear to be a directory'
+        print err.format(dirname)
+        sys.exit(1)
+    files = glob.glob(os.path.join(dirname, '*'+suffix))
+    nfiles = len(files)
+    args = [(fname, i, e) for fname in files]
+
+    formulae = []
+    contribs = []
+    vals = []
+    pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
+    start_time = time.time()
+    pbar.start()
+
+    p = multiprocessing.Pool(threads)
+    r = p.map_async(surface_helper, args, callback=vals.extend)
+    p.close()
+
+    done = 0
+    while True:
+        if r.ready():
+            break
+        if (nfiles - r._number_left > done):
+            pbar.update(done)
+            done = nfiles - r._number_left
+        time.sleep(0.2)
+    p.join()
+    pbar.finish()
+
+    formulae, contribs = zip(*vals)
+    output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+    print output.format(nfiles, time.time() - start_time, threads)
+
+    return (formulae, contribs)

@@ -4,6 +4,9 @@ import re
 import sys
 import time
 import json
+from itertools import combinations
+import multiprocessing
+
 # Library imports
 import matplotlib as mpl
 from matplotlib import pyplot as plt
@@ -13,17 +16,20 @@ import numpy as np
 import scipy.cluster.hierarchy
 from scipy.cluster.hierarchy import dendrogram
 import scipy.stats as stats
+import progressbar as pb
+
 # Local imports
 import hist as h
 import pack.cio as cio
 from data import vdw_radii
 
 
-def spearman_roc(H1, H2):
+def spearman_roc(x):
     """ Calculate the Spearman rank-order correlation coefficient from
     2 histograms This may need to be modified, I'm uncertain whether or
     not 2 zeroes are ignored READ likely that they aren't, as such
     artificially high correlations are probable"""
+    H1, H2 = x
     hist1, _, _ = H1
     hist2, _, _ = H2
     x = hist1.flatten()
@@ -33,8 +39,9 @@ def spearman_roc(H1, H2):
     return r
 
 
-def kendall_tau(H1, H2):
+def kendall_tau(x):
     """ Calculate Kendall's Tau from the given histograms"""
+    H1, H2 = x
     hist1, _, _ = H1
     hist2, _, _ = H2
     x = hist1.flatten()
@@ -43,7 +50,8 @@ def kendall_tau(H1, H2):
     return r
 
 
-def hdistance(H1, H2):
+def hdistance(x):
+    H1, H2 = x
     hist1, _, _ = H1
     hist2, _, _ = H2
     x = hist1
@@ -53,8 +61,8 @@ def hdistance(H1, H2):
     return abs(d)
 
 
-def get_correl_mat(histograms, test=spearman_roc):
-    """ SHOULD BE RENAMED TO get_dist_mat
+def get_dist_mat(histograms, test=spearman_roc, processes=4):
+    """
         Given a list of histograms, calculate the distances between them
         and return a NxN redundant array of these distances
 
@@ -63,15 +71,46 @@ def get_correl_mat(histograms, test=spearman_roc):
         half roughly but cutting out the inefficiency."""
     n = len(histograms)
 
-    output = "Creating a {0}x{0} matrix using coefficients from {1}"
-    print output.format(n, test.__name__)
+    output = "Creating {0}x{0} matrix, test={1}, using {2} processes"
+    print output.format(n, test.__name__, processes)
     start_time = time.time()
+    widgets = ['Reading Files: ', pb.Percentage(), ' ',
+               pb.Bar(marker='=', left='[', right=']'),
+               ' ', pb.ETA()]
+    c = list(combinations(histograms, 2))
+    numcalc = len(c)
+    pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
+    p = multiprocessing.Pool(processes)
+    vals = []
 
-    # this will be O(n^2) but I don't see a way around that
-    mat = [[test(H1, H2) for H1 in histograms] for H2 in histograms]
+    r = p.map_async(test, c, callback=vals.extend)
+    p.close()
+    done = 0
+    while True:
+        if r.ready():
+            break
+        if numcalc - r._number_left > done:
+            pbar.update(done)
+            done = numcalc - r._number_left
+        time.sleep(0.2)
+    p.join()
+    pbar.finish()
 
-    # Ensure it is a np.array (though it should be already)
-    mat = np.array(mat)
+    # vals = map(test, combinations(histograms, 2))
+    vals = np.array(vals)
+    mat = np.identity(n)
+    """
+      This step is key, basically we select upper triangle
+      indices of size N, i.e.
+      0    1    1    1
+      0    0    1    1
+      0    0    0    1
+      0    0    0    0
+    """
+
+    mat[np.triu_indices(n, k=1)] = vals
+    # Make the matrix symmetric
+    mat = (mat + mat.T) / 2
 
     # Because these tests give correlations not distances,
     # we must modify the values to give a distance equivalent

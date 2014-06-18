@@ -64,49 +64,51 @@ def main():
     mtest = test_f[args['--test']]
     tname = test_names[args['--test']]
     start_time = time.time()
-
+    # Process histograms
     if args['hist']:
-        i_atom = args['--internal-atom']
-        e_atom = args['--external-atom']
         threads = int(args['--threads'])
         bins = int(args['--bins'])
         png = args['--save-figures']
 
         if args['<file>']:
             fname = args['<file>']
-            h, name = fio.process_file(fname, resolution=bins,
-                                       write_png=png, i=i_atom, e=e_atom)
+            if not png:
+                print 'Not saving figure, so this command will have no output'
+            h, name = fio.proc_file_hist(fname, resolution=bins,
+                                       save_figs=png)
 
         elif args['<dir>']:
             dirname = args['<dir>']
             # Program is being run to batch process a directory of cxs files
-            restrict_str = '{0} -> {1}'
-            histograms, names = fio.batch_process(dirname, resolution=bins,
-                                                  write_png=png,
-                                                  threads=threads,
-                                                  i=i_atom, e=e_atom)
+            histograms, names = fio.batch_hist(dirname, resolution=bins,
+                                               save_figs=png,
+                                               threads=threads)
 
             print 'Generating matrix using {0}'.format(tname)
-            mat = calc.get_correl_mat(histograms, test=mtest)
+            mat = calc.get_dist_mat(histograms, test=mtest)
             calc.cluster(mat, names, tname, dump=args['--json'])
 
+    # Process surface area statistics
     if args['surface']:
         if args['<file>']:
             fname = args['<file>']
             if not fname.endswith('.cxs'):
                 print 'WARNING: {0} does not have .cxs extension'.format(fname)
             # Generate the percentage contribution of each element
-            x, y, a = fio.readcxsfile_c(fname)
-            formula, vertices, indices, internal, external = a
-            contrib, contrib_p = calc.get_contrib_percentage(vertices,
-                                                             indices,
-                                                             internal,
-                                                             external,
-                                                             dp=1)
+            formula, contrib_p = fio.proc_file_surface(fname)
             print 'Molecular Formula: {0}'.format(formula)
 
             for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
                 print '{0} contribution: {1} %'.format(key, contrib_p[key])
+        elif args['<dir>']:
+            dirname = args['<dir>']
+            formulae, contribs = fio.batch_surface(dirname)
+            for i in range(len(formulae)):
+                formula = formulae[i]
+                contrib_p = contribs[i]
+                print 'Molecular Formula: {0}'.format(formula)
+                for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
+                    print '{0} contribution: {1} %'.format(key, contrib_p[key])
 
     # If we got here, program was success!
     print 'Process complete: {0:.2} s'.format(time.time() - start_time)
