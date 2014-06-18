@@ -5,3 +5,10 @@ for a variety of computational techniques associated
 with hirshfeld surface calculations in tonto
 
 A list of contributors is available in contributors.txt
+Dependencies:
+# python-progressbar2
+# fastcluster
+# numpy
+# scipy
+# matplotlib
+
