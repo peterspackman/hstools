@@ -21,7 +21,7 @@ import progressbar as pb
 # Local imports
 import hist as h
 import pack.cio as cio
-from data import vdw_radii
+import data
 
 
 def spearman_roc(x):
@@ -62,26 +62,24 @@ def hdistance(x):
 
 
 def get_dist_mat(histograms, test=spearman_roc, processes=4):
-    """
-        Given a list of histograms, calculate the distances between them
-        and return a NxN redundant array of these distances
-
-        It should be noted that there is a potential inefficiency
-        here as x-> should be the same as y->x, so we could cut cpu time in
-        half roughly but cutting out the inefficiency."""
+    """ Given a list of histograms, calculate the distances between them
+        and return a NxN redundant array of these distances. """
     n = len(histograms)
+    vals = []
+    start_time = time.time()
+    widgets = data.widgets
 
     output = "Creating {0}x{0} matrix, test={1}, using {2} processes"
     print output.format(n, test.__name__, processes)
-    start_time = time.time()
-    widgets = ['Reading Files: ', pb.Percentage(), ' ',
-               pb.Bar(marker='=', left='[', right=']'),
-               ' ', pb.ETA()]
+
+    # Here is why our asymptote is exponential! :(
     c = list(combinations(histograms, 2))
     numcalc = len(c)
+
     pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
+    pbar.start()
+    # Parallel code
     p = multiprocessing.Pool(processes)
-    vals = []
 
     r = p.map_async(test, c, callback=vals.extend)
     p.close()
@@ -96,18 +94,18 @@ def get_dist_mat(histograms, test=spearman_roc, processes=4):
     p.join()
     pbar.finish()
 
-    # vals = map(test, combinations(histograms, 2))
     vals = np.array(vals)
     mat = np.identity(n)
-    """
-      This step is key, basically we select upper triangle
-      indices of size N, i.e.
-      0    1    1    1
-      0    0    1    1
+    """This step is key, basically we assign the upper triangle
+      indices of a matrix size N, i.e.
+      1    X    X    X
+      0    1    X    X
+      0    0    1    X
       0    0    0    1
-      0    0    0    0
-    """
-
+      then we use the transpose of the matrix to copy the
+      upper triangle into the lower triangle (making a
+      symmetric matrix) """
+    # Assign upper triangle
     mat[np.triu_indices(n, k=1)] = vals
     # Make the matrix symmetric
     mat = (mat + mat.T) / 2
@@ -119,8 +117,9 @@ def get_dist_mat(histograms, test=spearman_roc, processes=4):
         # np.round() is used here because of floating point rounding
         # (getting 1.0 - 1.0 != 0.0)
         mat = 1.0 - np.round(mat, decimals=5)
-    t = round(time.time() - start_time, 3)
-    print 'matrix took {0:.2} seconds to create'.format(t)
+    t = time.time() - start_time
+    output ='Matrix took {0:.2} seconds to create, using {1} calculations'
+    print output.format(t, numcalc)
     return mat
 
 

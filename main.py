@@ -24,7 +24,7 @@ Options:
                                    [default: sp]
     -p, --save-figures             Plot histograms calculated and
                                    save them to file.
-    -n=N, --threads=N              The number of processes to parse
+    -n=N, --procs=N                The number of processes to parse
                                    files with. [default: 4]
     -i=ATOM, --internal-atom=ATOM  Restrict the closest internal atom
                                    in the histogram
@@ -37,7 +37,8 @@ Options:
 import sys
 import time
 import os
-# local imports
+
+# Local imports
 import hist
 import calc
 import fileio as fio
@@ -64,9 +65,9 @@ def main():
     mtest = test_f[args['--test']]
     tname = test_names[args['--test']]
     start_time = time.time()
+    procs = int(args['--procs'])
     # Process histograms
     if args['hist']:
-        threads = int(args['--threads'])
         bins = int(args['--bins'])
         png = args['--save-figures']
 
@@ -82,7 +83,7 @@ def main():
             # Program is being run to batch process a directory of cxs files
             histograms, names = fio.batch_hist(dirname, resolution=bins,
                                                save_figs=png,
-                                               threads=threads)
+                                               procs=procs)
 
             print 'Generating matrix using {0}'.format(tname)
             mat = calc.get_dist_mat(histograms, test=mtest)
@@ -100,9 +101,10 @@ def main():
 
             for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
                 print '{0} contribution: {1} %'.format(key, contrib_p[key])
+
         elif args['<dir>']:
             dirname = args['<dir>']
-            formulae, contribs = fio.batch_surface(dirname)
+            formulae, contribs = fio.batch_surface(dirname, procs=procs)
             for i in range(len(formulae)):
                 formula = formulae[i]
                 contrib_p = contribs[i]
@@ -111,7 +113,7 @@ def main():
                     print '{0} contribution: {1} %'.format(key, contrib_p[key])
 
     # If we got here, program was success!
-    print 'Process complete: {0:.2} s'.format(time.time() - start_time)
+    print 'Process complete! Took {0:.2} s'.format(time.time() - start_time)
     sys.exit(0)
 
 

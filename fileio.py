@@ -15,11 +15,9 @@ import hist
 import calc
 import visual
 import pack.cio as cio
+from data import widgets
 # A temporary variable for the formatting of the histogram plots
 ticklabelpad = mpl.rcParams['xtick.major.pad']
-widgets = ['Reading Files: ', pb.Percentage(), ' ',
-           pb.Bar(marker='=', left='[', right=']'),
-           ' ', pb.ETA()]
 
 
 # HELPER FUNCTIONS
@@ -130,10 +128,9 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
 
 
 def batch_hist(dirname, suffix='.cxs', resolution=10,
-               save_figs=False, threads=4):
+               save_figs=False, procs=4):
     """Generate n histograms from a directory, returning a list of them
-       and their corresponding substance names
-       Note that the 'threads' here are actually processes"""
+       and their corresponding substance names """
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
         print err.format(dirname)
@@ -149,7 +146,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     start_time = time.time()
     pbar.start()
 
-    p = multiprocessing.Pool(threads)
+    p = multiprocessing.Pool(procs)
     r = p.map_async(hist_helper, args, callback=vals.extend)
     p.close()
     done = 0
@@ -166,12 +163,12 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     # unzip the output
     histograms, names = zip(*vals)
     output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-    print output.format(nfiles, time.time() - start_time, threads)
+    print output.format(nfiles, time.time() - start_time, procs)
 
     return (histograms, names)
 
 
-def batch_surface(dirname, suffix='.cxs', i=None, e=None, threads=4):
+def batch_surface(dirname, suffix='.cxs', i=None, e=None, procs=4):
     """ Traverse a directory calculating the surface area contribution"""
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
@@ -188,7 +185,7 @@ def batch_surface(dirname, suffix='.cxs', i=None, e=None, threads=4):
     start_time = time.time()
     pbar.start()
 
-    p = multiprocessing.Pool(threads)
+    p = multiprocessing.Pool(procs)
     r = p.map_async(surface_helper, args, callback=vals.extend)
     p.close()
 
@@ -205,6 +202,6 @@ def batch_surface(dirname, suffix='.cxs', i=None, e=None, threads=4):
 
     formulae, contribs = zip(*vals)
     output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-    print output.format(nfiles, time.time() - start_time, threads)
+    print output.format(nfiles, time.time() - start_time, procs)
 
     return (formulae, contribs)

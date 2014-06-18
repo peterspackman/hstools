@@ -1,3 +1,4 @@
+import progressbar as pb
 """
     A module to keep chemical data
 """
@@ -41,3 +42,6 @@ vdw_radii = {
     'Xe': 2.16,
     'Zn': 1.39
 }
+widgets = [ pb.Percentage(), ' ',
+           pb.Bar(marker=u'\u2588', left=u'\u2590', right=u'\u258C'),
+           ' ', pb.AdaptiveETA()]
