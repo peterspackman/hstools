@@ -1,27 +1,23 @@
 #!/usr/bin/python
 # Core imports
-import re
-import sys
-import time
-import json
 from itertools import combinations
+import json
 import multiprocessing
+import time
 
 # Library imports
-import matplotlib as mpl
 from matplotlib import pyplot as plt
-import scipy.spatial.distance
+from scipy.cluster.hierarchy import dendrogram
 import fastcluster as fc
 import numpy as np
-import scipy.cluster.hierarchy
-from scipy.cluster.hierarchy import dendrogram
-import scipy.stats as stats
 import progressbar as pb
+import scipy.cluster.hierarchy
+import scipy.spatial.distance
+import scipy.stats as stats
 
 # Local imports
-import hist as h
-import pack.cio as cio
 import data
+import pack.cio as cio
 
 
 def spearman_roc(x):
@@ -118,7 +114,7 @@ def get_dist_mat(histograms, test=spearman_roc, processes=4):
         # (getting 1.0 - 1.0 != 0.0)
         mat = 1.0 - np.round(mat, decimals=5)
     t = time.time() - start_time
-    output ='Matrix took {0:.2} seconds to create, using {1} calculations'
+    output = 'Matrix took {0:.2} seconds to create, using {1} calculations'
     print output.format(t, numcalc)
     return mat
 
@@ -137,7 +133,7 @@ def cluster(mat, names, tname, dump=None):
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
     print outstring
     # Create a dendrogram
-    R = dendrogram(Z, labels=names)
+    dendrogram(Z, labels=names)
     # Plot stuff
     plt.xlabel('Compound Name')
     plt.ylabel('Dissimilarity')
@@ -178,7 +174,7 @@ def label_tree(n, names):
     # Delete the node id as it is no longer needed
     del n["node_id"]
 
-    n["name"] = name = "-".join(sorted(map(str, leafNames)))
+    n["name"] = "-".join(sorted(map(str, leafNames)))
     if len(n["name"]) > 16:
         n["name"] = n["name"][:16] + '...'
     # Labeling convention: "-" separates leaf names
@@ -186,7 +182,6 @@ def label_tree(n, names):
     return leafNames
 
 
-# Calculate the area of a triangle with given by points a,b,c
 def area_tri(a, b, c):
     v1 = a - b
     v2 = c - b
@@ -198,7 +193,7 @@ def area_tri(a, b, c):
 
 def get_contrib_percentage(vertices, indices, internal,
                            external, distances,
-                           dp=3, restrict=True,
+                           dp=8, restrict=True,
                            order=False):
     contrib = {}
     contrib_p = {}
@@ -218,7 +213,7 @@ def get_contrib_percentage(vertices, indices, internal,
         if restrict:
             avg_d = np.mean(distances[indices[i]])
             threshold = data.vdw_radii[chsymi] + data.vdw_radii[chsyme]
-        if  not restrict or avg_d < threshold:
+        if not restrict or avg_d < threshold:
             tri = [vertices[n] for n in indices[i]]
             area = area_tri(tri[0], tri[1], tri[2])
             if key in contrib:
@@ -227,7 +222,7 @@ def get_contrib_percentage(vertices, indices, internal,
                 contrib[key] = area
 
     for x in contrib:
-        p = np.round(contrib[x] * 100.0 / sum(contrib.values()), decimals=dp)
+        p = np.round(contrib[x] / sum(contrib.values()), decimals=8)
         contrib_p[x] = p
 
     return contrib, contrib_p

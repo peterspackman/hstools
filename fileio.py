@@ -4,7 +4,6 @@ import os
 import glob
 import multiprocessing
 import time
-import string
 # Library imports
 import numpy as np
 import matplotlib as mpl
@@ -13,7 +12,6 @@ import progressbar as pb
 # Local imports
 import hist
 import calc
-import visual
 import pack.cio as cio
 from data import widgets
 # A temporary variable for the formatting of the histogram plots
@@ -59,8 +57,6 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     # NEED TO ROTATE AXES
     H = np.rot90(H)
     H = np.flipud(H)
-
-    Hmasked = np.ma.masked_where(H == 0, H)
 
     fig = plt.figure()
 
@@ -210,3 +206,18 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     print output.format(nfiles, time.time() - start_time, procs)
 
     return (formulae, contribs)
+
+
+def write_sa_file(fname, formulae, contribs):
+    with open(fname, 'w') as f:
+        for i in range(len(formulae)):
+            formula = formulae[i]
+            contrib_p = contribs[i]
+            line = '{0}'.format(formula)
+            if not contrib_p:
+                line = line + '--Nil--'
+            else:
+                for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
+                    line = line + ', '
+                    line = line + '{0} = {1:.2%}'.format(key, contrib_p[key])
+            f.write(line + '\n')

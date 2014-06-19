@@ -38,19 +38,17 @@ Options:
     --order-important              When classifying surface area,
                                    indicate that H -> O is different
                                    to O -> H. (i.e. order is important)
+    --write-file=FILE              Write the surface area info to file
 """
 
 # Core imports
 import sys
 import time
-import os
-
+# Library imports
+from docopt import docopt
 # Local imports
-import hist
 import calc
 import fileio as fio
-import visual
-from docopt import docopt
 
 version = "0.23"
 test_f = {'sp': calc.spearman_roc,
@@ -83,7 +81,7 @@ def main():
             if not png:
                 print 'Not saving figure, so this command will have no output'
             h, name = fio.proc_file_hist(fname, resolution=bins,
-                                       save_figs=png)
+                                         save_figs=png)
 
         elif args['<dir>']:
             dirname = args['<dir>']
@@ -117,14 +115,18 @@ def main():
                                                    procs=procs, order=order)
             if restrict:
                 print "Restricted interactions using CCDC Van Der Waal's Radii"
-            for i in range(len(formulae)):
-                formula = formulae[i]
-                contrib_p = contribs[i]
-                print 'Molecular Formula: {0}'.format(formula)
-                if not contrib_p:
-                    print '-- Nil--'
-                for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
-                    print '{0} contribution: {1} %'.format(key, contrib_p[key])
+            if args['--write-file']:
+                fname = args['--write-file']
+                fio.write_sa_file(fname, formulae, contribs)
+            else:
+                for i in range(len(formulae)):
+                    formula = formulae[i]
+                    contrib_p = contribs[i]
+                    print 'Molecular Formula: {0}'.format(formula)
+                    if not contrib_p:
+                        print '-- Nil--'
+                    for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
+                        print '{0} contribution: {1} %'.format(key, contrib_p[key])
 
     # If we got here, program was success!
     print 'Process complete! Took {0:.2} s'.format(time.time() - start_time)
