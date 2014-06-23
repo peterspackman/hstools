@@ -1,3 +1,4 @@
 # Add multiple tests for comparison between histograms
 # write wrappers for the c functions in a new module
 # potentially add new methods of visualising data
+# Write automated tests!

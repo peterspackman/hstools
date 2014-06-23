@@ -50,7 +50,7 @@ from docopt import docopt
 import calc
 import fileio as fio
 
-version = "0.23"
+version = "0.26"
 test_f = {'sp': calc.spearman_roc,
           'kt': calc.kendall_tau,
           'hd': calc.hdistance}
@@ -115,9 +115,11 @@ def main():
                                                    procs=procs, order=order)
             if restrict:
                 print "Restricted interactions using CCDC Van Der Waal's Radii"
+            # If we are writing to file
             if args['--write-file']:
                 fname = args['--write-file']
                 fio.write_sa_file(fname, formulae, contribs)
+            # Otherwise we are printing to stdout
             else:
                 for i in range(len(formulae)):
                     formula = formulae[i]
