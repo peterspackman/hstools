@@ -80,13 +80,12 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
 
     r = p.map_async(test, c, callback=vals.extend)
     p.close()
-    done = 0
+    i = 0
     while True:
         if r.ready():
             break
-        if numcalc - r._number_left > done:
-            pbar.update(done)
-            done = numcalc - r._number_left
+        pbar.update(i)
+        i += 1
         time.sleep(0.2)
     p.join()
     pbar.finish()
@@ -133,16 +132,17 @@ def cluster(mat, names, tname, dump=None):
     outstring = 'Clustering {0} histograms'.format(len(names))
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
     print outstring
-    # Create a dendrogram
-    dendrogram(Z, labels=names)
-    # Plot stuff
-    plt.xlabel('Compound Name')
-    plt.ylabel('Dissimilarity')
-    plt.suptitle("""Clustering dendrogram of {0}
-                 compounds using {1}""".format(len(names), tname))
-    print 'Saving dendrogram'
-    plt.savefig('dendrogram.png', dpi=800)
-    plt.close()
+    if dendrogram:
+        # Create a dendrogram
+        dendrogram(Z, labels=names)
+        # Plot stuff
+        plt.xlabel('Compound Name')
+        plt.ylabel('Dissimilarity')
+        plt.suptitle("""Clustering dendrogram of {0}
+                    compounds using {1}""".format(len(names), tname))
+        print 'Saving dendrogram'
+        plt.savefig(dendrogram, dpi=800)
+        plt.close()
     if dump:
         print 'Dumping tree structure in {0}'.format(dump)
         T = scipy.cluster.hierarchy.to_tree(Z, rd=False)

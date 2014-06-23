@@ -40,6 +40,10 @@ Options:
                                    to O -> H. (i.e. order is important)
     -o=FILE, --output=FILE         Write the result to a given file.
                                    Works for both surface and hist modes.
+                                   Will save the distance matrix in hist mode,
+                                   and write S.A. infor in surface mode
+    -d=FILE, --dendrogram=FILE     Save the the generated clustering as a
+                                   dendrogram. [default: dendrogram.png]
 """
 
 # Core imports
@@ -75,20 +79,21 @@ def main():
     # Process histograms
     if args['hist']:
         bins = int(args['--bins'])
-        png = args['--save-figures']
+        save_figs = args['--save-figures']
 
         if args['<file>']:
             fname = args['<file>']
-            if not png:
+            if not save_figs:
                 print 'Not saving figure, so this command will have no output'
             h, name = fio.proc_file_hist(fname, resolution=bins,
-                                         save_figs=png)
+                                         save_figs=save_figs)
 
         elif args['<dir>']:
             dirname = args['<dir>']
+            dendrogram = args['--dendrogram']
             # Program is being run to batch process a directory of cxs files
             histograms, names = fio.batch_hist(dirname, resolution=bins,
-                                               save_figs=png,
+                                               save_figs=save_figs,
                                                procs=procs)
 
             print 'Generating matrix using {0}'.format(tname)
@@ -96,7 +101,8 @@ def main():
             if args['--output']:
                 fname = args['--output']
                 fio.write_mat_file(fname, mat)
-            calc.cluster(mat, names, tname, dump=args['--json'])
+            calc.cluster(mat, names, tname, dump=args['--json'],
+                         dendrogram=dendrogram)
 
     # Process surface area statistics
     if args['surface']:
