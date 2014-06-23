@@ -43,7 +43,7 @@ Options:
                                    Will save the distance matrix in hist mode,
                                    and write S.A. infor in surface mode
     -d=FILE, --dendrogram=FILE     Save the the generated clustering as a
-                                   dendrogram. [default: dendrogram.png]
+                                   dendrogram.
 """
 
 # Core imports
@@ -137,8 +137,10 @@ def main():
                     print 'Molecular Formula: {0}'.format(formula)
                     if not contrib_p:
                         print '-- Nil--'
-                    for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
-                        print '{0} contribution: {1} %'.format(key, contrib_p[key])
+                    for key in sorted(contrib_p,
+                                      key=lambda key: contrib_p[key]):
+                        print '{0} contribution: {1} %'.format(key,
+                                                               contrib_p[key])
 
     # If we got here, program was success!
     print 'Process complete! Took {0:.2} s'.format(time.time() - start_time)
