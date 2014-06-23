@@ -1,0 +1,40 @@
+#!/bin/bash
+PROG=~/phd/sclcc
+TEST_DIR=~/phd/test
+SURFACE="$TEST_DIR/test.surface"
+HIST="$TEST_DIR/test.hist"
+TMP="test.tmp"
+REDIRECT=
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+BLUE=$(tput setaf 4)
+YELLOW=$(tput setaf 3)
+NORMAL=$(tput sgr0)
+col=20
+
+function test_files {
+  diff --brief $1 $2 > /dev/null
+  cmp=$?
+  if [ $cmp -eq 1 ]
+  then
+    printf "%s%*s%s\n" "$RED" $col "[FAIL]" "$NORMAL"
+  else
+    printf "%s%*s%s\n" "$GREEN" $col "[PASS]" "$NORMAL"
+  fi
+}
+
+function print_descr {
+  padding=40
+  printf "%sTESTING:%s $1" $YELLOW $NORMAL
+  len=`expr $padding - ${#1}`
+  for i in `seq $len`; do
+    printf " "
+  done
+}
+print_descr "batch surface"
+$PROG surface --batch $TEST_DIR -o $TMP 2> /dev/null >/dev/null
+test_files $TMP $SURFACE
+print_descr "batch histogram"
+$PROG hist --batch $TEST_DIR -o $TMP 2> /dev/null >/dev/null
+test_files $TMP $HIST
+rm -f $TMP
