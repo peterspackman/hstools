@@ -47,6 +47,7 @@ def kendall_tau(x):
 
 
 def hdistance(x):
+    """ Calculate a naive distance between two histograms"""
     H1, H2 = x
     hist1, _, _ = H1
     hist2, _, _ = H2
@@ -163,6 +164,7 @@ def add_node(node, parent):
 
 
 def label_tree(n, names):
+    """ Helper function to label the tree """
     id2name = dict(zip(range(len(names)), names))
     # If it's a leaf node we have the name
     if len(n["children"]) == 0:
@@ -183,6 +185,8 @@ def label_tree(n, names):
 
 
 def area_tri(a, b, c):
+    """ Calculate the area of a triangle given by its 3 vertices
+    using the cross product formula |AxB|/2"""
     v1 = a - b
     v2 = c - b
     # Because these funcitons expect 6 doubles or 3 doubles as arguments
@@ -195,6 +199,12 @@ def get_contrib_percentage(vertices, indices, internal,
                            external, distances,
                            dp=8, restrict=True,
                            order=False):
+    """ Given a the triangles that make up a hirshfeld surface,
+    and lists of the closest internal and external atoms along
+    with their respective distances from the surface,
+    calculate the makeup of the hirshfeld surface in terms of
+    which element->element interactions are responsible for that
+    area """
     contrib = {}
     contrib_p = {}
     if restrict:  # Check if we can restrict
