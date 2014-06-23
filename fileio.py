@@ -150,6 +150,10 @@ def write_sa_file(fname, formulae, contribs):
             f.write(line + '\n')
 
 
+def write_mat_file(fname, mat):
+    np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
+
+
 # BATCH FUNCTIONS
 def batch_hist(dirname, suffix='.cxs', resolution=10,
                save_figs=False, procs=4):
@@ -169,19 +173,16 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
-
+    i = 0
     p = multiprocessing.Pool(procs)
     r = p.map_async(hist_helper, args, callback=vals.extend)
     p.close()
-    done = 0
     # Doing something I ought not to do, using private members
     # of MapResult to check how many are done. (bad)
     while True:
         if r.ready():
             break
-        if (nfiles - r._number_left > done):
-            pbar.update(done)
-            done = nfiles - r._number_left
+        pbar.update(i)
         time.sleep(0.2)
     p.join()
     pbar.finish()
@@ -215,13 +216,12 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     r = p.map_async(surface_helper, args, callback=vals.extend)
     p.close()
 
-    done = 0
+    i = 0
     while True:
         if r.ready():
             break
-        if (nfiles - r._number_left > done):
-            pbar.update(done)
-            done = nfiles - r._number_left
+        pbar.update(i)
+        i += 1
         time.sleep(0.2)
     p.join()
     pbar.finish()

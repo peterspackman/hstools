@@ -58,7 +58,7 @@ def hdistance(x):
     return abs(d)
 
 
-def get_dist_mat(histograms, test=spearman_roc, processes=4):
+def get_dist_mat(histograms, test=spearman_roc, procs=4):
     """ Given a list of histograms, calculate the distances between them
         and return a NxN redundant array of these distances. """
     n = len(histograms)
@@ -67,7 +67,7 @@ def get_dist_mat(histograms, test=spearman_roc, processes=4):
     widgets = data.widgets
 
     output = "Creating {0}x{0} matrix, test={1}, using {2} processes"
-    print output.format(n, test.__name__, processes)
+    print output.format(n, test.__name__, procs)
 
     # Here is why our asymptote is exponential! :(
     c = list(combinations(histograms, 2))
@@ -76,7 +76,7 @@ def get_dist_mat(histograms, test=spearman_roc, processes=4):
     pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
     pbar.start()
     # Parallel code
-    p = multiprocessing.Pool(processes)
+    p = multiprocessing.Pool(procs)
 
     r = p.map_async(test, c, callback=vals.extend)
     p.close()
@@ -140,6 +140,7 @@ def cluster(mat, names, tname, dump=None):
     plt.ylabel('Dissimilarity')
     plt.suptitle("""Clustering dendrogram of {0}
                  compounds using {1}""".format(len(names), tname))
+    print 'Saving dendrogram'
     plt.savefig('dendrogram.png', dpi=800)
     plt.close()
     if dump:

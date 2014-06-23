@@ -38,7 +38,8 @@ Options:
     --order-important              When classifying surface area,
                                    indicate that H -> O is different
                                    to O -> H. (i.e. order is important)
-    --write-file=FILE              Write the surface area info to file
+    -o=FILE, --output=FILE         Write the result to a given file.
+                                   Works for both surface and hist modes.
 """
 
 # Core imports
@@ -91,7 +92,10 @@ def main():
                                                procs=procs)
 
             print 'Generating matrix using {0}'.format(tname)
-            mat = calc.get_dist_mat(histograms, test=mtest)
+            mat = calc.get_dist_mat(histograms, test=mtest, procs=procs)
+            if args['--output']:
+                fname = args['--output']
+                fio.write_mat_file(fname, mat)
             calc.cluster(mat, names, tname, dump=args['--json'])
 
     # Process surface area statistics
@@ -116,8 +120,8 @@ def main():
             if restrict:
                 print "Restricted interactions using CCDC Van Der Waal's Radii"
             # If we are writing to file
-            if args['--write-file']:
-                fname = args['--write-file']
+            if args['--output']:
+                fname = args['--output']
                 fio.write_sa_file(fname, formulae, contribs)
             # Otherwise we are printing to stdout
             else:

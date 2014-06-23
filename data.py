@@ -180,6 +180,4 @@ elnames = {
     'Zr': 'Zirconium'
 }
 
-widgets = [pb.Percentage(), ' ',
-           pb.Bar(marker=u'\u2588', left=u'\u2590', right=u'\u258C'),
-           ' ', pb.AdaptiveETA()]
+widgets = ['Working - ', pb.Timer(), ' ', pb.AnimatedMarker(markers="#.().#")]
