@@ -7,7 +7,7 @@ import time
 
 # Library imports
 from matplotlib import pyplot as plt
-from scipy.cluster.hierarchy import dendrogram
+from scipy.cluster.hierarchy import dendrogram as dend
 import fastcluster as fc
 import numpy as np
 import progressbar as pb
@@ -119,7 +119,7 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     return mat
 
 
-def cluster(mat, names, tname, dump=None):
+def cluster(mat, names, tname, dump=None, dendrogram=None):
     """ Takes an NxN array of distances and an array of names with
       the same indices, performs cluster analysis and shows a dendrogram
     """
@@ -134,7 +134,7 @@ def cluster(mat, names, tname, dump=None):
     print outstring
     if dendrogram:
         # Create a dendrogram
-        dendrogram(Z, labels=names)
+        dend(Z, labels=names)
         # Plot stuff
         plt.xlabel('Compound Name')
         plt.ylabel('Dissimilarity')
