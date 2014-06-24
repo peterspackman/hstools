@@ -80,12 +80,10 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
 
     r = p.map_async(test, c, callback=vals.extend)
     p.close()
-    i = 0
     while True:
         if r.ready():
             break
-        pbar.update(i)
-        i += 1
+        pbar.update()
         time.sleep(0.2)
     p.join()
     pbar.finish()
@@ -113,8 +111,10 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
         # np.round() is used here because of floating point rounding
         # (getting 1.0 - 1.0 != 0.0)
         mat = 1.0 - np.round(mat, decimals=5)
+    else:
+        mat = np.round(mat, decimals=5) - 1.0
     t = time.time() - start_time
-    output = 'Matrix took {0:.2} seconds to create, using {1} calculations'
+    output = 'Matrix took {0:.2} seconds to create, performing {1} calculations'
     print output.format(t, numcalc)
     return mat
 

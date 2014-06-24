@@ -165,6 +165,9 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         sys.exit(1)
     files = glob.glob(os.path.join(dirname, '*'+suffix))
     nfiles = len(files)
+    if nfiles < 1:
+        print 'No files to read in {0}'.format(dirname)
+        sys.exit(1)
     args = [(fname, resolution, save_figs) for fname in files]
 
     histograms = []
@@ -173,7 +176,6 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
-    i = 0
     p = multiprocessing.Pool(procs)
     r = p.map_async(hist_helper, args, callback=vals.extend)
     p.close()
@@ -182,7 +184,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     while True:
         if r.ready():
             break
-        pbar.update(i)
+        pbar.update()
         time.sleep(0.2)
     p.join()
     pbar.finish()
@@ -203,6 +205,9 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
         sys.exit(1)
     files = glob.glob(os.path.join(dirname, '*'+suffix))
     nfiles = len(files)
+    if nfiles < 1:
+        print 'No files to read in {0}'.format(dirname)
+        sys.exit(1)
     args = [(fname, restrict, order) for fname in files]
 
     formulae = []
@@ -216,12 +221,10 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     r = p.map_async(surface_helper, args, callback=vals.extend)
     p.close()
 
-    i = 0
     while True:
         if r.ready():
             break
-        pbar.update(i)
-        i += 1
+        pbar.update()
         time.sleep(0.2)
     p.join()
     pbar.finish()
