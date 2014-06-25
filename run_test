@@ -3,6 +3,7 @@ PROG=~/phd/sclcc
 TEST_DIR=~/phd/test
 SURFACE=$TEST_DIR/test.surface
 SURFACENR=$TEST_DIR/test-nr.surface
+SURFACENROI=$TEST_DIR/test-nr-oi.surface
 HISTSP=$TEST_DIR/test.hist
 HISTKT=$TEST_DIR/test-kt.hist
 HISTHD=$TEST_DIR/test-hd.hist
@@ -15,49 +16,71 @@ YELLOW=$(tput setaf 3)
 NORMAL=$(tput sgr0)
 col=20
 NPASSED=0
-NTESTS=5
+NTESTS=6
+T="$(date +%s)"
+
+function print_header {
+  printf " %s" $BLUE
+  for i in `seq 73`; do
+    printf "*"
+  done
+  printf "%s" $NORMAL
+}
 
 function test_files {
   diff --brief $1 $2 > /dev/null
   cmp=$?
   if [ $cmp -eq 1 ]
   then
-    printf "%s%*s%s\n" "$RED" $col "[FAIL]" "$NORMAL"
+    printf "%s%s%s" "$RED" "[FAIL]" "$NORMAL"
+    print_header
+    printf "\n"
   else
-    printf "%s%*s%s\n" "$GREEN" $col "[PASS]" "$NORMAL"
+    printf "%s%s%s" "$GREEN" "[PASS]" "$NORMAL"
+    print_header
+    printf "\n"
     ((NPASSED++))
   fi
 }
 
 function print_descr {
-  padding=40
-  printf "%sTESTING:%s $1\n" $YELLOW $NORMAL
-  len=`expr $padding - ${#1}`
+  padding=80
+  printf "%s[TEST] %s $1 " $YELLOW 
+  len=`expr $padding - ${#1} - 9`
+  printf $BLUE
   for i in `seq $len`; do
-    printf " "
+    printf "*"
   done
+  printf $NORMAL
+  printf "\n"
 }
 
 touch $TMP
 
-print_descr "batch surface restricted"
+print_descr "surface --batch (default)"
 $PROG surface --batch $TEST_DIR -o $TMP --silent
 test_files $TMP $SURFACE
-print_descr "batch surface unrestricted"
+print_descr "surface --batch --no-restrict"
 $PROG surface --batch $TEST_DIR -o $TMP --no-restrict
 test_files $TMP $SURFACENR
-print_descr "batch histogram spearman_roc"
+print_descr "surface --batch --norestrict --order-important"
+$PROG surface --batch $TEST_DIR -o $TMP --no-restrict --order-important
+test_files $TMP $SURFACENROI
+print_descr "hist --batch (spearman_roc)"
 $PROG hist --batch $TEST_DIR -o $TMP
 test_files $TMP $HISTSP
-print_descr "batch histogram kendall_tau"
+print_descr "hist --batch (kendall_tau)"
 $PROG hist --batch $TEST_DIR -tkt -o $TMP
 test_files $TMP $HISTKT
-print_descr "batch histogram hdistance"
+print_descr "hist --batch (hdistance)"
 $PROG hist --batch $TEST_DIR -thd -o $TMP
 test_files $TMP $HISTHD
 if [ $NPASSED -eq $NTESTS ]; then
-  printf "[%sALL TESTS PASSED%s]\n" $GREEN $NORMAL
+  printf "%s[ALL TESTS PASSED]%s" $GREEN $NORMAL
 else
-  printf "[%sONLY %d OF %d TESTS PASSED%s]" $RED $NPASSED $NTESTS $NORMAL
+  printf "%s[ONLY %d OF %d TESTS PASSED]%s" $RED $NPASSED $NTESTS $NORMAL
 fi
+T="$(($(date +%s)-T))"
+printf " in ${T} seconds\n"
 rm -f $TMP
+
