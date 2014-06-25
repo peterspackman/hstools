@@ -15,6 +15,7 @@ int line_startswith(char * pre, char * line) {
 }
 char * get_formula(char * buf) {
   char * s = malloc(sizeof(char)*BUFSIZ);
+  if(s == NULL) return NULL;
   strncpy(s,buf,BUFSIZ);
   return s;
 }
@@ -105,18 +106,19 @@ CXS_DATA * readcxsfile(char * fname) {
   int count = 0;
   int nfaces;
   int nvertices;
-
   while (!feof(inputFile)) {
     fgets(buf, BUFSIZ, inputFile);
     int r = 0;
     if (line_startswith("begin unit_cell",buf) == 0) {
       sscanf(buf,"begin unit_cell %d\n",&count);
       atoms = malloc(sizeof(char) * count * 2);
+      if(atoms == NULL) return NULL;
       r =readvals(inputFile, ATOMS, count, (void *) atoms);
     }
     else if( line_startswith("begin vertices",buf) == 0){
       sscanf(buf,"begin vertices %d\n",&count);
       vertices = malloc(sizeof(float) * count * 3);
+      if(vertices == NULL) return NULL;
       r = readvals(inputFile, VERTICES, count, (void *) vertices);
       nvertices = count;
     }
@@ -124,6 +126,7 @@ CXS_DATA * readcxsfile(char * fname) {
     else if (line_startswith("begin indices",buf) == 0) {
       sscanf(buf,"begin indices %d\n",&count);
       indices = malloc(sizeof(int) * count * 3);
+      if(indices == NULL) return NULL;
       r = readvals(inputFile, INDICES, count, (void *) indices);
 
 
@@ -131,43 +134,52 @@ CXS_DATA * readcxsfile(char * fname) {
     else if (line_startswith("begin atoms_inside",buf) == 0) {
       sscanf(buf,"begin atoms_inside_surface %d\n",&count);
       atoms_inside = malloc(sizeof(int) * count);
+      if(atoms_inside == NULL) return NULL;
       r = readvals(inputFile, FACE, count, (void *) atoms_inside);
     }
 
     else if (line_startswith("begin atoms_outside",buf) == 0) {
       sscanf(buf,"begin atoms_outside_surface %d\n",&count);
       atoms_outside = malloc(sizeof(int) * count);
+      if(atoms_outside == NULL) return NULL;
       r = readvals(inputFile, FACE, count, (void *) atoms_outside);
     }
 
     else if (line_startswith("begin d_i_face_atoms",buf) == 0) {
       sscanf(buf,"begin d_i_face_atoms %d\n",&count);
       di_face_atoms = malloc(sizeof(*di_face_atoms) * count);
+      if(di_face_atoms == NULL) return NULL;
       r = readvals(inputFile, FACE, count, (void *) di_face_atoms);
       internal = malloc(sizeof(char) * count * 2);
+      if(internal == NULL) return NULL;
     }
 
     else if (line_startswith("begin d_e_face_atoms",buf) == 0) {
       sscanf(buf,"begin d_e_face_atoms %d\n",&count);
       de_face_atoms = malloc(sizeof(*de_face_atoms) * count);
+      if(de_face_atoms == NULL) return NULL;
       r = readvals(inputFile, FACE, count, (void *) de_face_atoms);
       external = malloc(sizeof(char) * count * 2);
+      if(external == NULL) return NULL;
       nfaces = count;
     }
 
     else if (line_startswith("begin d_i ",buf) == 0) {
       sscanf(buf,"begin d_i %d\n",&count);
       divals = malloc(sizeof(float) * count);
+      if(divals == NULL) return NULL;
       r = readvals(inputFile, DISTANCE , count, (void *) divals);
     }
 
     else if (line_startswith("begin d_e ",buf) == 0) {
       sscanf(buf,"begin d_e %d\n",&count);
       devals = malloc(sizeof(float) * count);
+      if(devals == NULL) return NULL;
       r = readvals(inputFile, DISTANCE , count, (void *) devals);
     }
     else if(line_startswith("   formula = ",buf) == 0) {
       formula = get_formula(buf);
+      if(formula == NULL) return NULL;
     }
     if(r > 0 && r < count) {
       printf("read less values than count!!\n");
@@ -182,7 +194,26 @@ CXS_DATA * readcxsfile(char * fname) {
   }
   fclose(inputFile);
   //NOW THAT WE HAVE DATA IN ARRAYS, MANIPULATE AND RETURN;
+  if(external == NULL || internal == NULL
+      || atoms == NULL || atoms_outside == NULL
+      || atoms_inside == NULL || de_face_atoms == NULL
+      || di_face_atoms == NULL || divals == NULL
+      || devals == NULL) {
+    return NULL;
+  }
   for(int i = 0; i < nfaces; i++) {
+    int ai_index = di_face_atoms[i] - 1;
+    int ao_index = de_face_atoms[i] - 1;
+    if (ao_index < 0 || ai_index < 0) {
+      printf("Indexing below 0 (face_atoms)\n");
+      return NULL;
+    }
+    int a1_index = atoms_outside[ao_index] - 1;
+    int a2_index = atoms_inside[ai_index] -1;
+    if(a1_index < 0 || a2_index < 0) {
+      printf("Indexing below 0 (atoms outside)\n");
+      return NULL;
+    }
     memcpy(&external[2*i],&atoms[(atoms_outside[de_face_atoms[i] - 1] -1) * 2 ],2*sizeof(char));
     memcpy(&internal[2*i],&atoms[(atoms_inside[di_face_atoms[i] - 1] -1) * 2 ],2*sizeof(char));
   }

@@ -1,12 +1,12 @@
 #!/bin/bash
 PROG=~/phd/sclcc
 TEST_DIR=~/phd/test
-SURFACE="$TEST_DIR/test.surface"
-SURFACENR="$TEST_DIR/test-nr.surface"
-HISTSP="$TEST_DIR/test.hist"
-HISTKT="$TEST_DIR/test-kt.hist"
-HISTHD="$TEST_DIR/test-hd.hist"
-TMP="test.tmp"
+SURFACE=$TEST_DIR/test.surface
+SURFACENR=$TEST_DIR/test-nr.surface
+HISTSP=$TEST_DIR/test.hist
+HISTKT=$TEST_DIR/test-kt.hist
+HISTHD=$TEST_DIR/test-hd.hist
+TMP=$TEST_DIR/test.tmp
 REDIRECT=
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
@@ -14,6 +14,8 @@ BLUE=$(tput setaf 4)
 YELLOW=$(tput setaf 3)
 NORMAL=$(tput sgr0)
 col=20
+NPASSED=0
+NTESTS=5
 
 function test_files {
   diff --brief $1 $2 > /dev/null
@@ -23,31 +25,39 @@ function test_files {
     printf "%s%*s%s\n" "$RED" $col "[FAIL]" "$NORMAL"
   else
     printf "%s%*s%s\n" "$GREEN" $col "[PASS]" "$NORMAL"
+    ((NPASSED++))
   fi
 }
 
 function print_descr {
   padding=40
-  printf "%sTESTING:%s $1" $YELLOW $NORMAL
+  printf "%sTESTING:%s $1\n" $YELLOW $NORMAL
   len=`expr $padding - ${#1}`
   for i in `seq $len`; do
     printf " "
   done
 }
 
+touch $TMP
+
 print_descr "batch surface restricted"
-$PROG surface --batch $TEST_DIR -o $TMP 2> /dev/null >/dev/null
+$PROG surface --batch $TEST_DIR -o $TMP --silent
 test_files $TMP $SURFACE
 print_descr "batch surface unrestricted"
-$PROG surface --batch $TEST_DIR -o $TMP --no-restrict 2> /dev/null >/dev/null
+$PROG surface --batch $TEST_DIR -o $TMP --no-restrict
 test_files $TMP $SURFACENR
 print_descr "batch histogram spearman_roc"
-$PROG hist --batch $TEST_DIR -o $TMP 2> /dev/null >/dev/null
+$PROG hist --batch $TEST_DIR -o $TMP
 test_files $TMP $HISTSP
 print_descr "batch histogram kendall_tau"
-$PROG hist --batch $TEST_DIR -tkt -o $TMP 2> /dev/null >/dev/null
+$PROG hist --batch $TEST_DIR -tkt -o $TMP
 test_files $TMP $HISTKT
 print_descr "batch histogram hdistance"
-$PROG hist --batch $TEST_DIR -thd -o $TMP 2> /dev/null >/dev/null
+$PROG hist --batch $TEST_DIR -thd -o $TMP
 test_files $TMP $HISTHD
+if [ $NPASSED -eq $NTESTS ]; then
+  printf "[%sALL TESTS PASSED%s]\n" $GREEN $NORMAL
+else
+  printf "[%sONLY %d OF %d TESTS PASSED%s]" $RED $NPASSED $NTESTS $NORMAL
+fi
 rm -f $TMP

@@ -163,7 +163,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         err = '{0} does not appear to be a directory'
         print err.format(dirname)
         sys.exit(1)
-    files = glob.glob(os.path.join(dirname, '*'+suffix))
+    files = sorted(glob.glob(os.path.join(dirname, '*'+suffix)))
     nfiles = len(files)
     if nfiles < 1:
         print 'No files to read in {0}'.format(dirname)

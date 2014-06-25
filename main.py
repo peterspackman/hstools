@@ -44,9 +44,11 @@ Options:
                                    and write S.A. infor in surface mode
     -d=FILE, --dendrogram=FILE     Save the the generated clustering as a
                                    dendrogram.
+    -s, --silent                   Do not print output to stdout/stderr
 """
 
 # Core imports
+import os
 import sys
 import time
 # Library imports
