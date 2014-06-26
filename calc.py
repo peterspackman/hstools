@@ -112,15 +112,23 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
         # np.round() is used here because of floating point rounding
         # (getting 1.0 - 1.0 != 0.0)
         mat = 1.0 - np.round(mat, decimals=5)
+        """maximum = np.amax(mat)
+        np.fill_diagonal(mat, maximum)
+        minimum = np.amin(mat)
+        np.fill_diagonal(mat, 0.0)
+        mat = (mat - minimum) / (maximum)
+        np.fill_diagonal(mat, 0.0)"""
     else:
-        mat = np.round(mat, decimals=5) - 1.0
+        np.fill_diagonal(mat, 0.0)
     t = time.time() - start_time
     output = 'Matrix took {0:.2} seconds to create, performing {1} calculations'
     log(output.format(t, numcalc))
     return mat
 
 
-def cluster(mat, names, tname, dump=None, dendrogram=None):
+def cluster(mat, names, tname, dump=None,
+            dendrogram=None, method=None,
+            distance=None):
     """ Takes an NxN array of distances and an array of names with
       the same indices, performs cluster analysis and shows a dendrogram
     """
@@ -129,7 +137,7 @@ def cluster(mat, names, tname, dump=None, dendrogram=None):
     start_time = time.time()
 
     # This is the actual clustering using fastcluster
-    Z = fc.linkage(distArray, method='single', metric='euclidean')
+    Z = fc.linkage(distArray, method=method, metric=distance)
     outstring = 'Clustering {0} histograms'.format(len(names))
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
     log(outstring)

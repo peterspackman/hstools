@@ -1,3 +1,12 @@
+#ifndef HEADER_INCLUDED
+#define HEADER_INCLUDED
+#ifdef MAIN_FILE
+char * error_string;
+#else
+extern char * error_string;
+#endif
+#endif
+
 typedef struct
 {
   float * devals, *divals; //arrays of nvertices floats

@@ -1,5 +1,6 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
+#define MAIN_FILE
 #include "cio.h"
 static char module_docstring[] =
   "This module provides an interface for reading the data values from a .cxs file";
@@ -14,6 +15,7 @@ static char normal3D_docstring[] =
 static PyObject * cio_readcxsfile(PyObject *self, PyObject * args);
 static PyObject * cio_cross3D(PyObject * self, PyObject * args);
 static PyObject * cio_normal3D(PyObject * sefl, PyObject * args);
+static PyObject * CXSError;
 
 static PyMethodDef module_methods[] = {
   {"readcxsfile", cio_readcxsfile, METH_VARARGS, readcxsfile_docstring},
@@ -26,6 +28,9 @@ PyMODINIT_FUNC initcio(void) {
   PyObject *m = Py_InitModule3("cio", module_methods, module_docstring);
   if (m == NULL)
     return;
+  CXSError = PyErr_NewException("cio.error", NULL, NULL);
+  Py_INCREF(CXSError);
+  PyModule_AddObject(m, "error", CXSError);
   import_array();
 }
 
@@ -33,12 +38,12 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args) {
   char * fname;
   if (!PyArg_ParseTuple(args, "s", &fname))
     return NULL;
-
+  
   CXS_DATA * cxs = readcxsfile(fname);
   if(cxs == NULL) {
-    PyErr_SetString(PyExc_RuntimeError,
-        "Problem reading cxs file.");
-    return NULL;
+    PyErr_SetString(CXSError,
+        error_string);
+    return NULL; //this returns None to Python
   }
   //UNPACK THE VALUES FROM CXS_DATA
   int nfaces = cxs->nfaces;

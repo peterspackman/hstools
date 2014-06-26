@@ -45,6 +45,12 @@ Options:
     -d=FILE, --dendrogram=FILE     Save the the generated clustering as a
                                    dendrogram.
     -s, --silent                   Do not print output to stdout/stderr
+    -m=METHOD, --method=METHOD     Use METHOD when calculating linkage. One of
+                                   'average', 'single', 'complete', 'weighted',
+                                   'centroid', 'median', 'ward'.
+                                   [default: complete]
+    --distance=DISTANCE            Use DISTANCE as a metric. Unlikely to change
+                                   much. [default: euclidean]
 """
 
 # Core imports
@@ -62,8 +68,8 @@ test_f = {'sp': calc.spearman_roc,
           'kt': calc.kendall_tau,
           'hd': calc.hdistance}
 test_names = {'sp': 'Spearman rank order coefficient',
-              'kt': 'Kendall Tau',
-              'hd': 'Custom histogram distance'}
+              'kt': "Kendall's Tau",
+              'hd': 'naive histogram distance'}
 version = "0.3"
 args = docopt(__doc__, version=version)
 # *******        MAIN PROGRAM           ****** #
@@ -96,6 +102,8 @@ def main():
         elif args['<dir>']:
             dirname = args['<dir>']
             dendrogram = args['--dendrogram']
+            method = args['--method']
+            distance = args['--distance']
             # Program is being run to batch process a directory of cxs files
             histograms, names = fio.batch_hist(dirname, resolution=bins,
                                                save_figs=save_figs,
@@ -107,7 +115,9 @@ def main():
                 fname = args['--output']
                 fio.write_mat_file(fname, mat)
             calc.cluster(mat, names, tname, dump=args['--json'],
-                         dendrogram=dendrogram)
+                         dendrogram=dendrogram,
+                         method=method,
+                         distance=distance)
 
     # Process surface area statistics
     if args['surface']:
@@ -118,22 +128,24 @@ def main():
             if not fname.endswith('.cxs'):
                 log('WARNING: {0} does not have .cxs extension'.format(fname))
             # Generate the percentage contribution of each element
-            formula, contrib_p = fio.proc_file_sa(fname, restrict, order=order)
-            log('Molecular Formula: {0}'.format(formula))
+            cname, formula, contrib_p = fio.proc_file_sa(fname, restrict,
+                                                         order=order)
+            log('{0} {1}'.format(cname, formula))
 
             for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
                 log('{0}: {1:.2%}'.format(key, contrib_p[key]))
 
         elif args['<dir>']:
             dirname = args['<dir>']
-            formulae, contribs = fio.batch_surface(dirname, restrict,
-                                                   procs=procs, order=order)
+            cnames, formulae, contribs = fio.batch_surface(dirname, restrict,
+                                                           procs=procs,
+                                                           order=order)
             if restrict:
                 log("Restricted interactions using CCDC Van Der Waal's Radii")
             # If we are writing to file
             if args['--output']:
                 fname = args['--output']
-                fio.write_sa_file(fname, formulae, contribs)
+                fio.write_sa_file(fname, cnames, formulae, contribs)
             # Otherwise we are printing to stdout
             else:
                 for i in range(len(formulae)):

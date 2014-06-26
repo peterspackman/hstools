@@ -38,7 +38,12 @@ def hist_helper(args):
 
 def readcxsfile_c(fname):
     """ A wrapper around cio.readcxsfile """
-    di, de, p = cio.readcxsfile(fname)
+    try:
+        r = cio.readcxsfile(fname)
+    except cio.error, e:
+        log('Problem in {0}: {1}'.format(fname, e))
+        return None
+    di, de, p = r
     formula, vertices, indices, internal, external = p
     # Strip the unnecessary quotes and spaces from the line
     formula = formula.split('\"')[1]
@@ -98,7 +103,10 @@ def proc_file_sa(fname, restrict, order=False):
         err = 'Could not open {0} for reading, check to see if file exists'
         log(err.format(fname))
         sys.exit(1)
-    x, y, a = readcxsfile_c(fname)
+    r = readcxsfile_c(fname)
+    if not r:
+        return None
+    x, y, a = r
 
     formula, vertices, indices, internal, external = a
     contrib, contrib_p = calc.get_contrib_percentage(vertices, indices,
@@ -106,8 +114,8 @@ def proc_file_sa(fname, restrict, order=False):
                                                      x + y, dp=1,
                                                      restrict=restrict,
                                                      order=order)
-
-    return formula, contrib_p
+    cname = os.path.basename(os.path.splitext(fname)[0])
+    return cname, formula, contrib_p
 
 
 def proc_file_hist(fname, resolution=10, save_figs=False):
@@ -122,8 +130,10 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
             err = '{0} appears to be a directory, use --batch'
         log(err.format(fname))
         sys.exit(1)
-
-    x, y, a = readcxsfile_c(fname)
+    r = readcxsfile_c(fname)
+    if not r:
+        return None
+    x, y, a = r
 
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)
@@ -134,14 +144,15 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
     return h, cname
 
 
-def write_sa_file(fname, formulae, contribs):
+def write_sa_file(fname, cnames, formulae, contribs):
     """ Write out the surface area contribution info to a given
     file."""
     with open(fname, 'w') as f:
         for i in range(len(formulae)):
+            cname = cnames[i]
             formula = formulae[i]
             contrib_p = contribs[i]
-            line = '{0}'.format(formula)
+            line = '{0} {1}'.format(cname, formula)
             if not contrib_p:
                 line = line + '--Nil--'
             else:
@@ -189,13 +200,22 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         time.sleep(0.2)
     p.join()
     pbar.finish()
+    # Strip none values
+    vals = [x for x in vals if x is not None]
+    if len(vals) < nfiles:
+        log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
+        nfiles = len(vals)
 
-    # unzip the output
-    histograms, names = zip(*vals)
-    output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-    log(output.format(nfiles, time.time() - start_time, procs))
+    if nfiles > 0:
+        # unzip the output
+        histograms, names = zip(*vals)
+        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+        log(output.format(nfiles, time.time() - start_time, procs))
 
-    return (histograms, names)
+        return (histograms, names)
+    else:
+        log('Errors reading all files, exiting.')
+        sys.exit(1)
 
 
 def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
@@ -229,9 +249,17 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
         time.sleep(0.2)
     p.join()
     pbar.finish()
+    # Strip none values
+    vals = [x for x in vals if x is not None]
+    if len(vals) < nfiles:
+        log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
+        nfiles = len(vals)
 
-    formulae, contribs = zip(*vals)
-    output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-    log(output.format(nfiles, time.time() - start_time, procs))
-
-    return (formulae, contribs)
+    if nfiles > 0:
+        cnames, formulae, contribs = zip(*vals)
+        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+        log(output.format(nfiles, time.time() - start_time, procs))
+        return (cnames, formulae, contribs)
+    else:
+        log('Errors reading all files, exiting.')
+        sys.exit(1)
