@@ -45,7 +45,7 @@ function test_files {
 
 function print_descr {
   padding=80
-  printf "%s[TEST] %s $1 " $YELLOW 
+  printf "%s[TEST] %s $1 " $YELLOW
   len=`expr $padding - ${#1} - 9`
   printf $BLUE
   for i in `seq $len`; do
@@ -61,19 +61,19 @@ print_descr "surface --batch (default)"
 $PROG surface --batch $TEST_DIR -o $TMP --silent
 test_files $TMP $SURFACE
 print_descr "surface --batch --no-restrict"
-$PROG surface --batch $TEST_DIR -o $TMP --no-restrict
+$PROG surface --batch $TEST_DIR -o $TMP --no-restrict --silent
 test_files $TMP $SURFACENR
 print_descr "surface --batch --norestrict --order-important"
-$PROG surface --batch $TEST_DIR -o $TMP --no-restrict --order-important
+$PROG surface --batch $TEST_DIR -o $TMP --no-restrict --order-important --silent
 test_files $TMP $SURFACENROI
 print_descr "hist --batch (spearman_roc)"
-$PROG hist --batch $TEST_DIR -o $TMP
+$PROG hist --batch $TEST_DIR -o $TMP --silent
 test_files $TMP $HISTSP
 print_descr "hist --batch (kendall_tau)"
-$PROG hist --batch $TEST_DIR -tkt -o $TMP
+$PROG hist --batch $TEST_DIR -tkt -o $TMP --silent
 test_files $TMP $HISTKT
 print_descr "hist --batch (hdistance)"
-$PROG hist --batch $TEST_DIR -thd -o $TMP
+$PROG hist --batch $TEST_DIR -thd -o $TMP --silent
 test_files $TMP $HISTHD
 if [ $NPASSED -eq $NTESTS ]; then
   printf "%s[ALL TESTS PASSED]%s" $GREEN $NORMAL

@@ -13,6 +13,7 @@
 int line_startswith(char * pre, char * line) {
   return strncmp(pre, line, sizeof(char) * strlen(pre));
 }
+
 char * get_formula(char * buf) {
   char * s = malloc(sizeof(char)*BUFSIZ);
   if(s == NULL) return NULL;
@@ -106,15 +107,18 @@ CXS_DATA * readcxsfile(char * fname) {
   int count = 0;
   int nfaces;
   int nvertices;
+
   while (!feof(inputFile)) {
     fgets(buf, BUFSIZ, inputFile);
     int r = 0;
+
     if (line_startswith("begin unit_cell",buf) == 0) {
       sscanf(buf,"begin unit_cell %d\n",&count);
       atoms = malloc(sizeof(char) * count * 2);
       if(atoms == NULL) return NULL;
       r =readvals(inputFile, ATOMS, count, (void *) atoms);
     }
+
     else if( line_startswith("begin vertices",buf) == 0){
       sscanf(buf,"begin vertices %d\n",&count);
       vertices = malloc(sizeof(float) * count * 3);
@@ -128,7 +132,6 @@ CXS_DATA * readcxsfile(char * fname) {
       indices = malloc(sizeof(int) * count * 3);
       if(indices == NULL) return NULL;
       r = readvals(inputFile, INDICES, count, (void *) indices);
-
 
     }
     else if (line_startswith("begin atoms_inside",buf) == 0) {
@@ -177,21 +180,25 @@ CXS_DATA * readcxsfile(char * fname) {
       if(devals == NULL) return NULL;
       r = readvals(inputFile, DISTANCE , count, (void *) devals);
     }
+
     else if(line_startswith("   formula = ",buf) == 0) {
       formula = get_formula(buf);
       if(formula == NULL) return NULL;
     }
+
     if(r > 0 && r < count) {
       printf("read less values than count!!\n");
       printf("r = %d, count = %d\n",r,count);
       return NULL;
     }
+
     n++;
   }
   if(nfaces == 0 || nvertices == 0) {
     printf("nfaces or nvertices == 0");
     return NULL;
   }
+
   fclose(inputFile);
   //NOW THAT WE HAVE DATA IN ARRAYS, MANIPULATE AND RETURN;
   if(external == NULL || internal == NULL
@@ -205,13 +212,13 @@ CXS_DATA * readcxsfile(char * fname) {
     int ai_index = di_face_atoms[i] - 1;
     int ao_index = de_face_atoms[i] - 1;
     if (ao_index < 0 || ai_index < 0) {
-      printf("Indexing below 0 (face_atoms)\n");
+      printf("CRITICAL: Indexing below 0 (face_atoms) in file %s\n", fname);
       return NULL;
     }
     int a1_index = atoms_outside[ao_index] - 1;
     int a2_index = atoms_inside[ai_index] -1;
     if(a1_index < 0 || a2_index < 0) {
-      printf("Indexing below 0 (atoms outside)\n");
+      printf("CRITICAL: Indexing below 0 (atoms outside) in file %s\n", fname);
       return NULL;
     }
     memcpy(&external[2*i],&atoms[(atoms_outside[de_face_atoms[i] - 1] -1) * 2 ],2*sizeof(char));

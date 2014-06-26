@@ -122,7 +122,7 @@ def main():
             log('Molecular Formula: {0}'.format(formula))
 
             for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
-                log('{0} contribution: {1} %'.format(key, contrib_p[key]))
+                log('{0}: {1:.2%}'.format(key, contrib_p[key]))
 
         elif args['<dir>']:
             dirname = args['<dir>']
@@ -144,8 +144,8 @@ def main():
                         log(' -- Nil--')
                     for key in sorted(contrib_p,
                                       key=lambda key: contrib_p[key]):
-                        log('{0} contribution: {1} %'.format(key,
-                                                             contrib_p[key]))
+                        log('{0}: {1:.2%}'.format(key,
+                                                  contrib_p[key]))
 
     # If we got here, program was success!
     log('Process complete! Took {0:.2} s'.format(time.time() - start_time))
