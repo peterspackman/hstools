@@ -48,24 +48,24 @@ Options:
 """
 
 # Core imports
-import os
 import sys
 import time
 # Library imports
 from docopt import docopt
 # Local imports
+from data import log
 import calc
+import data
 import fileio as fio
 
-version = "0.26"
 test_f = {'sp': calc.spearman_roc,
           'kt': calc.kendall_tau,
           'hd': calc.hdistance}
 test_names = {'sp': 'Spearman rank order coefficient',
               'kt': 'Kendall Tau',
               'hd': 'Custom histogram distance'}
+version = "0.3"
 args = docopt(__doc__, version=version)
-
 # *******        MAIN PROGRAM           ****** #
 
 
@@ -78,6 +78,8 @@ def main():
     tname = test_names[args['--test']]
     start_time = time.time()
     procs = int(args['--procs'])
+    if args['--silent']:
+        data.silent = True
     # Process histograms
     if args['hist']:
         bins = int(args['--bins'])
@@ -86,7 +88,8 @@ def main():
         if args['<file>']:
             fname = args['<file>']
             if not save_figs:
-                print 'Not saving figure, so this command will have no output'
+                log('Not saving figure, so this \
+                         command will have no output')
             h, name = fio.proc_file_hist(fname, resolution=bins,
                                          save_figs=save_figs)
 
@@ -98,7 +101,7 @@ def main():
                                                save_figs=save_figs,
                                                procs=procs)
 
-            print 'Generating matrix using {0}'.format(tname)
+            log('Generating matrix using {0}'.format(tname))
             mat = calc.get_dist_mat(histograms, test=mtest, procs=procs)
             if args['--output']:
                 fname = args['--output']
@@ -113,20 +116,20 @@ def main():
         if args['<file>']:
             fname = args['<file>']
             if not fname.endswith('.cxs'):
-                print 'WARNING: {0} does not have .cxs extension'.format(fname)
+                log('WARNING: {0} does not have .cxs extension'.format(fname))
             # Generate the percentage contribution of each element
             formula, contrib_p = fio.proc_file_sa(fname, restrict, order=order)
-            print 'Molecular Formula: {0}'.format(formula)
+            log('Molecular Formula: {0}'.format(formula))
 
             for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
-                print '{0} contribution: {1} %'.format(key, contrib_p[key])
+                log('{0} contribution: {1} %'.format(key, contrib_p[key]))
 
         elif args['<dir>']:
             dirname = args['<dir>']
             formulae, contribs = fio.batch_surface(dirname, restrict,
                                                    procs=procs, order=order)
             if restrict:
-                print "Restricted interactions using CCDC Van Der Waal's Radii"
+                log("Restricted interactions using CCDC Van Der Waal's Radii")
             # If we are writing to file
             if args['--output']:
                 fname = args['--output']
@@ -136,16 +139,16 @@ def main():
                 for i in range(len(formulae)):
                     formula = formulae[i]
                     contrib_p = contribs[i]
-                    print 'Molecular Formula: {0}'.format(formula)
+                    log('Molecular Formula: {0}'.format(formula))
                     if not contrib_p:
-                        print '-- Nil--'
+                        log(' -- Nil--')
                     for key in sorted(contrib_p,
                                       key=lambda key: contrib_p[key]):
-                        print '{0} contribution: {1} %'.format(key,
-                                                               contrib_p[key])
+                        log('{0} contribution: {1} %'.format(key,
+                                                             contrib_p[key]))
 
     # If we got here, program was success!
-    print 'Process complete! Took {0:.2} s'.format(time.time() - start_time)
+    log('Process complete! Took {0:.2} s'.format(time.time() - start_time))
     sys.exit(0)
 
 

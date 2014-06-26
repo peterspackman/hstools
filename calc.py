@@ -16,6 +16,7 @@ import scipy.spatial.distance
 import scipy.stats as stats
 
 # Local imports
+from data import log
 import data
 import pack.cio as cio
 
@@ -67,7 +68,7 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     widgets = data.widgets
 
     output = "Creating {0}x{0} matrix, test={1}, using {2} processes"
-    print output.format(n, test.__name__, procs)
+    log(output.format(n, test.__name__, procs))
 
     # Here is why our asymptote is exponential! :(
     c = list(combinations(histograms, 2))
@@ -115,7 +116,7 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
         mat = np.round(mat, decimals=5) - 1.0
     t = time.time() - start_time
     output = 'Matrix took {0:.2} seconds to create, performing {1} calculations'
-    print output.format(t, numcalc)
+    log(output.format(t, numcalc))
     return mat
 
 
@@ -131,7 +132,7 @@ def cluster(mat, names, tname, dump=None, dendrogram=None):
     Z = fc.linkage(distArray, method='single', metric='euclidean')
     outstring = 'Clustering {0} histograms'.format(len(names))
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
-    print outstring
+    log(outstring)
     if dendrogram:
         # Create a dendrogram
         dend(Z, labels=names)
@@ -140,11 +141,11 @@ def cluster(mat, names, tname, dump=None, dendrogram=None):
         plt.ylabel('Dissimilarity')
         plt.suptitle("""Clustering dendrogram of {0}
                     compounds using {1}""".format(len(names), tname))
-        print 'Saving dendrogram'
+        log('Saving dendrogram')
         plt.savefig(dendrogram, dpi=800)
         plt.close()
     if dump:
-        print 'Dumping tree structure in {0}'.format(dump)
+        log('Dumping tree structure in {0}'.format(dump))
         T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
         d = dict(children=[], name="Root1")
         add_node(T, d)

@@ -14,6 +14,7 @@ import hist
 import calc
 import pack.cio as cio
 from data import widgets
+from data import log
 
 
 # HELPER AND WRAPPER FUNCTIONS
@@ -95,7 +96,7 @@ def proc_file_sa(fname, restrict, order=False):
     hirshfeld surface """
     if not os.path.isfile(fname):
         err = 'Could not open {0} for reading, check to see if file exists'
-        print err.format(fname)
+        log(err.format(fname))
         sys.exit(1)
     x, y, a = readcxsfile_c(fname)
 
@@ -119,7 +120,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
         err = 'Could not open {0} for reading, check to see if file exists'
         if os.path.isdir(fname):
             err = '{0} appears to be a directory, use --batch'
-        print err.format(fname)
+        log(err.format(fname))
         sys.exit(1)
 
     x, y, a = readcxsfile_c(fname)
@@ -161,12 +162,12 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
        and their corresponding substance names """
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
-        print err.format(dirname)
+        log(err.format(dirname))
         sys.exit(1)
     files = sorted(glob.glob(os.path.join(dirname, '*'+suffix)))
     nfiles = len(files)
     if nfiles < 1:
-        print 'No files to read in {0}'.format(dirname)
+        log('No files to read in {0}'.format(dirname))
         sys.exit(1)
     args = [(fname, resolution, save_figs) for fname in files]
 
@@ -192,7 +193,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     # unzip the output
     histograms, names = zip(*vals)
     output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-    print output.format(nfiles, time.time() - start_time, procs)
+    log(output.format(nfiles, time.time() - start_time, procs))
 
     return (histograms, names)
 
@@ -201,12 +202,12 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
-        print err.format(dirname)
+        log(err.format(dirname))
         sys.exit(1)
     files = glob.glob(os.path.join(dirname, '*'+suffix))
     nfiles = len(files)
     if nfiles < 1:
-        print 'No files to read in {0}'.format(dirname)
+        log('No files to read in {0}'.format(dirname))
         sys.exit(1)
     args = [(fname, restrict, order) for fname in files]
 
@@ -231,6 +232,6 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
 
     formulae, contribs = zip(*vals)
     output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-    print output.format(nfiles, time.time() - start_time, procs)
+    log(output.format(nfiles, time.time() - start_time, procs))
 
     return (formulae, contribs)
