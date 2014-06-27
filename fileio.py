@@ -152,7 +152,7 @@ def write_sa_file(fname, cnames, formulae, contribs):
             cname = cnames[i]
             formula = formulae[i]
             contrib_p = contribs[i]
-            line = '{0} {1}'.format(cname, formula)
+            line = '{0}, {1}'.format(cname, formula)
             if not contrib_p:
                 line = line + '--Nil--'
             else:
