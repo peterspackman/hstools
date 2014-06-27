@@ -36,5 +36,10 @@ cif
 tonto
 shlk
 basis_sets
+stdout
+stderr
+tmp
 # Log files
 *.log
+# Python mode stuff
+.ropeproject*

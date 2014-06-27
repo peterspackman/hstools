@@ -109,15 +109,10 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     # we must modify the values to give a distance equivalent
 
     if test is spearman_roc or test is kendall_tau:
-        # np.round() is used here because of floating point rounding
-        # (getting 1.0 - 1.0 != 0.0)
+        """ np.round() is used here because of floating point rounding
+            (getting 1.0 - 1.0 != 0.0). Must perform this step to convert
+            correlation data to distance """
         mat = 1.0 - np.round(mat, decimals=5)
-        """maximum = np.amax(mat)
-        np.fill_diagonal(mat, maximum)
-        minimum = np.amin(mat)
-        np.fill_diagonal(mat, 0.0)
-        mat = (mat - minimum) / (maximum)
-        np.fill_diagonal(mat, 0.0)"""
     else:
         np.fill_diagonal(mat, 0.0)
     t = time.time() - start_time
@@ -130,8 +125,7 @@ def cluster(mat, names, tname, dump=None,
             dendrogram=None, method=None,
             distance=None):
     """ Takes an NxN array of distances and an array of names with
-      the same indices, performs cluster analysis and shows a dendrogram
-    """
+      the same indices, performs cluster analysis and shows a dendrogram"""
 
     distArray = scipy.spatial.distance.squareform(mat)
     start_time = time.time()
@@ -143,7 +137,7 @@ def cluster(mat, names, tname, dump=None,
     log(outstring)
     if dendrogram:
         # Create a dendrogram
-        dend(Z, labels=names)
+        dend(Z, labels=names, color_threshold=3000)
         # Plot stuff
         plt.xlabel('Compound Name')
         plt.ylabel('Dissimilarity')
@@ -159,6 +153,15 @@ def cluster(mat, names, tname, dump=None,
         add_node(T, d)
         label_tree(d["children"][0], names)
         json.dump(d, open(dump, 'w'), sort_keys=True, indent=4)
+        log('printing clusters')
+        clusters = scipy.cluster.hierarchy.fcluster(Z, 3000,
+                                                    criterion='distance')
+        nclusters = clusters.size
+        num = max(clusters)
+        c = []
+        for i in range(1, num):
+            c.append([names[x] for x in range(nclusters) if clusters[x] == i])
+        json.dump(c, open('clusters.txt', 'w'), indent=4)
 
 
 def add_node(node, parent):
