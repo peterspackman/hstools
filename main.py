@@ -49,8 +49,9 @@ Options:
                                    'average', 'single', 'complete', 'weighted',
                                    'centroid', 'median', 'ward'.
                                    [default: complete]
-    --distance=DISTANCE            Use DISTANCE as a metric. Unlikely to change
-                                   much. [default: euclidean]
+    --distance=THRESHOLD           The threshold distance for leaves to be
+                                   classified as clustered. Unlikely to change
+                                   much. [default: 0.4]
 """
 
 # Core imports
@@ -103,7 +104,7 @@ def main():
             dirname = args['<dir>']
             dendrogram = args['--dendrogram']
             method = args['--method']
-            distance = args['--distance']
+            distance = float(args['--distance'])
             # Program is being run to batch process a directory of cxs files
             histograms, names = fio.batch_hist(dirname, resolution=bins,
                                                save_figs=save_figs,

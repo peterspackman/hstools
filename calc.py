@@ -135,16 +135,21 @@ def cluster(mat, names, tname, dump=None,
     outstring = 'Clustering {0} histograms'.format(len(names))
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
     log(outstring)
+    threshold = distance*max(Z[:, 2])
     if dendrogram:
         # Create a dendrogram
-        dend(Z, labels=names, color_threshold=3000)
+        dend(Z, labels=names, color_threshold=threshold, orientation='right')
         # Plot stuff
         plt.xlabel('Compound Name')
         plt.ylabel('Dissimilarity')
+        dpi = 200
         plt.suptitle("""Clustering dendrogram of {0}
                     compounds using {1}""".format(len(names), tname))
+        if len(names) > 100:
+            fig = plt.gcf()
+            fig.set_size_inches(10.5, min(len(names)*0.1, 32768/dpi))
         log('Saving dendrogram')
-        plt.savefig(dendrogram, dpi=800)
+        plt.savefig(dendrogram, dpi=dpi)
         plt.close()
     if dump:
         log('Dumping tree structure in {0}'.format(dump))
@@ -154,8 +159,9 @@ def cluster(mat, names, tname, dump=None,
         label_tree(d["children"][0], names)
         json.dump(d, open(dump, 'w'), sort_keys=True, indent=4)
         log('printing clusters')
-        clusters = scipy.cluster.hierarchy.fcluster(Z, 3000,
-                                                    criterion='distance')
+        # HARDCODED NUMBER OF CLUSTERS
+        clusters = scipy.cluster.hierarchy.fcluster(Z, 10,
+                                                    criterion='maxclust')
         nclusters = clusters.size
         num = max(clusters)
         c = []
