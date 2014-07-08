@@ -116,7 +116,7 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     else:
         np.fill_diagonal(mat, 0.0)
     t = time.time() - start_time
-    output = 'Matrix took {0:.2} seconds to create, performing {1} calculations'
+    output = 'Matrix took {0:.2}s to create, performing {1} calculations'
     log(output.format(t, numcalc))
     return mat
 

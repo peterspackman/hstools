@@ -186,6 +186,7 @@ widgets = ['Working - ', pb.Timer(), ' ',
            pb.AnimatedMarker(markers=braille)]
 silent = False
 
+
 def log(s):
     if not silent:
         print(s)
