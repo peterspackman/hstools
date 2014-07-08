@@ -151,6 +151,7 @@ def cluster(mat, names, tname, dump=None,
         log('Saving dendrogram')
         plt.savefig(dendrogram, dpi=dpi)
         plt.close()
+
     if dump:
         log('Dumping tree structure in {0}'.format(dump))
         T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
@@ -208,7 +209,7 @@ def area_tri(a, b, c):
     using the cross product formula |AxB|/2"""
     v1 = a - b
     v2 = c - b
-    # Because these funcitons expect 6 doubles or 3 doubles as arguments
+    # Because these functions expect 6 doubles or 3 doubles as arguments
     # we have to unpack the values!
     x, y, z = cio.cross3D(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
     return cio.normal3D(x, y, z) / 2
