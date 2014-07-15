@@ -224,7 +224,7 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
         err = '{0} does not appear to be a directory'
         log(err.format(dirname))
         sys.exit(1)
-    files = glob.glob(os.path.join(dirname, '*'+suffix))
+    files = sorted(glob.glob(os.path.join(dirname, '*'+suffix)))
     nfiles = len(files)
     if nfiles < 1:
         log('No files to read in {0}'.format(dirname))
