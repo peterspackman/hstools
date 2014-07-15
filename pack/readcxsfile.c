@@ -8,6 +8,7 @@
 #define ATOMS 2
 #define DISTANCE 3
 #define INDICES 4
+#define MOMENTS 5
 
 
 int line_startswith(char * pre, char * line)
@@ -36,6 +37,16 @@ int readvals(FILE * f, int kind, int count, void * s)
             float pts[3];
             sscanf(buf,"%e %e %e\n",&pts[0],&pts[1],&pts[2]);
             memcpy(&v[3*i], pts, sizeof(float) * 3);
+            n++;
+        }
+        return n;
+        break;
+    }
+    case MOMENTS: {
+        float * v = s;
+        for(int i = 0; i < count; i++) {
+            fgets(buf,BUFSIZ,f);
+            sscanf(buf,"%*d %e",&v[i]);
             n++;
         }
         return n;
@@ -105,11 +116,13 @@ CXS_DATA * readcxsfile(char * fname)
     int * di_face_atoms;
     int * atoms_outside;
     int * atoms_inside;
+    float * dnorm_moments;
     char * formula;
     inputFile = fopen(fname, "r");
     int count = 0;
     int nfaces;
     int nvertices;
+    int nmoments;
 
     while (!feof(inputFile)) {
         fgets(buf, BUFSIZ, inputFile);
@@ -183,6 +196,14 @@ CXS_DATA * readcxsfile(char * fname)
             r = readvals(inputFile, DISTANCE , count, (void *) devals);
         }
 
+        else if (line_startswith("begin moments_d_norm ", buf) == 0) {
+            sscanf(buf, "begin moments_d_norm %d\n",&count);
+            dnorm_moments = malloc(sizeof(*dnorm_moments) * count);
+            if(dnorm_moments == NULL) goto FAIL;
+            r = readvals(inputFile, MOMENTS, count, (void *) dnorm_moments);
+            nmoments = count;
+        }
+
         else if(line_startswith("   formula = ",buf) == 0) {
             formula = get_formula(buf);
             if(formula == NULL) goto FAIL;
@@ -206,20 +227,21 @@ CXS_DATA * readcxsfile(char * fname)
             || atoms == NULL || atoms_outside == NULL
             || atoms_inside == NULL || de_face_atoms == NULL
             || di_face_atoms == NULL || divals == NULL
-            || devals == NULL) {
+            || devals == NULL || dnorm_moments == NULL) {
         goto FAIL;
     }
+    // DEREFERENCE ALL THE ATOMS TO THEIR CHEMICAL SYMBOLS
     for(int i = 0; i < nfaces; i++) {
         int ai_index = di_face_atoms[i] - 1;
         int ao_index = de_face_atoms[i] - 1;
         if (ao_index < 0 || ai_index < 0) {
-            error_string = "CRITICAL: Indexing below 0 (face_atoms)";
+            error_string = "critical: indexing below 0 (face_atoms)";
             goto FAIL;
         }
         int a1_index = atoms_outside[ao_index] - 1;
         int a2_index = atoms_inside[ai_index] -1;
         if(a1_index < 0 || a2_index < 0) {
-            error_string = "CRITICAL: Indexing below 0 (atoms outside)";
+            error_string = "critical: indexing below 0 (atoms outside)";
             goto FAIL;
         }
         memcpy(&external[2*i],
@@ -239,15 +261,22 @@ CXS_DATA * readcxsfile(char * fname)
     CXS_DATA * rslt = malloc(sizeof(CXS_DATA));
     rslt->internal = internal;
     rslt->external = external;
+
     rslt->divals = divals;
     rslt->devals = devals;
+
     rslt->vertices = vertices;
     rslt->indices = indices;
     rslt->nfaces = nfaces;
     rslt->nvertices =nvertices;
     rslt->formula = formula;
+    //moments stuff
+    rslt->dnorm_moments = dnorm_moments;
+    rslt->nmoments = nmoments;
+
     return rslt;
-    //FAILURE POINT, free memory and return NULL
+
+    //failure point, free memory and return null
 FAIL:
     free(atoms_inside);
     free(atoms_outside);

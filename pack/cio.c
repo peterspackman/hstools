@@ -50,6 +50,7 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     //UNPACK THE VALUES FROM CXS_DATA
     int nfaces = cxs->nfaces;
     int nvertices = cxs->nvertices;
+    int nmoments = cxs->nmoments;
     //this is ugly but string manipulation in python is MUCH easier
     PyObject * formula =  PyString_FromString(cxs->formula);
     //dimensions etc
@@ -58,6 +59,7 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     npy_intp idims[2] = {nfaces, 3};
     npy_intp exdims[1] = {nfaces};
     npy_intp stride[1] = {2*sizeof(char)};
+    npy_intp mdims[1] = {nmoments};
     //Only way to create an array of c strings with length 2 like we have
     PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
     desc->elsize = 2;
@@ -65,6 +67,7 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     //Construct our numpy arrays
     PyObject * divals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->divals);
     PyObject * devals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->devals);
+    PyObject * dnorm_moments = PyArray_SimpleNewFromData(1, mdims, NPY_FLOAT, cxs->dnorm_moments);
     PyObject * vertices = PyArray_SimpleNewFromData(2, vdims, NPY_FLOAT, cxs->vertices);
     PyObject * indices = PyArray_SimpleNewFromData(2, idims, NPY_INT, cxs->indices);
     PyObject * internal = PyArray_NewFromDescr(&PyArray_Type, desc,
@@ -76,10 +79,11 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     PyArray_UpdateFlags((PyArrayObject * ) indices, FLAGS);
     PyArray_UpdateFlags((PyArrayObject * ) divals, FLAGS);
     PyArray_UpdateFlags((PyArrayObject * ) devals, FLAGS);
+    PyArray_UpdateFlags((PyArrayObject * ) dnorm_moments, FLAGS);
 
     free(cxs);
     PyObject * x = Py_BuildValue("OOOOO",formula, vertices, indices, internal, external);
-    PyObject * ret = Py_BuildValue("OOO", divals, devals, x);
+    PyObject * ret = Py_BuildValue("OOOO", divals, devals, x, dnorm_moments);
     return ret;
 }
 

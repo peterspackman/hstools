@@ -78,7 +78,7 @@ test_files $TMP $HISTHD
 if [ $NPASSED -eq $NTESTS ]; then
   printf "%s[ALL TESTS PASSED]%s" $GREEN $NORMAL
 else
-  printf "%s[ONLY %d OF %d TESTS PASSED]%s" $RED $NPASSED $NTESTS $NORMAL
+  printf "%s[%d OF %d TESTS PASSED]%s" $RED $NPASSED $NTESTS $NORMAL
 fi
 T="$(($(date +%s)-T))"
 printf " in ${T} seconds\n"

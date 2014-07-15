@@ -43,11 +43,11 @@ def readcxsfile_c(fname):
     except cio.error, e:
         log('Problem in {0}: {1}'.format(fname, e))
         return None
-    di, de, p = r
+    di, de, p, moments = r
     formula, vertices, indices, internal, external = p
     # Strip the unnecessary quotes and spaces from the line
     formula = formula.split('\"')[1]
-    return di, de, (formula, vertices, indices, internal, external)
+    return di, de, (formula, vertices, indices, internal, external), moments
 
 
 # FILE FUNCTIONS
@@ -106,7 +106,7 @@ def proc_file_sa(fname, restrict, order=False):
     r = readcxsfile_c(fname)
     if not r:
         return None
-    x, y, a = r
+    x, y, a, moments = r
 
     formula, vertices, indices, internal, external = a
     contrib, contrib_p = calc.get_contrib_percentage(vertices, indices,
@@ -133,7 +133,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
     r = readcxsfile_c(fname)
     if not r:
         return None
-    x, y, a = r
+    x, y, a, moments = r
 
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)

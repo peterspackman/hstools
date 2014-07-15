@@ -14,6 +14,8 @@ typedef struct {
     char * internal, * external;// array of nfaces *2 chars with a stride of 2
     int nfaces, nvertices;
     char * formula;
+    float * dnorm_moments;
+    int nmoments;
 
 } CXS_DATA;
 
