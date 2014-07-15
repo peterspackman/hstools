@@ -1,5 +1,8 @@
 #include <Python.h>
+#pragma GCC diagnostic ignored "-Wcpp"
+#pragma message "Using deprecated NUMPY API"
 #include <numpy/arrayobject.h>
+#pragma GCC diagnostic pop
 #define MAIN_FILE
 #include "cio.h"
 static char module_docstring[] =

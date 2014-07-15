@@ -6,7 +6,6 @@ char * error_string;
 extern char * error_string;
 #endif
 #endif
-
 typedef struct {
     float * devals, *divals; //arrays of nvertices floats
     float *vertices; //array of nvertices *3 floats, with a stride of 3

@@ -2,6 +2,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include "cio.h"
 #define VERTICES 0
 #define FACE 1
@@ -10,6 +11,10 @@
 #define INDICES 4
 #define MOMENTS 5
 
+
+#pragma message "Ignoring possible uninitialized errors in this code"
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 
 int line_startswith(char * pre, char * line)
 {
@@ -27,12 +32,13 @@ char * get_formula(char * buf)
 int readvals(FILE * f, int kind, int count, void * s)
 {
     char buf[BUFSIZ];
+    char * res = NULL;
     int n = 0;
     switch (kind) {
     case VERTICES: {
         float * v = s;
         for(int i = 0; i < count; i++) {
-            fgets(buf,BUFSIZ,f);
+            res = fgets(buf,BUFSIZ,f);
             //Treat arr as a pointer to an Nx3 array
             float pts[3];
             sscanf(buf,"%e %e %e\n",&pts[0],&pts[1],&pts[2]);
@@ -45,7 +51,7 @@ int readvals(FILE * f, int kind, int count, void * s)
     case MOMENTS: {
         float * v = s;
         for(int i = 0; i < count; i++) {
-            fgets(buf,BUFSIZ,f);
+            res = fgets(buf,BUFSIZ,f);
             sscanf(buf,"%*d %e",&v[i]);
             n++;
         }
@@ -55,7 +61,7 @@ int readvals(FILE * f, int kind, int count, void * s)
     case INDICES: {
         int * x = s;
         for(int i = 0; i < count; i++) {
-            fgets(buf,BUFSIZ,f);
+            res = fgets(buf,BUFSIZ,f);
             int ind[3];
             sscanf(buf,"%d %d %d\n",&ind[0],&ind[1],&ind[2]);
             memcpy(&x[3*i], ind, sizeof(int) *3);
@@ -67,7 +73,7 @@ int readvals(FILE * f, int kind, int count, void * s)
     case FACE: {
         int * face = s;
         for(int i = 0; i < count; i++) {
-            fgets(buf, BUFSIZ, f);
+            res = fgets(buf, BUFSIZ, f);
             sscanf(buf,"%d %*s",&face[i]);
             n++;
         }
@@ -77,7 +83,7 @@ int readvals(FILE * f, int kind, int count, void * s)
     case ATOMS: {
         char * atom = s;
         for(int i = 0; i < count; i++) {
-            fgets(buf, BUFSIZ, f);
+            res = fgets(buf, BUFSIZ, f);
             char tmp[3] = {'\0','\0','\0'};
             sscanf(buf,"%*s %2s ",(char *) &tmp);
             memcpy(&atom[2*i],tmp,2*sizeof(char));
@@ -89,12 +95,16 @@ int readvals(FILE * f, int kind, int count, void * s)
     case DISTANCE: {
         float * d = s;
         for(int i = 0; i < count; i++) {
-            fgets(buf, BUFSIZ, f);
+            res = fgets(buf, BUFSIZ, f);
             sscanf(buf,"%e",&d[i]);
             n++;
         }
         return n;
         break;
+    }
+    if(res == NULL && feof(f) == 0) {
+        fprintf(stderr,"problem reading file ");
+        perror("error:");
     }
     }
     return count;
@@ -103,30 +113,38 @@ int readvals(FILE * f, int kind, int count, void * s)
 CXS_DATA * readcxsfile(char * fname)
 {
     //File processing vars
-    FILE * inputFile;
+    FILE * inputFile = fopen(fname, "r");
+    if(inputFile == NULL) {
+        fprintf(stderr, "Error opening file: %s",fname);
+        perror("");
+        goto FAIL;
+    }
     char buf[BUFSIZ];
+    char * res = NULL;
     int n = 0;
     //RETURN VALUES
-    float * devals, * divals, * vertices;
-    int * indices;
-    char * external, *internal;
+    float * devals = NULL, * divals = NULL, * vertices = NULL;
+    int * indices = NULL;
+    char * external = NULL, *internal = NULL;
     // Temporary variables
-    char * atoms;
-    int * de_face_atoms;
-    int * di_face_atoms;
-    int * atoms_outside;
-    int * atoms_inside;
-    float * dnorm_moments;
-    char * formula;
-    inputFile = fopen(fname, "r");
+    char * atoms = NULL, * formula = NULL;
+    int * de_face_atoms = NULL, * di_face_atoms = NULL;
+    int * atoms_outside = NULL, * atoms_inside = NULL;
+    float * dnorm_moments = NULL;
     int count = 0;
-    int nfaces;
-    int nvertices;
-    int nmoments;
+    int nfaces = 0;
+    int nvertices = 0;
+    int nmoments = 0;
 
     while (!feof(inputFile)) {
-        fgets(buf, BUFSIZ, inputFile);
         int r = 0;
+        res = fgets(buf, BUFSIZ, inputFile);
+        // ERRORS READING FILE
+        if (res == NULL && feof(inputFile) == 0) {
+            fprintf(stderr,"error reading file %s:", fname);
+            perror("error:");
+            goto FAIL;
+        }
 
         if (line_startswith("begin unit_cell",buf) == 0) {
             sscanf(buf,"begin unit_cell %d\n",&count);
@@ -282,6 +300,7 @@ FAIL:
     free(atoms_outside);
     free(de_face_atoms);
     free(di_face_atoms);
+    free(dnorm_moments);
     free(atoms);
     free(internal);
     free(external);
@@ -293,3 +312,4 @@ FAIL:
 
     return NULL;
 }
+#pragma GCC diagnostic pop
