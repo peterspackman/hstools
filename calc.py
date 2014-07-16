@@ -59,6 +59,18 @@ def hdistance(x):
     return abs(d)
 
 
+def mdistance(x):
+    m1, m2 = x
+    ms = np.round(m1[0,:], decimals=10)
+    mc = np.round(m1[1,:], decimals=10)
+    moments1 = np.power(ms,2) + np.power(mc,2)
+    ms = np.round(m2[0,:], decimals=10)
+    mc = np.round(m2[1,:], decimals=10)
+    moments2 = np.power(ms ,2) + np.power(mc, 2)
+    d = abs(np.sum(moments2 - moments1))
+    return d
+
+
 def get_dist_mat(histograms, test=spearman_roc, procs=4):
     """ Given a list of histograms, calculate the distances between them
         and return a NxN redundant array of these distances. """

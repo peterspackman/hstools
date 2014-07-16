@@ -124,13 +124,15 @@ CXS_DATA * readcxsfile(char * fname)
     int n = 0;
     //RETURN VALUES
     float * devals = NULL, * divals = NULL, * vertices = NULL;
+    float * dnorm_vals = NULL, * dnorm_evals = NULL, * dnorm_ivals = NULL;
     int * indices = NULL;
     char * external = NULL, *internal = NULL;
     // Temporary variables
     char * atoms = NULL, * formula = NULL;
     int * de_face_atoms = NULL, * di_face_atoms = NULL;
     int * atoms_outside = NULL, * atoms_inside = NULL;
-    float * dnorm_moments = NULL;
+    float * dnorm_moments = NULL, * de_moments = NULL, * di_moments = NULL;
+    float * dnorm_emoments = NULL, * dnorm_imoments = NULL;
     int count = 0;
     int nfaces = 0;
     int nvertices = 0;
@@ -152,7 +154,11 @@ CXS_DATA * readcxsfile(char * fname)
             if(atoms == NULL) goto FAIL;
             r = readvals(inputFile, ATOMS, count, (void *) atoms);
         }
-
+        else if(line_startswith("   formula = ",buf) == 0) {
+            formula = get_formula(buf);
+            if(formula == NULL) goto FAIL;
+        }
+        // SURFACE
         else if( line_startswith("begin vertices",buf) == 0) {
             sscanf(buf,"begin vertices %d\n",&count);
             vertices = malloc(sizeof(float) * count * 3);
@@ -160,27 +166,26 @@ CXS_DATA * readcxsfile(char * fname)
             r = readvals(inputFile, VERTICES, count, (void *) vertices);
             nvertices = count;
         }
-
         else if (line_startswith("begin indices",buf) == 0) {
             sscanf(buf,"begin indices %d\n",&count);
             indices = malloc(sizeof(int) * count * 3);
             if(indices == NULL) goto FAIL;
             r = readvals(inputFile, INDICES, count, (void *) indices);
+        }
+        // EXTERNAL AND INTERNAL ATOM STUFF
 
-        } else if (line_startswith("begin atoms_inside",buf) == 0) {
+        else if (line_startswith("begin atoms_inside",buf) == 0) {
             sscanf(buf,"begin atoms_inside_surface %d\n",&count);
             atoms_inside = malloc(sizeof(int) * count);
             if(atoms_inside == NULL) goto FAIL;
             r = readvals(inputFile, FACE, count, (void *) atoms_inside);
         }
-
         else if (line_startswith("begin atoms_outside",buf) == 0) {
             sscanf(buf,"begin atoms_outside_surface %d\n",&count);
             atoms_outside = malloc(sizeof(int) * count);
             if(atoms_outside == NULL) goto FAIL;
             r = readvals(inputFile, FACE, count, (void *) atoms_outside);
         }
-
         else if (line_startswith("begin d_i_face_atoms",buf) == 0) {
             sscanf(buf,"begin d_i_face_atoms %d\n",&count);
             di_face_atoms = malloc(sizeof(*di_face_atoms) * count);
@@ -189,7 +194,6 @@ CXS_DATA * readcxsfile(char * fname)
             internal = malloc(sizeof(char) * count * 2);
             if(internal == NULL) goto FAIL;
         }
-
         else if (line_startswith("begin d_e_face_atoms",buf) == 0) {
             sscanf(buf,"begin d_e_face_atoms %d\n",&count);
             de_face_atoms = malloc(sizeof(*de_face_atoms) * count);
@@ -199,6 +203,7 @@ CXS_DATA * readcxsfile(char * fname)
             if(external == NULL) goto FAIL;
             nfaces = count;
         }
+        // SURFACE PROPERTIES
 
         else if (line_startswith("begin d_i ",buf) == 0) {
             sscanf(buf,"begin d_i %d\n",&count);
@@ -206,13 +211,13 @@ CXS_DATA * readcxsfile(char * fname)
             if(divals == NULL) goto FAIL;
             r = readvals(inputFile, DISTANCE , count, (void *) divals);
         }
-
         else if (line_startswith("begin d_e ",buf) == 0) {
             sscanf(buf,"begin d_e %d\n",&count);
             devals = malloc(sizeof(float) * count);
             if(devals == NULL) goto FAIL;
             r = readvals(inputFile, DISTANCE , count, (void *) devals);
         }
+        // MOMENTS
 
         else if (line_startswith("begin moments_d_norm ", buf) == 0) {
             sscanf(buf, "begin moments_d_norm %d\n",&count);
@@ -221,10 +226,33 @@ CXS_DATA * readcxsfile(char * fname)
             r = readvals(inputFile, MOMENTS, count, (void *) dnorm_moments);
             nmoments = count;
         }
-
-        else if(line_startswith("   formula = ",buf) == 0) {
-            formula = get_formula(buf);
-            if(formula == NULL) goto FAIL;
+        else if (line_startswith("begin moments_d_e ", buf) == 0) {
+            sscanf(buf, "begin moments_d_e %d\n",&count);
+            de_moments = malloc(sizeof(*de_moments) * count);
+            if(de_moments == NULL) goto FAIL;
+            r = readvals(inputFile, MOMENTS, count, (void *) de_moments);
+            nmoments = count;
+        }
+        else if (line_startswith("begin moments_d_i ", buf) == 0) {
+            sscanf(buf, "begin moments_d_i %d\n",&count);
+            di_moments = malloc(sizeof(*di_moments) * count);
+            if(di_moments == NULL) goto FAIL;
+            r = readvals(inputFile, MOMENTS, count, (void *) di_moments);
+            nmoments = count;
+        }
+        else if (line_startswith("begin moments_d_norm_i ", buf) == 0) {
+            sscanf(buf, "begin moments_d_norm_i %d\n",&count);
+            dnorm_imoments = malloc(sizeof(*dnorm_imoments) * count);
+            if(dnorm_imoments == NULL) goto FAIL;
+            r = readvals(inputFile, MOMENTS, count, (void *) dnorm_imoments);
+            nmoments = count;
+        }
+        else if (line_startswith("begin moments_d_norm_e ", buf) == 0) {
+            sscanf(buf, "begin moments_d_norm_e %d\n",&count);
+            dnorm_emoments = malloc(sizeof(*dnorm_emoments) * count);
+            if(dnorm_emoments == NULL) goto FAIL;
+            r = readvals(inputFile, MOMENTS, count, (void *) dnorm_emoments);
+            nmoments = count;
         }
 
         if(r > 0 && r < count) {
@@ -279,17 +307,25 @@ CXS_DATA * readcxsfile(char * fname)
     CXS_DATA * rslt = malloc(sizeof(CXS_DATA));
     rslt->internal = internal;
     rslt->external = external;
-
+    //SURFACE PROPERTIES
     rslt->divals = divals;
     rslt->devals = devals;
-
+    rslt->dnorm_vals = dnorm_vals;
+    rslt->dnorm_evals = dnorm_evals;
+    rslt->dnorm_ivals = dnorm_ivals;
+    //SURFACE STUFF
     rslt->vertices = vertices;
     rslt->indices = indices;
     rslt->nfaces = nfaces;
     rslt->nvertices =nvertices;
     rslt->formula = formula;
     //moments stuff
+    rslt->de_moments = de_moments;
+    rslt->di_moments = di_moments;
     rslt->dnorm_moments = dnorm_moments;
+    rslt->dnorm_emoments = dnorm_emoments;
+    rslt->dnorm_imoments = dnorm_imoments;
+
     rslt->nmoments = nmoments;
 
     return rslt;
@@ -300,12 +336,22 @@ FAIL:
     free(atoms_outside);
     free(de_face_atoms);
     free(di_face_atoms);
-    free(dnorm_moments);
     free(atoms);
     free(internal);
     free(external);
+
+    free(dnorm_moments);
+    free(dnorm_emoments);
+    free(dnorm_imoments);
+    free(de_moments);
+    free(di_moments);
+
     free(divals);
     free(devals);
+    free(dnorm_evals);
+    free(dnorm_ivals);
+    free(dnorm_vals);
+
     free(formula);
     free(vertices);
     free(indices);

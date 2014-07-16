@@ -62,17 +62,30 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     npy_intp idims[2] = {nfaces, 3};
     npy_intp exdims[1] = {nfaces};
     npy_intp stride[1] = {2*sizeof(char)};
-    npy_intp mdims[1] = {nmoments};
+    npy_intp mdims[2] = {2, nmoments/2};
+    npy_intp mstride[2] = {sizeof(float)*nmoments/2,sizeof(float)};
     //Only way to create an array of c strings with length 2 like we have
     PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
+    PyArray_Descr * mdesc = PyArray_DescrNewFromType(NPY_FLOAT);
     desc->elsize = 2;
     const int FLAGS = NPY_CARRAY | NPY_OWNDATA;
     //Construct our numpy arrays
     PyObject * divals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->divals);
     PyObject * devals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->devals);
-    PyObject * dnorm_moments = PyArray_SimpleNewFromData(1, mdims, NPY_FLOAT, cxs->dnorm_moments);
     PyObject * vertices = PyArray_SimpleNewFromData(2, vdims, NPY_FLOAT, cxs->vertices);
     PyObject * indices = PyArray_SimpleNewFromData(2, idims, NPY_INT, cxs->indices);
+
+    PyObject * dnorm_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
+                          2, mdims, mstride, cxs->dnorm_moments, FLAGS, NULL);
+    PyObject * dnorm_emoments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
+                          2, mdims, mstride, cxs->dnorm_emoments, FLAGS, NULL);
+    PyObject * dnorm_imoments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
+                          2, mdims, mstride, cxs->dnorm_imoments, FLAGS, NULL);
+    PyObject * de_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
+                          2, mdims, mstride, cxs->de_moments, FLAGS, NULL);
+    PyObject * di_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
+                          2, mdims, mstride, cxs->di_moments, FLAGS, NULL);
+
     PyObject * internal = PyArray_NewFromDescr(&PyArray_Type, desc,
                           1, exdims, stride, cxs->internal, FLAGS, NULL);
     PyObject * external = PyArray_NewFromDescr(&PyArray_Type, desc,
@@ -82,11 +95,13 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     PyArray_UpdateFlags((PyArrayObject * ) indices, FLAGS);
     PyArray_UpdateFlags((PyArrayObject * ) divals, FLAGS);
     PyArray_UpdateFlags((PyArrayObject * ) devals, FLAGS);
-    PyArray_UpdateFlags((PyArrayObject * ) dnorm_moments, FLAGS);
 
     free(cxs);
     PyObject * x = Py_BuildValue("OOOOO",formula, vertices, indices, internal, external);
-    PyObject * ret = Py_BuildValue("OOOO", divals, devals, x, dnorm_moments);
+    PyObject * moments = Py_BuildValue("OOOOO", dnorm_moments,
+                                       dnorm_imoments, dnorm_emoments,
+                                       di_moments, de_moments);
+    PyObject * ret = Py_BuildValue("OOOO", divals, devals, x, moments);
     return ret;
 }
 

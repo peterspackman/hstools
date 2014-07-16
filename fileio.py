@@ -35,6 +35,9 @@ def hist_helper(args):
     fname, res, save_figs = args
     return proc_file_hist(fname, resolution=res, save_figs=save_figs)
 
+def moments_helper(args):
+    fname, metric = args
+    return proc_file_moments(fname, metric=metric)
 
 def readcxsfile_c(fname):
     """ A wrapper around cio.readcxsfile """
@@ -117,6 +120,23 @@ def proc_file_sa(fname, restrict, order=False):
     cname = os.path.basename(os.path.splitext(fname)[0])
     return cname, formula, contrib_p
 
+
+def proc_file_moments(fname, metric='dnorm'):
+    """ Read a file from fname, collecting the moments
+        and returning them as an array
+    """
+    if not os.path.isfile(fname):
+        err = 'Could not open {0} for reading, check to see if file exists'
+        if os.path.isdir(fname):
+            err = '{0} appears to be a directory, use --batch'
+        log(err.format(fname))
+        sys.exit(1)
+    r = readcxsfile_c(fname)
+    cname = os.path.basename(os.path.splitext(fname)[0])
+    if not r:
+        return None
+    _, _, _, moments = r
+    return (moments, cname)
 
 def proc_file_hist(fname, resolution=10, save_figs=False):
     """ Read a file from fname, generate a histogram and potentially write
@@ -213,6 +233,52 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         log(output.format(nfiles, time.time() - start_time, procs))
 
         return (histograms, names)
+    else:
+        log('Errors reading all files, exiting.')
+        sys.exit(1)
+
+def batch_moments(dirname, metric='d_norm', suffix='.cxs', procs=4):
+    if not os.path.isdir(dirname):
+        err = '{0} does not appear to be a directory'
+        log(err.format(dirname))
+        sys.exit(1)
+    files = sorted(glob.glob(os.path.join(dirname, '*'+suffix)))
+    nfiles = len(files)
+    if nfiles < 1:
+        log('No files to read in {0}'.format(dirname))
+        sys.exit(1)
+    args = [(fname, metric) for fname in files]
+
+    moments = []
+    names = []
+    vals = []
+    # Boilerplate
+    pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
+    start_time = time.time()
+    pbar.start()
+    p = multiprocessing.Pool(procs)
+    r = p.map_async(moments_helper, args, callback=vals.extend)
+    p.close()
+    while True:
+        if r.ready():
+            break
+        pbar.update()
+        time.sleep(0.2)
+    p.join()
+    pbar.finish()
+    # Strip none values
+    vals = [x for x in vals if x is not None]
+    if len(vals) < nfiles:
+        log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
+        nfiles = len(vals)
+
+    if nfiles > 0:
+        # unzip the output
+        moments, names = zip(*vals)
+        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+        log(output.format(nfiles, time.time() - start_time, procs))
+
+        return (moments, names)
     else:
         log('Errors reading all files, exiting.')
         sys.exit(1)

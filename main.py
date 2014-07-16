@@ -2,6 +2,7 @@
 """Usage:
     sclcc hist (--batch <dir> | <file>) [options]
     sclcc surface (--batch <dir> | <file>) [options]
+    sclcc moments (--batch <dir> | <file>) [options]
     sclcc (--version | --help | -h)
 
 Simple Command-Line Computational Chemistry (SCLCC)
@@ -119,6 +120,31 @@ def main():
                          dendrogram=dendrogram,
                          method=method,
                          distance=distance)
+
+    if args['moments']:
+        if args['<file>']:
+            fname = args['<file>']
+            if not fname.endswith('.cxs'):
+                log('WARNING: {0} does not have .cxs extension'.format(fname))
+            moments, cname = fio.proc_file_moments(fname)
+            dnorm_moments, dnorm_imoments, dnorm_emoments, \
+            di_moments, de_moments, = moments
+            log(cname)
+        if args['<dir>']:
+            dendrogram = args['--dendrogram']
+            method = args['--method']
+            distance = float(args['--distance'])
+            dirname = args['<dir>']
+            moments, names = fio.batch_moments(dirname)
+            log('Generating matrix using absolute distance')
+            dnorm_moments, dnorm_imoments, dnorm_emoments,\
+            di_moments, de_moments = zip(*moments)
+            mat = calc.get_dist_mat(dnorm_moments, test=calc.mdistance)
+            if args['--output']:
+                fname = args['--output']
+                fio.write_mat_file(fname, mat)
+            calc.cluster(mat, names, 'mdistance', dendrogram=dendrogram,
+                         method=method, distance=distance)
 
     # Process surface area statistics
     if args['surface']:
