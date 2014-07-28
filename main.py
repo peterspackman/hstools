@@ -136,7 +136,7 @@ def main():
             method = args['--method']
             distance = float(args['--distance'])
             dirname = args['<dir>']
-            values , names = fio.batch_harmonics(dirname)
+            values, names = fio.batch_harmonics(dirname)
             log('Generating matrix using absolute distance')
             coefficients, invariants = zip(*values)
             mat = calc.get_dist_mat(invariants, test=calc.dvalue)

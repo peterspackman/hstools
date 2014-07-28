@@ -35,9 +35,11 @@ def hist_helper(args):
     fname, res, save_figs = args
     return proc_file_hist(fname, resolution=res, save_figs=save_figs)
 
+
 def harmonics_helper(args):
     fname, metric = args
     return proc_file_harmonics(fname, metric=metric)
+
 
 def readcxsfile_c(fname):
     """ A wrapper around cio.readcxsfile """
@@ -138,6 +140,7 @@ def proc_file_harmonics(fname, metric='dnorm'):
     _, _, _, harmonics = r
     return (harmonics, cname)
 
+
 def proc_file_hist(fname, resolution=10, save_figs=False):
     """ Read a file from fname, generate a histogram and potentially write
         the png of it to file.
@@ -236,6 +239,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     else:
         log('Errors reading all files, exiting.')
         sys.exit(1)
+
 
 def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
     if not os.path.isdir(dirname):

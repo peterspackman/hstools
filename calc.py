@@ -59,11 +59,10 @@ def hdistance(x):
     return abs(d)
 
 
-
 def dvalue(x):
     # unpack the tuple
     i1, i2 = x
-    d = np.power(np.sum(np.power(i2 - i1, 2)),0.5)
+    d = np.power(np.sum(np.power(i2 - i1, 2)), 0.5)
     return d
 
 
