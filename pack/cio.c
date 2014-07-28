@@ -50,16 +50,22 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
                         error_string);
         return NULL; //this returns None to Python
     }
+
     //UNPACK THE VALUES FROM CXS_DATA
     int nfaces = cxs->nfaces;
     int nvertices = cxs->nvertices;
     int nmoments = cxs->nmoments;
+    int ncoefficients= cxs->ncoefficients;
     //this is ugly but string manipulation in python is MUCH easier
+    if(cxs->formula == NULL){
+        cxs->formula = "FAILED";
+    }
     PyObject * formula =  PyString_FromString(cxs->formula);
     //dimensions etc
     npy_intp didims[1] = {nvertices};
     npy_intp vdims[2] = {nvertices, 3};
     npy_intp idims[2] = {nfaces, 3};
+    npy_intp cdims[2] = {ncoefficients, 2};
     npy_intp exdims[1] = {nfaces};
     npy_intp stride[1] = {2*sizeof(char)};
     npy_intp mdims[2] = {2, nmoments/2};
@@ -74,6 +80,7 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     PyObject * devals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->devals);
     PyObject * vertices = PyArray_SimpleNewFromData(2, vdims, NPY_FLOAT, cxs->vertices);
     PyObject * indices = PyArray_SimpleNewFromData(2, idims, NPY_INT, cxs->indices);
+    PyObject * coefficients = PyArray_SimpleNewFromData(2, cdims, NPY_FLOAT, cxs->coefficients);
 
     PyObject * dnorm_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
                           2, mdims, mstride, cxs->dnorm_moments, FLAGS, NULL);
@@ -85,6 +92,8 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
                           2, mdims, mstride, cxs->de_moments, FLAGS, NULL);
     PyObject * di_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
                           2, mdims, mstride, cxs->di_moments, FLAGS, NULL);
+    PyObject * shape_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
+                          2, mdims, mstride, cxs->shape_moments, FLAGS, NULL);
 
     PyObject * internal = PyArray_NewFromDescr(&PyArray_Type, desc,
                           1, exdims, stride, cxs->internal, FLAGS, NULL);
@@ -95,13 +104,14 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     PyArray_UpdateFlags((PyArrayObject * ) indices, FLAGS);
     PyArray_UpdateFlags((PyArrayObject * ) divals, FLAGS);
     PyArray_UpdateFlags((PyArrayObject * ) devals, FLAGS);
+    PyArray_UpdateFlags((PyArrayObject * ) coefficients, FLAGS);
 
     free(cxs);
     PyObject * x = Py_BuildValue("OOOOO",formula, vertices, indices, internal, external);
-    PyObject * moments = Py_BuildValue("OOOOO", dnorm_moments,
+    PyObject * moments = Py_BuildValue("OOOOOO", dnorm_moments,
                                        dnorm_imoments, dnorm_emoments,
-                                       di_moments, de_moments);
-    PyObject * ret = Py_BuildValue("OOOO", divals, devals, x, moments);
+                                       di_moments, de_moments, shape_moments);
+    PyObject * ret = Py_BuildValue("OOOOO", divals, devals, x, moments, coefficients);
     return ret;
 }
 

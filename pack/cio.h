@@ -18,7 +18,9 @@ typedef struct {
     float * di_moments;
     float * dnorm_emoments;
     float * dnorm_imoments;
-    int nmoments;
+    float * shape_moments;
+    float * coefficients;
+    int nmoments, ncoefficients;
 
 } CXS_DATA;
 

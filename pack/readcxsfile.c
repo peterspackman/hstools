@@ -10,6 +10,7 @@
 #define DISTANCE 3
 #define INDICES 4
 #define MOMENTS 5
+#define COEFFICIENTS 6
 
 
 #pragma message "Ignoring possible uninitialized errors in this code"
@@ -23,9 +24,9 @@ int line_startswith(char * pre, char * line)
 
 char * get_formula(char * buf)
 {
-    char * s = malloc(sizeof(char)*BUFSIZ);
+    char * s = calloc(BUFSIZ, sizeof(char));
     if(s == NULL) return NULL;
-    strncpy(s,buf,BUFSIZ);
+    strncpy(s,buf,BUFSIZ-1);
     return s;
 }
 
@@ -102,6 +103,18 @@ int readvals(FILE * f, int kind, int count, void * s)
         return n;
         break;
     }
+    case COEFFICIENTS: {
+        float * d = s;
+        for(int i = 0; i < count; i++) {
+            res = fgets(buf, BUFSIZ, f);
+            float pts[2];
+            sscanf(buf,"%e %e\n",&pts[0],&pts[1]);
+            memcpy(&d[2*i], pts, sizeof(float) * 3);
+            n++;
+        }
+        return n;
+        break;
+    }
     if(res == NULL && feof(f) == 0) {
         fprintf(stderr,"problem reading file ");
         perror("error:");
@@ -132,11 +145,13 @@ CXS_DATA * readcxsfile(char * fname)
     int * de_face_atoms = NULL, * di_face_atoms = NULL;
     int * atoms_outside = NULL, * atoms_inside = NULL;
     float * dnorm_moments = NULL, * de_moments = NULL, * di_moments = NULL;
-    float * dnorm_emoments = NULL, * dnorm_imoments = NULL;
+    float *dnorm_emoments = NULL, *dnorm_imoments = NULL, *shape_moments = NULL;
+    float *coefficients = NULL;
     int count = 0;
     int nfaces = 0;
     int nvertices = 0;
     int nmoments = 0;
+    int ncoefficients = 0;
 
     while (!feof(inputFile)) {
         int r = 0;
@@ -254,6 +269,20 @@ CXS_DATA * readcxsfile(char * fname)
             r = readvals(inputFile, MOMENTS, count, (void *) dnorm_emoments);
             nmoments = count;
         }
+        else if (line_startswith("begin moments_shape", buf) == 0) {
+            sscanf(buf, "begin moments_shape %d\n",&count);
+            shape_moments = malloc(sizeof(*shape_moments) * count);
+            if(shape_moments == NULL) goto FAIL;
+            r = readvals(inputFile, MOMENTS, count, (void *) shape_moments);
+            nmoments = count;
+        }
+        else if (line_startswith("begin coefficients", buf) == 0) {
+            sscanf(buf, "begin coefficients %d\n", &count);
+            coefficients = malloc(sizeof(*coefficients) * count * 2);
+            if(coefficients == NULL) goto FAIL;
+            r = readvals(inputFile, COEFFICIENTS, count, (void *) coefficients);
+            ncoefficients = count;
+        }
 
         if(r > 0 && r < count) {
             error_string = "CRITICAL: read less values than count";
@@ -273,7 +302,11 @@ CXS_DATA * readcxsfile(char * fname)
             || atoms == NULL || atoms_outside == NULL
             || atoms_inside == NULL || de_face_atoms == NULL
             || di_face_atoms == NULL || divals == NULL
-            || devals == NULL || dnorm_moments == NULL) {
+            || devals == NULL || dnorm_moments == NULL
+            || shape_moments == NULL || di_moments == NULL
+            || de_moments == NULL || dnorm_emoments == NULL
+            || dnorm_imoments == NULL || formula == NULL
+            || coefficients == NULL) {
         goto FAIL;
     }
     // DEREFERENCE ALL THE ATOMS TO THEIR CHEMICAL SYMBOLS
@@ -325,9 +358,11 @@ CXS_DATA * readcxsfile(char * fname)
     rslt->dnorm_moments = dnorm_moments;
     rslt->dnorm_emoments = dnorm_emoments;
     rslt->dnorm_imoments = dnorm_imoments;
+    rslt->shape_moments = shape_moments;
+    rslt->coefficients = coefficients;
 
     rslt->nmoments = nmoments;
-
+    rslt->ncoefficients = ncoefficients;
     return rslt;
 
     //failure point, free memory and return null
@@ -345,6 +380,7 @@ FAIL:
     free(dnorm_imoments);
     free(de_moments);
     free(di_moments);
+    free(rslt->coefficients);
 
     free(divals);
     free(devals);
@@ -355,7 +391,7 @@ FAIL:
     free(formula);
     free(vertices);
     free(indices);
-
+    error_string = "Problem reading file, not enough data?";
     return NULL;
 }
 #pragma GCC diagnostic pop

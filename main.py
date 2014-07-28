@@ -53,6 +53,8 @@ Options:
     --distance=THRESHOLD           The threshold distance for leaves to be
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
+    --moment=METRIC                The moment to use in calculating.
+                                   [default: shape]
 """
 
 # Core imports
@@ -127,9 +129,19 @@ def main():
             if not fname.endswith('.cxs'):
                 log('WARNING: {0} does not have .cxs extension'.format(fname))
             moments, cname = fio.proc_file_moments(fname)
+            log(len(moments))
             dnorm_moments, dnorm_imoments, dnorm_emoments, \
-            di_moments, de_moments, = moments
+            di_moments, de_moments, shape_moments = moments
+            moment_n = {'dnorm': dnorm_moments,
+                        'de': de_moments,
+                        'di': di_moments,
+                        'dnorm_e': dnorm_emoments,
+                        'dnorm_i': dnorm_imoments,
+                        'shape': shape_moments}
+            m = moment_n[args['--moment']]
             log(cname)
+            log(m)
+
         if args['<dir>']:
             dendrogram = args['--dendrogram']
             method = args['--method']
@@ -138,8 +150,15 @@ def main():
             moments, names = fio.batch_moments(dirname)
             log('Generating matrix using absolute distance')
             dnorm_moments, dnorm_imoments, dnorm_emoments,\
-            di_moments, de_moments = zip(*moments)
-            mat = calc.get_dist_mat(dnorm_moments, test=calc.mdistance)
+            di_moments, de_moments, shape_moments = zip(*moments)
+            moment_n = {'dnorm': dnorm_moments,
+                        'de': de_moments,
+                        'di': di_moments,
+                        'dnorm_e': dnorm_emoments,
+                        'dnorm_i': dnorm_imoments,
+                        'shape': shape_moments}
+            m = moment_n[args['--moment']]
+            mat = calc.get_dist_mat(m, test=calc.mdistance)
             if args['--output']:
                 fname = args['--output']
                 fio.write_mat_file(fname, mat)
