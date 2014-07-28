@@ -59,15 +59,11 @@ def hdistance(x):
     return abs(d)
 
 
-def mdistance(x):
-    m1, m2 = x
-    ms = np.round(m1[0,:], decimals=10)
-    mc = np.round(m1[1,:], decimals=10)
-    moments1 = np.power(ms,2) + np.power(mc,2)
-    ms = np.round(m2[0,:], decimals=10)
-    mc = np.round(m2[1,:], decimals=10)
-    moments2 = np.power(ms ,2) + np.power(mc, 2)
-    d = abs(np.sum(moments2 - moments1))
+
+def dvalue(x):
+    # unpack the tuple
+    i1, i2 = x
+    d = np.power(np.sum(np.power(i2 - i1, 2)),0.5)
     return d
 
 

@@ -13,14 +13,9 @@ typedef struct {
     char * internal, * external;// array of nfaces *2 chars with a stride of 2
     int nfaces, nvertices;
     char * formula;
-    float * dnorm_moments;
-    float * de_moments;
-    float * di_moments;
-    float * dnorm_emoments;
-    float * dnorm_imoments;
-    float * shape_moments;
-    float * coefficients;
-    int nmoments, ncoefficients;
+    float * coefficients,  *invariants;
+    int ninvariants;
+    int ncoefficients;
 
 } CXS_DATA;
 

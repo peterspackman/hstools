@@ -35,9 +35,9 @@ def hist_helper(args):
     fname, res, save_figs = args
     return proc_file_hist(fname, resolution=res, save_figs=save_figs)
 
-def moments_helper(args):
+def harmonics_helper(args):
     fname, metric = args
-    return proc_file_moments(fname, metric=metric)
+    return proc_file_harmonics(fname, metric=metric)
 
 def readcxsfile_c(fname):
     """ A wrapper around cio.readcxsfile """
@@ -46,11 +46,11 @@ def readcxsfile_c(fname):
     except cio.error, e:
         log('Problem in {0}: {1}'.format(fname, e))
         return None
-    di, de, p, moments = r
+    di, de, p, harmonics = r
     formula, vertices, indices, internal, external = p
     # Strip the unnecessary quotes and spaces from the line
     formula = formula.split('\"')[1]
-    return di, de, (formula, vertices, indices, internal, external), moments
+    return di, de, (formula, vertices, indices, internal, external), harmonics
 
 
 # FILE FUNCTIONS
@@ -109,7 +109,7 @@ def proc_file_sa(fname, restrict, order=False):
     r = readcxsfile_c(fname)
     if not r:
         return None
-    x, y, a, moments = r
+    x, y, a, harmonics = r
 
     formula, vertices, indices, internal, external = a
     contrib, contrib_p = calc.get_contrib_percentage(vertices, indices,
@@ -121,9 +121,9 @@ def proc_file_sa(fname, restrict, order=False):
     return cname, formula, contrib_p
 
 
-def proc_file_moments(fname, metric='dnorm'):
-    """ Read a file from fname, collecting the moments
-        and returning them as an array
+def proc_file_harmonics(fname, metric='dnorm'):
+    """ Read a file from fname, collecting the coefficients/invariants
+        and returning them as arrays
     """
     if not os.path.isfile(fname):
         err = 'Could not open {0} for reading, check to see if file exists'
@@ -135,8 +135,8 @@ def proc_file_moments(fname, metric='dnorm'):
     cname = os.path.basename(os.path.splitext(fname)[0])
     if not r:
         return None
-    _, _, _, moments = r
-    return (moments, cname)
+    _, _, _, harmonics = r
+    return (harmonics, cname)
 
 def proc_file_hist(fname, resolution=10, save_figs=False):
     """ Read a file from fname, generate a histogram and potentially write
@@ -153,7 +153,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
     r = readcxsfile_c(fname)
     if not r:
         return None
-    x, y, a, moments = r
+    x, y, a, _ = r
 
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)
@@ -237,7 +237,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         log('Errors reading all files, exiting.')
         sys.exit(1)
 
-def batch_moments(dirname, metric='d_norm', suffix='.cxs', procs=4):
+def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
         log(err.format(dirname))
@@ -249,7 +249,7 @@ def batch_moments(dirname, metric='d_norm', suffix='.cxs', procs=4):
         sys.exit(1)
     args = [(fname, metric) for fname in files]
 
-    moments = []
+    values = []
     names = []
     vals = []
     # Boilerplate
@@ -257,7 +257,7 @@ def batch_moments(dirname, metric='d_norm', suffix='.cxs', procs=4):
     start_time = time.time()
     pbar.start()
     p = multiprocessing.Pool(procs)
-    r = p.map_async(moments_helper, args, callback=vals.extend)
+    r = p.map_async(harmonics_helper, args, callback=vals.extend)
     p.close()
     while True:
         if r.ready():
@@ -274,11 +274,11 @@ def batch_moments(dirname, metric='d_norm', suffix='.cxs', procs=4):
 
     if nfiles > 0:
         # unzip the output
-        moments, names = zip(*vals)
+        values, names = zip(*vals)
         output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
         log(output.format(nfiles, time.time() - start_time, procs))
 
-        return (moments, names)
+        return (values, names)
     else:
         log('Errors reading all files, exiting.')
         sys.exit(1)

@@ -11,6 +11,7 @@
 #define INDICES 4
 #define MOMENTS 5
 #define COEFFICIENTS 6
+#define INVARIANTS 7
 
 
 #pragma message "Ignoring possible uninitialized errors in this code"
@@ -115,6 +116,14 @@ int readvals(FILE * f, int kind, int count, void * s)
         return n;
         break;
     }
+    case INVARIANTS: {
+        float * d = s;
+        for(int i = 0; i < count; i++) {
+            res = fgets(buf, BUFSIZ, f);
+            sscanf(buf,"%e \n",&d[i]);
+            n++;
+        }
+    }
     if(res == NULL && feof(f) == 0) {
         fprintf(stderr,"problem reading file ");
         perror("error:");
@@ -144,14 +153,12 @@ CXS_DATA * readcxsfile(char * fname)
     char * atoms = NULL, * formula = NULL;
     int * de_face_atoms = NULL, * di_face_atoms = NULL;
     int * atoms_outside = NULL, * atoms_inside = NULL;
-    float * dnorm_moments = NULL, * de_moments = NULL, * di_moments = NULL;
-    float *dnorm_emoments = NULL, *dnorm_imoments = NULL, *shape_moments = NULL;
     float *coefficients = NULL;
+    float *invariants = NULL;
     int count = 0;
     int nfaces = 0;
     int nvertices = 0;
-    int nmoments = 0;
-    int ncoefficients = 0;
+    int ncoefficients = 0, ninvariants = 0;
 
     while (!feof(inputFile)) {
         int r = 0;
@@ -232,56 +239,19 @@ CXS_DATA * readcxsfile(char * fname)
             if(devals == NULL) goto FAIL;
             r = readvals(inputFile, DISTANCE , count, (void *) devals);
         }
-        // MOMENTS
-
-        else if (line_startswith("begin moments_d_norm ", buf) == 0) {
-            sscanf(buf, "begin moments_d_norm %d\n",&count);
-            dnorm_moments = malloc(sizeof(*dnorm_moments) * count);
-            if(dnorm_moments == NULL) goto FAIL;
-            r = readvals(inputFile, MOMENTS, count, (void *) dnorm_moments);
-            nmoments = count;
-        }
-        else if (line_startswith("begin moments_d_e ", buf) == 0) {
-            sscanf(buf, "begin moments_d_e %d\n",&count);
-            de_moments = malloc(sizeof(*de_moments) * count);
-            if(de_moments == NULL) goto FAIL;
-            r = readvals(inputFile, MOMENTS, count, (void *) de_moments);
-            nmoments = count;
-        }
-        else if (line_startswith("begin moments_d_i ", buf) == 0) {
-            sscanf(buf, "begin moments_d_i %d\n",&count);
-            di_moments = malloc(sizeof(*di_moments) * count);
-            if(di_moments == NULL) goto FAIL;
-            r = readvals(inputFile, MOMENTS, count, (void *) di_moments);
-            nmoments = count;
-        }
-        else if (line_startswith("begin moments_d_norm_i ", buf) == 0) {
-            sscanf(buf, "begin moments_d_norm_i %d\n",&count);
-            dnorm_imoments = malloc(sizeof(*dnorm_imoments) * count);
-            if(dnorm_imoments == NULL) goto FAIL;
-            r = readvals(inputFile, MOMENTS, count, (void *) dnorm_imoments);
-            nmoments = count;
-        }
-        else if (line_startswith("begin moments_d_norm_e ", buf) == 0) {
-            sscanf(buf, "begin moments_d_norm_e %d\n",&count);
-            dnorm_emoments = malloc(sizeof(*dnorm_emoments) * count);
-            if(dnorm_emoments == NULL) goto FAIL;
-            r = readvals(inputFile, MOMENTS, count, (void *) dnorm_emoments);
-            nmoments = count;
-        }
-        else if (line_startswith("begin moments_shape", buf) == 0) {
-            sscanf(buf, "begin moments_shape %d\n",&count);
-            shape_moments = malloc(sizeof(*shape_moments) * count);
-            if(shape_moments == NULL) goto FAIL;
-            r = readvals(inputFile, MOMENTS, count, (void *) shape_moments);
-            nmoments = count;
-        }
         else if (line_startswith("begin coefficients", buf) == 0) {
             sscanf(buf, "begin coefficients %d\n", &count);
             coefficients = malloc(sizeof(*coefficients) * count * 2);
             if(coefficients == NULL) goto FAIL;
             r = readvals(inputFile, COEFFICIENTS, count, (void *) coefficients);
             ncoefficients = count;
+        }
+        else if (line_startswith("begin invariants", buf) == 0) {
+            sscanf(buf, "begin invariants %d\n", &count);
+            invariants = malloc(sizeof(*invariants) * count);
+            if(invariants == NULL) goto FAIL;
+            r = readvals(inputFile, INVARIANTS, count, (void *) invariants);
+            ninvariants = count;
         }
 
         if(r > 0 && r < count) {
@@ -302,10 +272,7 @@ CXS_DATA * readcxsfile(char * fname)
             || atoms == NULL || atoms_outside == NULL
             || atoms_inside == NULL || de_face_atoms == NULL
             || di_face_atoms == NULL || divals == NULL
-            || devals == NULL || dnorm_moments == NULL
-            || shape_moments == NULL || di_moments == NULL
-            || de_moments == NULL || dnorm_emoments == NULL
-            || dnorm_imoments == NULL || formula == NULL
+            || devals == NULL
             || coefficients == NULL) {
         goto FAIL;
     }
@@ -352,17 +319,11 @@ CXS_DATA * readcxsfile(char * fname)
     rslt->nfaces = nfaces;
     rslt->nvertices =nvertices;
     rslt->formula = formula;
-    //moments stuff
-    rslt->de_moments = de_moments;
-    rslt->di_moments = di_moments;
-    rslt->dnorm_moments = dnorm_moments;
-    rslt->dnorm_emoments = dnorm_emoments;
-    rslt->dnorm_imoments = dnorm_imoments;
-    rslt->shape_moments = shape_moments;
     rslt->coefficients = coefficients;
+    rslt->invariants = invariants;
 
-    rslt->nmoments = nmoments;
     rslt->ncoefficients = ncoefficients;
+    rslt->ninvariants = ninvariants;
     return rslt;
 
     //failure point, free memory and return null
@@ -375,12 +336,9 @@ FAIL:
     free(internal);
     free(external);
 
-    free(dnorm_moments);
-    free(dnorm_emoments);
-    free(dnorm_imoments);
-    free(de_moments);
-    free(di_moments);
-    free(rslt->coefficients);
+    free(coefficients);
+    free(invariants);
+
 
     free(divals);
     free(devals);

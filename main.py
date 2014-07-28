@@ -2,7 +2,7 @@
 """Usage:
     sclcc hist (--batch <dir> | <file>) [options]
     sclcc surface (--batch <dir> | <file>) [options]
-    sclcc moments (--batch <dir> | <file>) [options]
+    sclcc harmonics (--batch <dir> | <file>) [options]
     sclcc (--version | --help | -h)
 
 Simple Command-Line Computational Chemistry (SCLCC)
@@ -53,8 +53,6 @@ Options:
     --distance=THRESHOLD           The threshold distance for leaves to be
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
-    --moment=METRIC                The moment to use in calculating.
-                                   [default: shape]
 """
 
 # Core imports
@@ -123,42 +121,25 @@ def main():
                          method=method,
                          distance=distance)
 
-    if args['moments']:
+    if args['harmonics']:
         if args['<file>']:
             fname = args['<file>']
             if not fname.endswith('.cxs'):
                 log('WARNING: {0} does not have .cxs extension'.format(fname))
-            moments, cname = fio.proc_file_moments(fname)
-            log(len(moments))
-            dnorm_moments, dnorm_imoments, dnorm_emoments, \
-            di_moments, de_moments, shape_moments = moments
-            moment_n = {'dnorm': dnorm_moments,
-                        'de': de_moments,
-                        'di': di_moments,
-                        'dnorm_e': dnorm_emoments,
-                        'dnorm_i': dnorm_imoments,
-                        'shape': shape_moments}
-            m = moment_n[args['--moment']]
+            values, cname = fio.proc_file_harmonics(fname)
+            coefficients, invariants = values
             log(cname)
-            log(m)
+            log(invariants)
 
         if args['<dir>']:
             dendrogram = args['--dendrogram']
             method = args['--method']
             distance = float(args['--distance'])
             dirname = args['<dir>']
-            moments, names = fio.batch_moments(dirname)
+            values , names = fio.batch_harmonics(dirname)
             log('Generating matrix using absolute distance')
-            dnorm_moments, dnorm_imoments, dnorm_emoments,\
-            di_moments, de_moments, shape_moments = zip(*moments)
-            moment_n = {'dnorm': dnorm_moments,
-                        'de': de_moments,
-                        'di': di_moments,
-                        'dnorm_e': dnorm_emoments,
-                        'dnorm_i': dnorm_imoments,
-                        'shape': shape_moments}
-            m = moment_n[args['--moment']]
-            mat = calc.get_dist_mat(m, test=calc.mdistance)
+            coefficients, invariants = zip(*values)
+            mat = calc.get_dist_mat(invariants, test=calc.dvalue)
             if args['--output']:
                 fname = args['--output']
                 fio.write_mat_file(fname, mat)

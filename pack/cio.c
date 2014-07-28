@@ -50,12 +50,11 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
                         error_string);
         return NULL; //this returns None to Python
     }
-
     //UNPACK THE VALUES FROM CXS_DATA
     int nfaces = cxs->nfaces;
     int nvertices = cxs->nvertices;
-    int nmoments = cxs->nmoments;
     int ncoefficients= cxs->ncoefficients;
+    int ninvariants = cxs->ninvariants;
     //this is ugly but string manipulation in python is MUCH easier
     if(cxs->formula == NULL){
         cxs->formula = "FAILED";
@@ -68,11 +67,9 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     npy_intp cdims[2] = {ncoefficients, 2};
     npy_intp exdims[1] = {nfaces};
     npy_intp stride[1] = {2*sizeof(char)};
-    npy_intp mdims[2] = {2, nmoments/2};
-    npy_intp mstride[2] = {sizeof(float)*nmoments/2,sizeof(float)};
+    npy_intp invdims[1] = {ninvariants};
     //Only way to create an array of c strings with length 2 like we have
     PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
-    PyArray_Descr * mdesc = PyArray_DescrNewFromType(NPY_FLOAT);
     desc->elsize = 2;
     const int FLAGS = NPY_CARRAY | NPY_OWNDATA;
     //Construct our numpy arrays
@@ -81,19 +78,7 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     PyObject * vertices = PyArray_SimpleNewFromData(2, vdims, NPY_FLOAT, cxs->vertices);
     PyObject * indices = PyArray_SimpleNewFromData(2, idims, NPY_INT, cxs->indices);
     PyObject * coefficients = PyArray_SimpleNewFromData(2, cdims, NPY_FLOAT, cxs->coefficients);
-
-    PyObject * dnorm_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
-                          2, mdims, mstride, cxs->dnorm_moments, FLAGS, NULL);
-    PyObject * dnorm_emoments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
-                          2, mdims, mstride, cxs->dnorm_emoments, FLAGS, NULL);
-    PyObject * dnorm_imoments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
-                          2, mdims, mstride, cxs->dnorm_imoments, FLAGS, NULL);
-    PyObject * de_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
-                          2, mdims, mstride, cxs->de_moments, FLAGS, NULL);
-    PyObject * di_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
-                          2, mdims, mstride, cxs->di_moments, FLAGS, NULL);
-    PyObject * shape_moments = PyArray_NewFromDescr(&PyArray_Type, mdesc,
-                          2, mdims, mstride, cxs->shape_moments, FLAGS, NULL);
+    PyObject * invariants = PyArray_SimpleNewFromData(1, invdims, NPY_FLOAT, cxs->invariants);
 
     PyObject * internal = PyArray_NewFromDescr(&PyArray_Type, desc,
                           1, exdims, stride, cxs->internal, FLAGS, NULL);
@@ -107,11 +92,9 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     PyArray_UpdateFlags((PyArrayObject * ) coefficients, FLAGS);
 
     free(cxs);
+    PyObject * h = Py_BuildValue("OO", coefficients, invariants);
     PyObject * x = Py_BuildValue("OOOOO",formula, vertices, indices, internal, external);
-    PyObject * moments = Py_BuildValue("OOOOOO", dnorm_moments,
-                                       dnorm_imoments, dnorm_emoments,
-                                       di_moments, de_moments, shape_moments);
-    PyObject * ret = Py_BuildValue("OOOOO", divals, devals, x, moments, coefficients);
+    PyObject * ret = Py_BuildValue("OOOO", divals, devals, x, h);
     return ret;
 }
 
