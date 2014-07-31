@@ -15,3 +15,11 @@ Dependencies:
 * docopt
 
 Installing these dependencies is straightforward using pip or easy_install
+
+once the dependencies are installed, the following should compile the c
+extensions used in this program:
+
+    cd pack
+    make
+
+(there may be warnings about pragmas if your gcc is outdated)
