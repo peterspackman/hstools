@@ -43,3 +43,4 @@ tmp
 *.log
 # Python mode stuff
 .ropeproject*
+*.asc
