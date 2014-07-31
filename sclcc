@@ -1,2 +1,5 @@
-#!/bin/bash
-python ~/phd/main.py $*
+#!/usr/bin/env python
+import main
+
+if __name__ == '__main__':
+    main.main()
