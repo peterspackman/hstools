@@ -158,7 +158,7 @@ def cluster(mat, names, tname, dump=None,
         log('Saving dendrogram')
         plt.savefig(dendrogram, dpi=dpi)
         plt.close()
-
+    dump = 'clusters.txt'
     if dump:
         log('Dumping tree structure in {0}'.format(dump))
         T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
@@ -168,7 +168,7 @@ def cluster(mat, names, tname, dump=None,
         json.dump(d, open(dump, 'w'), sort_keys=True, indent=4)
         log('printing clusters')
         # HARDCODED NUMBER OF CLUSTERS
-        clusters = scipy.cluster.hierarchy.fcluster(Z, 10,
+        clusters = scipy.cluster.hierarchy.fcluster(Z, 4,
                                                     criterion='maxclust')
         nclusters = clusters.size
         num = max(clusters)

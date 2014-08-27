@@ -9,7 +9,7 @@ with open(sys.argv[1]) as f:
         if vertices > 0:
             linesout.append(line)
             vertices = vertices - 1
-        if(line.strip().startswith('begin vertices ')):
+        if(line.strip().startswith('begin vertices_recon')):
             vertices = int(line.split()[2])
             print 'Found vertices: {0}'.format(vertices)
         if vertices < 0:
