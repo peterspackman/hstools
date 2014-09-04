@@ -39,6 +39,8 @@ basis_sets
 stdout
 stderr
 tmp
+*.foo
+out*
 # Log files
 *.log
 # Python mode stuff
