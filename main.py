@@ -56,22 +56,12 @@ Options:
 """
 
 # Core imports
-import sys
-import time
 # Library imports
 from docopt import docopt
 # Local imports
-from data import log
-import calc
 import data
-import fileio as fio
+import modes
 
-test_f = {'sp': calc.spearman_roc,
-          'kt': calc.kendall_tau,
-          'hd': calc.hdistance}
-test_names = {'sp': 'Spearman rank order coefficient',
-              'kt': "Kendall's Tau",
-              'hd': 'naive histogram distance'}
 version = "0.3"
 args = docopt(__doc__, version=version)
 # *******        MAIN PROGRAM           ****** #
@@ -82,113 +72,19 @@ def main():
     This program currently rounds distance matrices to 5 d.p.
     due to floating point arithmetic problems!!'
     """
-    mtest = test_f[args['--test']]
-    tname = test_names[args['--test']]
-    start_time = time.time()
-    procs = int(args['--procs'])
     if args['--silent']:
         data.silent = True
     # Process histograms
     if args['hist']:
-        bins = int(args['--bins'])
-        save_figs = args['--save-figures']
-
-        if args['<file>']:
-            fname = args['<file>']
-            if not save_figs:
-                log('Not saving figure, so this \
-                         command will have no output')
-            h, name = fio.proc_file_hist(fname, resolution=bins,
-                                         save_figs=save_figs)
-
-        elif args['<dir>']:
-            dirname = args['<dir>']
-            dendrogram = args['--dendrogram']
-            method = args['--method']
-            distance = float(args['--distance'])
-            # Program is being run to batch process a directory of cxs files
-            histograms, names = fio.batch_hist(dirname, resolution=bins,
-                                               save_figs=save_figs,
-                                               procs=procs)
-
-            log('Generating matrix using {0}'.format(tname))
-            mat = calc.get_dist_mat(histograms, test=mtest, procs=procs)
-            if args['--output']:
-                fname = args['--output']
-                fio.write_mat_file(fname, mat)
-            calc.cluster(mat, names, tname, dump=args['--json'],
-                         dendrogram=dendrogram,
-                         method=method,
-                         distance=distance)
+        modes.hist_main(args)
 
     if args['harmonics']:
-        if args['<file>']:
-            fname = args['<file>']
-            if not fname.endswith('.cxs'):
-                log('WARNING: {0} does not have .cxs extension'.format(fname))
-            values, cname = fio.proc_file_harmonics(fname)
-            coefficients, invariants = values
-            log(cname)
-            log(invariants)
-
-        if args['<dir>']:
-            dendrogram = args['--dendrogram']
-            method = args['--method']
-            distance = float(args['--distance'])
-            dirname = args['<dir>']
-            values, names = fio.batch_harmonics(dirname)
-            log('Generating matrix using absolute distance')
-            coefficients, invariants = zip(*values)
-            mat = calc.get_dist_mat(invariants, test=calc.dvalue)
-            if args['--output']:
-                fname = args['--output']
-                fio.write_mat_file(fname, mat)
-            calc.cluster(mat, names, 'mdistance', dendrogram=dendrogram,
-                         method=method, distance=distance)
+        modes.harmonics_main(args)
 
     # Process surface area statistics
     if args['surface']:
-        restrict = not args['--no-restrict']
-        order = args['--order-important']
-        if args['<file>']:
-            fname = args['<file>']
-            if not fname.endswith('.cxs'):
-                log('WARNING: {0} does not have .cxs extension'.format(fname))
-            # Generate the percentage contribution of each element
-            cname, formula, contrib_p = fio.proc_file_sa(fname, restrict,
-                                                         order=order)
-            log('{0} {1}'.format(cname, formula))
+        modes.surface_main(args)
 
-            for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
-                log('{0}: {1:.2%}'.format(key, contrib_p[key]))
-
-        elif args['<dir>']:
-            dirname = args['<dir>']
-            cnames, formulae, contribs = fio.batch_surface(dirname, restrict,
-                                                           procs=procs,
-                                                           order=order)
-            if restrict:
-                log("Restricted interactions using CCDC Van Der Waal's Radii")
-            # If we are writing to file
-            if args['--output']:
-                fname = args['--output']
-                fio.write_sa_file(fname, cnames, formulae, contribs)
-            # Otherwise we are printing to stdout
-            else:
-                for i in range(len(formulae)):
-                    formula = formulae[i]
-                    contrib_p = contribs[i]
-                    log('Molecular Formula: {0}'.format(formula))
-                    if not contrib_p:
-                        log(' -- Nil--')
-                    for key in sorted(contrib_p,
-                                      key=lambda key: contrib_p[key]):
-                        log('{0}: {1:.2%}'.format(key,
-                                                  contrib_p[key]))
-
-    # If we got here, program was success!
-    log('Process complete! Took {0:.2} s'.format(time.time() - start_time))
-    sys.exit(0)
 
 
 if __name__ == '__main__':

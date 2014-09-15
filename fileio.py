@@ -52,6 +52,7 @@ def readcxsfile_c(fname):
     formula, vertices, indices, internal, external = p
     # Strip the unnecessary quotes and spaces from the line
     formula = formula.split('\"')[1]
+    np.require(internal, requirements=['O'])
     return di, de, (formula, vertices, indices, internal, external), harmonics
 
 

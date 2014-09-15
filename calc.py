@@ -62,8 +62,13 @@ def hdistance(x):
 def dvalue(x):
     # unpack the tuple
     i1, i2 = x
+    assert(not np.isnan(np.sum(i1)))
+    assert(not np.isnan(np.sum(i2)))
     d = np.power(np.sum(np.power(i2 - i1, 2)), 0.5)
-    return d
+    if(d <= 1.0e-10):
+        return 0.0
+    else:
+        return d
 
 
 def get_dist_mat(histograms, test=spearman_roc, procs=4):
