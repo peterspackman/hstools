@@ -9,7 +9,6 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 
-
 #define VERTICES 0
 #define FACE 1
 #define ATOMS 2
@@ -148,7 +147,7 @@ PyObject * readcxsfile(char * fname)
     //File processing vars
     FILE * inputFile = fopen(fname, "r");
     if(inputFile == NULL) {
-        fprintf(stderr, "Error opening file:  %s",fname);
+        fprintf(stderr, "Error opening file:  %s ",fname);
         perror("");
         goto FAIL;
     }
@@ -157,7 +156,6 @@ PyObject * readcxsfile(char * fname)
     int n = 0;
     //RETURN VALUES
     float * devals = NULL, * divals = NULL, * vertices = NULL;
-    float * dnorm_vals = NULL, * dnorm_evals = NULL, * dnorm_ivals = NULL;
     int * indices = NULL;
     char * external = NULL, *internal = NULL;
     // Temporary variables
@@ -170,6 +168,8 @@ PyObject * readcxsfile(char * fname)
     int nfaces = 0;
     int nvertices = 0;
     int ncoefficients = 0, ninvariants = 0;
+
+    Py_BEGIN_ALLOW_THREADS
 
     while (!feof(inputFile)) {
         int r = 0;
@@ -308,15 +308,9 @@ PyObject * readcxsfile(char * fname)
                &atoms[(atoms_inside[di_face_atoms[i] - 1] -1) * 2 ],
                2*sizeof(char));
     }
-    // free unused stuff
-    free(atoms_inside);
-    free(atoms_outside);
-    free(de_face_atoms);
-    free(di_face_atoms);
-    free(atoms);
-
     //build result and then return it
 
+    Py_END_ALLOW_THREADS
     // PYTHON STUFF
     PyObject * formulaobj =  PyString_FromString(formula);
     //dimensions etc
@@ -331,7 +325,7 @@ PyObject * readcxsfile(char * fname)
     //Only way to create an array of c strings with length 2 like we have
     PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
     desc->elsize = 2;
-    const int FLAGS = NPY_CARRAY | NPY_OWNDATA;
+    const int FLAGS = NPY_OUT_ARRAY | NPY_ENSURECOPY;
 
     //Construct our numpy arrays
     PyObject * divalsobj = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, divals);
@@ -362,27 +356,6 @@ PyObject * readcxsfile(char * fname)
 
     //failure point, free memory and return null
 FAIL:
-    free(atoms_inside);
-    free(atoms_outside);
-    free(de_face_atoms);
-    free(di_face_atoms);
-    free(atoms);
-    free(internal);
-    free(external);
-
-    free(coefficients);
-    free(invariants);
-
-
-    free(divals);
-    free(devals);
-    free(dnorm_evals);
-    free(dnorm_ivals);
-    free(dnorm_vals);
-
-    free(formula);
-    free(vertices);
-    free(indices);
     error_string = "Problem reading file, not enough data?";
     printf("Failure in readcxsfile c module");
     return NULL;

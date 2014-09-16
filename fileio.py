@@ -2,7 +2,7 @@
 import sys
 import os
 import glob
-import multiprocessing
+from multiprocessing.pool import ThreadPool
 import time
 # Library imports
 import numpy as np
@@ -212,7 +212,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
-    p = multiprocessing.Pool(procs)
+    p = ThreadPool(procs)
     r = p.map_async(hist_helper, args, callback=vals.extend)
     p.close()
     # Doing something I ought not to do, using private members
@@ -261,7 +261,7 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
-    p = multiprocessing.Pool(procs)
+    p = ThreadPool(procs)
     r = p.map_async(harmonics_helper, args, callback=vals.extend)
     p.close()
     while True:
@@ -309,7 +309,7 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     start_time = time.time()
     pbar.start()
 
-    p = multiprocessing.Pool(procs)
+    p = ThreadPool(procs)
     r = p.map_async(surface_helper, args, callback=vals.extend)
     p.close()
 
