@@ -18,7 +18,7 @@ import scipy.stats as stats
 # Local imports
 from data import log
 import data
-import pack.ccalc as ccalc
+import pack.cio as cio
 
 
 def spearman_roc(x):
@@ -230,8 +230,8 @@ def area_tri(a, b, c):
     v2 = c - b
     # Because these functions expect 6 doubles or 3 doubles as arguments
     # we have to unpack the values!
-    x, y, z = ccalc.cross3D(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
-    return ccalc.normal3D(x, y, z) / 2
+    x, y, z = cio.cross3D(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
+    return cio.normal3D(x, y, z) / 2
 
 
 def get_contrib_percentage(vertices, indices, internal,

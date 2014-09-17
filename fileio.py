@@ -3,6 +3,7 @@ import sys
 import os
 import glob
 from multiprocessing.pool import ThreadPool
+from multiprocessing import Process, Queue
 import time
 # Library imports
 import numpy as np
@@ -12,7 +13,7 @@ import progressbar as pb
 # Local imports
 import hist
 import calc
-import pack.ccalc as ccalc
+import pack.cio as cio
 from data import widgets
 from data import log
 
@@ -42,10 +43,10 @@ def harmonics_helper(args):
 
 
 def readcxsfile_c(fname):
-    """ A wrapper around ccalc.readcxsfile """
+    """ A wrapper around cio.readcxsfile """
     try:
-        r = ccalc.readcxsfile(fname)
-    except ccalc.error, e:
+        r = cio.readcxsfile(fname)
+    except cio.error, e:
         log('Problem in {0}: {1}'.format(fname, e))
         return None
     di, de, p, harmonics = r
@@ -289,6 +290,20 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
         sys.exit(1)
 
 
+def batch_writer(args, queue):
+    for a in args:
+        queue.put(a)
+    queue.put("DONE")
+
+def batch_reader(fun, inqueue, outqueue):
+    while True:
+        msg = inqueue.get()
+        if (msg == 'DONE'):
+            break
+        else:
+            res = fun(msg)
+            outqueue.put(res)
+
 def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
     if not os.path.isdir(dirname):
@@ -309,15 +324,24 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     start_time = time.time()
     pbar.start()
 
-    p = ThreadPool(procs)
-    r = p.map_async(surface_helper, args, callback=vals.extend)
-    p.close()
+    inqueue = Queue()
+    outqueue = Queue()
 
-    while True:
+    readers = []
+    for i in range(procs):
+        readers[i] = Process(target = batch_reader, args=((surface_helper, inqueue, outqueue),))
+        readers[i].daemon = True
+        readers[i]
+
+    while len(args) > BATCH_SIZE:
+        batch = args[:BATCH_SIZE]
+        args = args[BATCH_SIZE:]
+        r.wait()
         if r.ready():
-            break
-        pbar.update()
-        time.sleep(0.2)
+            count += BATCH_SIZE
+            print count
+
+
     p.join()
     pbar.finish()
     # Strip none values
