@@ -1,14 +1,9 @@
-#include <Python.h>
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include "cio.h"
-#define PY_ARRAY_UNIQUE_SYMBOL cio_ARRAY_API
-#define NO_IMPORT_ARRAY
-#include <numpy/arrayobject.h>
-
 #define VERTICES 0
 #define FACE 1
 #define ATOMS 2
@@ -19,10 +14,9 @@
 #define INVARIANTS 7
 
 
-#ifndef __APPLE__
-  #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
+#pragma message "Ignoring possible uninitialized errors in this code"
 #pragma GCC diagnostic ignored "-Wuninitialized"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 
 int line_startswith(char * pre, char * line)
 {
@@ -138,16 +132,12 @@ int readvals(FILE * f, int kind, int count, void * s)
     return count;
 }
 
-
-
-
-
-PyObject * readcxsfile(char * fname)
+CXS_DATA * readcxsfile(char * fname)
 {
     //File processing vars
     FILE * inputFile = fopen(fname, "r");
     if(inputFile == NULL) {
-        fprintf(stderr, "Error opening file:  %s ",fname);
+        fprintf(stderr, "Error opening file: %s",fname);
         perror("");
         goto FAIL;
     }
@@ -156,6 +146,7 @@ PyObject * readcxsfile(char * fname)
     int n = 0;
     //RETURN VALUES
     float * devals = NULL, * divals = NULL, * vertices = NULL;
+    float * dnorm_vals = NULL, * dnorm_evals = NULL, * dnorm_ivals = NULL;
     int * indices = NULL;
     char * external = NULL, *internal = NULL;
     // Temporary variables
@@ -168,8 +159,6 @@ PyObject * readcxsfile(char * fname)
     int nfaces = 0;
     int nvertices = 0;
     int ncoefficients = 0, ninvariants = 0;
-
-    Py_BEGIN_ALLOW_THREADS
 
     while (!feof(inputFile)) {
         int r = 0;
@@ -283,7 +272,7 @@ PyObject * readcxsfile(char * fname)
             || atoms == NULL || atoms_outside == NULL
             || atoms_inside == NULL || de_face_atoms == NULL
             || di_face_atoms == NULL || divals == NULL
-            || devals == NULL || invariants == NULL
+            || devals == NULL
             || coefficients == NULL) {
         goto FAIL;
     }
@@ -308,58 +297,59 @@ PyObject * readcxsfile(char * fname)
                &atoms[(atoms_inside[di_face_atoms[i] - 1] -1) * 2 ],
                2*sizeof(char));
     }
+    //free now unused arrays
+    free(atoms_outside);
+    free(atoms_inside);
+    free(de_face_atoms);
+    free(di_face_atoms);
+    free(atoms);
     //build result and then return it
+    CXS_DATA * rslt = malloc(sizeof(CXS_DATA));
+    rslt->internal = internal;
+    rslt->external = external;
+    //SURFACE PROPERTIES
+    rslt->divals = divals;
+    rslt->devals = devals;
+    rslt->dnorm_vals = dnorm_vals;
+    rslt->dnorm_evals = dnorm_evals;
+    rslt->dnorm_ivals = dnorm_ivals;
+    //SURFACE STUFF
+    rslt->vertices = vertices;
+    rslt->indices = indices;
+    rslt->nfaces = nfaces;
+    rslt->nvertices =nvertices;
+    rslt->formula = formula;
+    rslt->coefficients = coefficients;
+    rslt->invariants = invariants;
 
-    Py_END_ALLOW_THREADS
-    // PYTHON STUFF
-    PyObject * formulaobj =  PyString_FromString(formula);
-    //dimensions etc
-    npy_intp didims[1] = {nvertices};
-    npy_intp vdims[2] = {nvertices, 3};
-    npy_intp idims[2] = {nfaces, 3};
-    npy_intp cdims[2] = {ncoefficients, 2};
-    npy_intp exdims[1] = {nfaces};
-    npy_intp stride[1] = {2*sizeof(char)};
-    npy_intp invdims[1] = {ninvariants};
-
-    //Only way to create an array of c strings with length 2 like we have
-    PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
-    desc->elsize = 2;
-    const int FLAGS = NPY_OUT_ARRAY | NPY_ENSURECOPY;
-
-    //Construct our numpy arrays
-    PyObject * divalsobj = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, divals);
-    PyObject * devalsobj = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, devals);
-    PyObject * verticesobj = PyArray_SimpleNewFromData(2, vdims, NPY_FLOAT, vertices);
-    PyObject * indicesobj = PyArray_SimpleNewFromData(2, idims, NPY_INT, indices);
-    PyObject * coefficientsobj = PyArray_SimpleNewFromData(2, cdims, NPY_FLOAT, coefficients);
-    PyObject * invariantsobj = PyArray_SimpleNewFromData(1, invdims, NPY_FLOAT, invariants);
-
-    PyObject * internalobj = PyArray_NewFromDescr(&PyArray_Type, desc,
-                          1, exdims, stride, internal, FLAGS, NULL);
-    PyObject * externalobj = PyArray_NewFromDescr(&PyArray_Type, desc,
-                          1, exdims, stride, external, FLAGS, NULL);
-
-    //UPDATE THE FLAGS ON SIMPLE ARRAYS
-    PyArray_UpdateFlags((PyArrayObject * ) verticesobj, FLAGS);
-    PyArray_UpdateFlags((PyArrayObject * ) indicesobj, FLAGS);
-    PyArray_UpdateFlags((PyArrayObject * ) divalsobj, FLAGS);
-    PyArray_UpdateFlags((PyArrayObject * ) devalsobj, FLAGS);
-    PyArray_UpdateFlags((PyArrayObject * ) coefficientsobj, FLAGS);
-
-    PyObject * h = Py_BuildValue("OO", coefficientsobj, invariantsobj);
-    PyObject * x = Py_BuildValue("OOOOO",formulaobj, verticesobj, indicesobj,
-                                 internalobj, externalobj);
-    PyObject * rslt = Py_BuildValue("OOOO", divalsobj, devalsobj, x, h);
-
+    rslt->ncoefficients = ncoefficients;
+    rslt->ninvariants = ninvariants;
     return rslt;
 
     //failure point, free memory and return null
 FAIL:
+    free(atoms_inside);
+    free(atoms_outside);
+    free(de_face_atoms);
+    free(di_face_atoms);
+    free(atoms);
+    free(internal);
+    free(external);
+
+    free(coefficients);
+    free(invariants);
+
+
+    free(divals);
+    free(devals);
+    free(dnorm_evals);
+    free(dnorm_ivals);
+    free(dnorm_vals);
+
+    free(formula);
+    free(vertices);
+    free(indices);
     error_string = "Problem reading file, not enough data?";
-    printf("Failure in readcxsfile c module");
     return NULL;
 }
-#ifndef __APPLE__
-  #pragma GCC diagnostic pop
-#endif
+#pragma GCC diagnostic pop
