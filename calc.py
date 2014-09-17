@@ -18,7 +18,7 @@ import scipy.stats as stats
 # Local imports
 from data import log
 import data
-import pack.cio as cio
+import pack.ccalc as ccalc
 
 
 def spearman_roc(x):
@@ -113,7 +113,14 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
       upper triangle into the lower triangle (making a
       symmetric matrix) """
     # Assign upper triangle
-    mat[np.triu_indices(n, k=1)] = vals
+    try:
+        mat[np.triu_indices(n, k=1)] = vals
+
+    except ValueError, e:
+        log("Couldn't broadcast array to triangle upper indices?")
+        log(e)
+        log("vals: {0}".format(vals))
+        return
     # Make the matrix symmetric
     mat = (mat + mat.T) / 2
 
@@ -223,8 +230,8 @@ def area_tri(a, b, c):
     v2 = c - b
     # Because these functions expect 6 doubles or 3 doubles as arguments
     # we have to unpack the values!
-    x, y, z = cio.cross3D(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
-    return cio.normal3D(x, y, z) / 2
+    x, y, z = ccalc.cross3D(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
+    return ccalc.normal3D(x, y, z) / 2
 
 
 def get_contrib_percentage(vertices, indices, internal,

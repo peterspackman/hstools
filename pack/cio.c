@@ -1,12 +1,8 @@
 #include <Python.h>
-#ifndef __APPLE__
-    #pragma GCC diagnostic ignored "-Wcpp"
-#endif
-#define PY_ARRAY_UNIQUE_SYMBOL cio_ARRAY_API
+#pragma GCC diagnostic ignored "-Wcpp"
+#pragma message "Using deprecated NUMPY API"
 #include <numpy/arrayobject.h>
-#ifndef __APPLE__
-  #pragma GCC diagnostic pop
-#endif
+#pragma GCC diagnostic pop
 #define MAIN_FILE
 #include "cio.h"
 static char module_docstring[] =
@@ -48,13 +44,57 @@ static PyObject * cio_readcxsfile(PyObject *self, PyObject * args)
     if (!PyArg_ParseTuple(args, "s", &fname))
         return NULL;
 
-    PyObject * ret = readcxsfile(fname);
-    if(ret == NULL) {
+    CXS_DATA * cxs = readcxsfile(fname);
+    if(cxs == NULL) {
         PyErr_SetString(CXSError,
                         error_string);
         return NULL; //this returns None to Python
     }
+    //UNPACK THE VALUES FROM CXS_DATA
+    int nfaces = cxs->nfaces;
+    int nvertices = cxs->nvertices;
+    int ncoefficients= cxs->ncoefficients;
+    int ninvariants = cxs->ninvariants;
+    //this is ugly but string manipulation in python is MUCH easier
+    if(cxs->formula == NULL){
+        cxs->formula = "FAILED";
+    }
+    PyObject * formula =  PyString_FromString(cxs->formula);
+    //dimensions etc
+    npy_intp didims[1] = {nvertices};
+    npy_intp vdims[2] = {nvertices, 3};
+    npy_intp idims[2] = {nfaces, 3};
+    npy_intp cdims[2] = {ncoefficients, 2};
+    npy_intp exdims[1] = {nfaces};
+    npy_intp stride[1] = {2*sizeof(char)};
+    npy_intp invdims[1] = {ninvariants};
+    //Only way to create an array of c strings with length 2 like we have
+    PyArray_Descr * desc = PyArray_DescrNewFromType(NPY_STRING);
+    desc->elsize = 2;
+    const int FLAGS = NPY_CARRAY | NPY_OWNDATA;
+    //Construct our numpy arrays
+    PyObject * divals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->divals);
+    PyObject * devals = PyArray_SimpleNewFromData(1, didims, NPY_FLOAT, cxs->devals);
+    PyObject * vertices = PyArray_SimpleNewFromData(2, vdims, NPY_FLOAT, cxs->vertices);
+    PyObject * indices = PyArray_SimpleNewFromData(2, idims, NPY_INT, cxs->indices);
+    PyObject * coefficients = PyArray_SimpleNewFromData(2, cdims, NPY_FLOAT, cxs->coefficients);
+    PyObject * invariants = PyArray_SimpleNewFromData(1, invdims, NPY_FLOAT, cxs->invariants);
 
+    PyObject * internal = PyArray_NewFromDescr(&PyArray_Type, desc,
+                          1, exdims, stride, cxs->internal, FLAGS, NULL);
+    PyObject * external = PyArray_NewFromDescr(&PyArray_Type, desc,
+                          1, exdims, stride, cxs->external, FLAGS, NULL);
+    //UPDATE THE FLAGS ON SIMPLE ARRAYS
+    PyArray_UpdateFlags((PyArrayObject * ) vertices, FLAGS);
+    PyArray_UpdateFlags((PyArrayObject * ) indices, FLAGS);
+    PyArray_UpdateFlags((PyArrayObject * ) divals, FLAGS);
+    PyArray_UpdateFlags((PyArrayObject * ) devals, FLAGS);
+    PyArray_UpdateFlags((PyArrayObject * ) coefficients, FLAGS);
+
+    free(cxs);
+    PyObject * h = Py_BuildValue("OO", coefficients, invariants);
+    PyObject * x = Py_BuildValue("OOOOO",formula, vertices, indices, internal, external);
+    PyObject * ret = Py_BuildValue("OOOO", divals, devals, x, h);
     return ret;
 }
 

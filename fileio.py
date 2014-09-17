@@ -12,7 +12,7 @@ import progressbar as pb
 # Local imports
 import hist
 import calc
-import pack.cio as cio
+import pack.ccalc as ccalc
 from data import widgets
 from data import log
 
@@ -42,10 +42,10 @@ def harmonics_helper(args):
 
 
 def readcxsfile_c(fname):
-    """ A wrapper around cio.readcxsfile """
+    """ A wrapper around ccalc.readcxsfile """
     try:
-        r = cio.readcxsfile(fname)
-    except cio.error, e:
+        r = ccalc.readcxsfile(fname)
+    except ccalc.error, e:
         log('Problem in {0}: {1}'.format(fname, e))
         return None
     di, de, p, harmonics = r
@@ -233,7 +233,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     if nfiles > 0:
         # unzip the output
         histograms, names = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+        output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
         log(output.format(nfiles, time.time() - start_time, procs))
 
         return (histograms, names)
@@ -280,7 +280,7 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
     if nfiles > 0:
         # unzip the output
         values, names = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+        output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
         log(output.format(nfiles, time.time() - start_time, procs))
 
         return (values, names)
@@ -328,7 +328,7 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
 
     if nfiles > 0:
         cnames, formulae, contribs = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
+        output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
         log(output.format(nfiles, time.time() - start_time, procs))
         return (cnames, formulae, contribs)
     else:
