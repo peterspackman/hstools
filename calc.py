@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # Core imports
 from itertools import combinations
+from functools import reduce
 import json
 import multiprocessing
 import time
@@ -18,7 +19,6 @@ import scipy.stats as stats
 # Local imports
 from data import log
 import data
-import pack.cio as cio
 
 
 def spearman_roc(x):
@@ -116,7 +116,7 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     try:
         mat[np.triu_indices(n, k=1)] = vals
 
-    except ValueError, e:
+    except ValueError as e:
         log("Couldn't broadcast array to triangle upper indices?")
         log(e)
         log("vals: {0}".format(vals))
@@ -228,10 +228,10 @@ def area_tri(a, b, c):
     using the cross product formula |AxB|/2"""
     v1 = a - b
     v2 = c - b
+
     # Because these functions expect 6 doubles or 3 doubles as arguments
     # we have to unpack the values!
-    x, y, z = cio.cross3D(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
-    return cio.normal3D(x, y, z) / 2
+    return np.linalg.norm(np.cross(v1,v2)) / 2
 
 
 def get_contrib_percentage(vertices, indices, internal,
@@ -254,8 +254,8 @@ def get_contrib_percentage(vertices, indices, internal,
 
     for i in range(internal.size):
         # Key in the form "internal -> external" e.g. "F -> H"
-        chsymi = internal[i]
-        chsyme = external[i]
+        chsymi = internal[i].decode('utf-8')
+        chsyme = external[i].decode('utf-8')
         if(not order):
             chsymi, chsyme = sorted((chsymi, chsyme))
         key = "{0} -> {1}".format(chsymi, chsyme)

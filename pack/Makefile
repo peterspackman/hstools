@@ -1,9 +1,9 @@
-TARGET=ccalc.so
-SRC=ccalc.c
+TARGET=cio.so
+SRC=cio.c
 
 all:
-	python setup.py build_ext --inplace
+	python3 setup.py build_ext --inplace
 
 clean:
-	rm -f ccalc.so
+	rm -f cio.so
 	rm -f *.pyc

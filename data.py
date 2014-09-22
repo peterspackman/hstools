@@ -180,8 +180,8 @@ elnames = {
     'Zn': 'Zinc',
     'Zr': 'Zirconium'
 }
-braille = ''.join([unichr(x) for x in range(0x2800, 0x2880)])
-shapes = ''.join([unichr(x) for x in range(0x2500, 0x257F)])
+braille = ''.join([chr(x) for x in range(0x2800, 0x2880)])
+shapes = ''.join([chr(x) for x in range(0x2500, 0x257F)])
 widgets = ['Working - ', pb.Timer(), ' ',
            pb.AnimatedMarker(markers=braille)]
 silent = False

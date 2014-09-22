@@ -3,7 +3,7 @@ import sys
 import os
 import glob
 from multiprocessing.pool import ThreadPool
-from multiprocessing import Process, Queue
+import concurrent.futures
 import time
 # Library imports
 import numpy as np
@@ -13,9 +13,15 @@ import progressbar as pb
 # Local imports
 import hist
 import calc
-import pack.cio as cio
 from data import widgets
 from data import log
+
+nmdims = {"vertices":3, "indices":3, "coefficients":2}
+ndtypes = {"indices":np.int32, "atoms_inside_surface":np.int32,
+           "atoms_outside_surface":np.int32,
+           "d_e_face_atoms":np.int32, "d_i_face_atoms":np.int32,
+           "unit_cell":np.dtype('S3')}
+numerical = {"unit_cell":True}
 
 
 # HELPER AND WRAPPER FUNCTIONS
@@ -42,19 +48,62 @@ def harmonics_helper(args):
     return proc_file_harmonics(fname, metric=metric)
 
 
-def readcxsfile_c(fname):
-    """ A wrapper around cio.readcxsfile """
-    try:
-        r = cio.readcxsfile(fname)
-    except cio.error, e:
-        log('Problem in {0}: {1}'.format(fname, e))
-        return None
-    di, de, p, harmonics = r
-    formula, vertices, indices, internal, external = p
-    # Strip the unnecessary quotes and spaces from the line
-    formula = formula.split('\"')[1]
-    np.require(internal, requirements=['O'])
-    return di, de, (formula, vertices, indices, internal, external), harmonics
+def split_text(s):
+    from itertools import groupby
+    for k,g in groupby(s, str.isalpha):
+        yield ''.join(list(g))
+
+
+# Read a cxs file getting values specified in names
+# returns a dictionary contianing the values
+def readcxsfile(fname, attributes):
+    outputs = {}
+    reading = None
+    count = 0
+    dtype = np.float64
+    expectedVals = 1
+    with open(fname) as f:
+        for line in f:
+
+            if reading and count > 0:
+                arr = outputs[reading]
+                try:
+                    x = np.fromstring(line, dtype=dtype,
+                                  count=expectedVals, sep=' ')
+                    if(x.size > 1):
+                        if(len(arr.shape)) <2:
+                            log('Retrieved more values than expected????')
+                            raise ValueError
+                        arr[arr.shape[0] - count, :] = x
+                    else:
+                        arr[arr.size - count] = x
+                except:
+                    x = next(split_text(line))
+                    arr[arr.size - count] = x
+                count -= 1
+
+
+
+            if line.startswith('begin '):
+                name = line.split()[1]
+
+                if name in attributes:
+                    reading = name
+                    count = int(line.split()[2])
+
+                    if name in ndtypes:
+                            dtype = ndtypes[name]
+                    else: dtype = np.float64
+
+                    if name in nmdims:
+                        expectedVals = nmdims[name]
+                        outputs[name] = np.zeros((count, expectedVals), dtype=dtype)
+
+                    else:
+                        expectedVals = 1
+                        outputs[name] = np.zeros(count, dtype=dtype)
+
+    return outputs
 
 
 # FILE FUNCTIONS
@@ -110,19 +159,26 @@ def proc_file_sa(fname, restrict, order=False):
         err = 'Could not open {0} for reading, check to see if file exists'
         log(err.format(fname))
         sys.exit(1)
-    r = readcxsfile_c(fname)
-    if not r:
-        return None
-    x, y, a, harmonics = r
-
-    formula, vertices, indices, internal, external = a
-    contrib, contrib_p = calc.get_contrib_percentage(vertices, indices,
-                                                     internal, external,
-                                                     x + y, dp=1,
-                                                     restrict=restrict,
-                                                     order=order)
+    r = readcxsfile(fname, ["vertices", "indices", "atoms_inside_surface",
+                            "atoms_outside_surface", "d_i_face_atoms",
+                            "d_e_face_atoms", "unit_cell", "d_e", "d_i"])
+    formula = "TODO"
     cname = os.path.basename(os.path.splitext(fname)[0])
-    return cname, formula, contrib_p
+
+    x = r["vertices"]
+    y = r["indices"]
+    ai = r["atoms_inside_surface"]
+    ao = r["atoms_outside_surface"]
+    di = r["d_i_face_atoms"]
+    de = r["d_e_face_atoms"]
+    uc = r["unit_cell"]
+    distances = r["d_e"] + r["d_i"]
+    external = uc[ao[de -1 ] -1 ]
+    internal = uc[ai[di -1] - 1]
+
+    _, contrib_p  = calc.get_contrib_percentage(x, y, internal, external, distances,
+                                       restrict=restrict, order=order)
+    return (cname, formula, contrib_p)
 
 
 def proc_file_harmonics(fname, metric='dnorm'):
@@ -135,11 +191,11 @@ def proc_file_harmonics(fname, metric='dnorm'):
             err = '{0} appears to be a directory, use --batch'
         log(err.format(fname))
         sys.exit(1)
-    r = readcxsfile_c(fname)
+    r = readcxsfile(fname, ["coefficients", "invariants"])
     cname = os.path.basename(os.path.splitext(fname)[0])
     if not r:
         return None
-    _, _, _, harmonics = r
+    harmonics = (r["coefficients"], r["invariants"])
     return (harmonics, cname)
 
 
@@ -155,10 +211,12 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
             err = '{0} appears to be a directory, use --batch'
         log(err.format(fname))
         sys.exit(1)
-    r = readcxsfile_c(fname)
+    r = readcxsfile(fname, ["d_e", "d_i"])
     if not r:
         return None
-    x, y, a, _ = r
+
+    x = r["d_i"]
+    y = r["d_e"]
 
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)
@@ -315,7 +373,7 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     if nfiles < 1:
         log('No files to read in {0}'.format(dirname))
         sys.exit(1)
-    args = [(fname, restrict, order) for fname in files]
+    #args = [(fname, restrict, order) for fname in files]
 
     formulae = []
     contribs = []
@@ -323,26 +381,6 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
-
-    inqueue = Queue()
-    outqueue = Queue()
-
-    readers = []
-    for i in range(procs):
-        readers[i] = Process(target = batch_reader, args=((surface_helper, inqueue, outqueue),))
-        readers[i].daemon = True
-        readers[i]
-
-    while len(args) > BATCH_SIZE:
-        batch = args[:BATCH_SIZE]
-        args = args[BATCH_SIZE:]
-        r.wait()
-        if r.ready():
-            count += BATCH_SIZE
-            print count
-
-
-    p.join()
     pbar.finish()
     # Strip none values
     vals = [x for x in vals if x is not None]
