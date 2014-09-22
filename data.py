@@ -182,8 +182,8 @@ elnames = {
 }
 braille = ''.join([chr(x) for x in range(0x2800, 0x2880)])
 shapes = ''.join([chr(x) for x in range(0x2500, 0x257F)])
-widgets = ['Working - ', pb.Timer(), ' ',
-           pb.AnimatedMarker(markers=braille)]
+widgets = ['Working - ', pb.Percentage(), ' ', pb.Bar(marker=chr(0x2588)), ' ',
+           pb.Timer(), ' ' ]
 silent = False
 
 

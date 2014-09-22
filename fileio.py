@@ -2,7 +2,6 @@
 import sys
 import os
 import glob
-from multiprocessing.pool import ThreadPool
 import concurrent.futures
 import time
 # Library imports
@@ -271,17 +270,13 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
-    p = ThreadPool(procs)
-    r = p.map_async(hist_helper, args, callback=vals.extend)
-    p.close()
-    # Doing something I ought not to do, using private members
-    # of MapResult to check how many are done. (bad)
-    while True:
-        if r.ready():
-            break
-        pbar.update()
-        time.sleep(0.2)
-    p.join()
+
+    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
+        fs = [executor.submit(hist_helper, arg) for arg in args]
+        for i, f in enumerate(concurrent.futures.as_completed(fs)):
+            pbar.update(i)
+            vals.append(f.result())
+
     pbar.finish()
     # Strip none values
     vals = [x for x in vals if x is not None]
@@ -320,15 +315,13 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
-    p = ThreadPool(procs)
-    r = p.map_async(harmonics_helper, args, callback=vals.extend)
-    p.close()
-    while True:
-        if r.ready():
-            break
-        pbar.update()
-        time.sleep(0.2)
-    p.join()
+
+    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
+        fs = [executor.submit(harmonics_helper, arg) for arg in args]
+        for i, f in enumerate(concurrent.futures.as_completed(fs)):
+            pbar.update(i)
+            vals.append(f.result())
+
     pbar.finish()
     # Strip none values
     vals = [x for x in vals if x is not None]
@@ -348,20 +341,6 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
         sys.exit(1)
 
 
-def batch_writer(args, queue):
-    for a in args:
-        queue.put(a)
-    queue.put("DONE")
-
-def batch_reader(fun, inqueue, outqueue):
-    while True:
-        msg = inqueue.get()
-        if (msg == 'DONE'):
-            break
-        else:
-            res = fun(msg)
-            outqueue.put(res)
-
 def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
     if not os.path.isdir(dirname):
@@ -373,7 +352,7 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     if nfiles < 1:
         log('No files to read in {0}'.format(dirname))
         sys.exit(1)
-    #args = [(fname, restrict, order) for fname in files]
+    args = [(fname, restrict, order) for fname in files]
 
     formulae = []
     contribs = []
@@ -381,7 +360,15 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
     start_time = time.time()
     pbar.start()
+
+    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
+        fs = [executor.submit(surface_helper, arg) for arg in args]
+        for i, f in enumerate(concurrent.futures.as_completed(fs)):
+            pbar.update(i)
+            vals.append(f.result())
+
     pbar.finish()
+
     # Strip none values
     vals = [x for x in vals if x is not None]
     if len(vals) < nfiles:
