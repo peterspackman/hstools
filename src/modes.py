@@ -2,9 +2,9 @@
 import sys
 import time
 # Local imports
-from data import log
-import calc
-import fileio as fio
+from .data import log
+from . import calc
+from . import fileio as fio
 
 test_f = {'sp': calc.spearman_roc,
           'kt': calc.kendall_tau,

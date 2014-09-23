@@ -4,7 +4,6 @@ from functools import reduce
 from itertools import combinations
 import concurrent.futures
 import json
-import multiprocessing
 import time
 # Library imports
 from matplotlib import pyplot as plt
@@ -16,8 +15,8 @@ import scipy.cluster.hierarchy
 import scipy.spatial.distance
 import scipy.stats as stats
 # Local imports
-from data import log
-import data
+from . import data
+from .data import log
 
 
 def spearman_roc(x):

@@ -10,10 +10,10 @@ import matplotlib as mpl
 import numpy as np
 import progressbar as pb
 # Local imports
-from data import log
-from data import widgets
-import calc
-import hist
+from .data import log
+from .data import widgets
+from . import calc
+from . import hist
 
 nmdims = {"vertices": 3, "indices": 3, "coefficients": 2}
 ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,

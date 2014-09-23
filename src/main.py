@@ -58,8 +58,8 @@ Options:
 # Library imports
 from docopt import docopt
 # Local imports
-import data
-import modes
+from . import data
+from . import modes
 
 version = "0.5"
 args = docopt(__doc__, version=version)
