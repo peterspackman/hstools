@@ -78,10 +78,10 @@ def readcxsfile(fname, attributes):
     with open(fname) as f:
         for line in f:
             # Check if there are any attributes left to find
-            if(attributes.empty()):
+            if not attributes and not reading:
                 break
             # if we are currently reading values into an array
-            if reading and count > 0:
+            if reading:
                 arr = outputs[reading]
                 try:
                     x = np.fromstring(line, dtype=dtype,
@@ -97,6 +97,9 @@ def readcxsfile(fname, attributes):
                     x = next(split_text(line))
                     arr[arr.size - count] = x
                 count -= 1
+                if count < 1:
+                    reading = None
+                    count = 0
 
             # Otherwise check if a line begins with... begin
             elif line.startswith('begin '):
