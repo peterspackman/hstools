@@ -1,12 +1,11 @@
 #!/usr/bin/python
 # Core imports
-from itertools import combinations
 from functools import reduce
+from itertools import combinations
 import concurrent.futures
 import json
 import multiprocessing
 import time
-
 # Library imports
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram as dend
@@ -16,7 +15,6 @@ import progressbar as pb
 import scipy.cluster.hierarchy
 import scipy.spatial.distance
 import scipy.stats as stats
-
 # Local imports
 from data import log
 import data

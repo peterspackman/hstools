@@ -55,14 +55,13 @@ Options:
                                    much. [default: 0.4]
 """
 
-# Core imports
 # Library imports
 from docopt import docopt
 # Local imports
 import data
 import modes
 
-version = "0.3"
+version = "0.5"
 args = docopt(__doc__, version=version)
 # *******        MAIN PROGRAM           ****** #
 

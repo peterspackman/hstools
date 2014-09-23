@@ -1,19 +1,19 @@
 # Core imports
-import sys
-import os
-import glob
 import concurrent.futures
+import glob
+import os
+import sys
 import time
 # Library imports
-import numpy as np
-import matplotlib as mpl
 from matplotlib import pyplot as plt
+import matplotlib as mpl
+import numpy as np
 import progressbar as pb
 # Local imports
-import hist
-import calc
-from data import widgets
 from data import log
+from data import widgets
+import calc
+import hist
 
 nmdims = {"vertices": 3, "indices": 3, "coefficients": 2}
 ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
