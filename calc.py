@@ -2,6 +2,7 @@
 # Core imports
 from itertools import combinations
 from functools import reduce
+import concurrent.futures
 import json
 import multiprocessing
 import time
@@ -82,23 +83,21 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     output = "Creating {0}x{0} matrix, test={1}, using {2} processes"
     log(output.format(n, test.__name__, procs))
 
-    # Here is why our asymptote is exponential! :(
+    # Generating matrix will be O(exp(n)) time
     c = list(combinations(histograms, 2))
     numcalc = len(c)
 
     pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
     pbar.start()
-    # Parallel code
-    p = multiprocessing.Pool(procs)
 
-    r = p.map_async(test, c, callback=vals.extend)
-    p.close()
-    while True:
-        if r.ready():
-            break
-        pbar.update()
-        time.sleep(0.2)
-    p.join()
+    # Parallel code
+    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
+        fs = [executor.submit(test, arg) for arg in c]
+        for i, f in enumerate(concurrent.futures.as_completed(fs)):
+            pbar.update(i)
+            a = f.result()
+            vals.append(a)
+
     pbar.finish()
 
     vals = np.array(vals)
@@ -112,15 +111,16 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
       then we use the transpose of the matrix to copy the
       upper triangle into the lower triangle (making a
       symmetric matrix) """
+
     # Assign upper triangle
     try:
         mat[np.triu_indices(n, k=1)] = vals
-
     except ValueError as e:
         log("Couldn't broadcast array to triangle upper indices?")
         log(e)
         log("vals: {0}".format(vals))
         return
+
     # Make the matrix symmetric
     mat = (mat + mat.T) / 2
 
@@ -135,7 +135,9 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     else:
         np.fill_diagonal(mat, 0.0)
     t = time.time() - start_time
-    output = 'Matrix took {0:.2}s to create, performing {1} calculations'
+    output = 'Matrix took {0:.2}s to create, performing {1} pairwise \
+              calculations'
+
     log(output.format(t, numcalc))
     return mat
 
@@ -250,12 +252,13 @@ def get_contrib_percentage(vertices, indices, internal,
         unique = np.unique(np.append(internal, external))
         for sym in unique:
             if sym not in data.vdw_radii:
+                log("{} not found in Van Der Waal's Radii list".format(sym))
                 restrict = False
 
     for i in range(internal.size):
         # Key in the form "internal -> external" e.g. "F -> H"
-        chsymi = internal[i].decode('utf-8')
-        chsyme = external[i].decode('utf-8')
+        chsymi = internal[i]
+        chsyme = external[i]
         if(not order):
             chsymi, chsyme = sorted((chsymi, chsyme))
         key = "{0} -> {1}".format(chsymi, chsyme)

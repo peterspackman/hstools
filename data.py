@@ -6,7 +6,7 @@
 from __future__ import print_function
 import progressbar as pb
 
-# Dict containing
+# Dict containing Van Der Waal's radii in angstroms
 vdw_radii = {
     'Ag': 1.72,
     'Ar': 1.88,
@@ -180,10 +180,10 @@ elnames = {
     'Zn': 'Zinc',
     'Zr': 'Zirconium'
 }
-braille = ''.join([chr(x) for x in range(0x2800, 0x2880)])
-shapes = ''.join([chr(x) for x in range(0x2500, 0x257F)])
-widgets = ['Working - ', pb.Percentage(), ' ', pb.Bar(marker=chr(0x2588)), ' ',
-           pb.Timer(), ' ' ]
+
+widgets = ['Working - ', pb.Percentage(), ' ',
+           pb.Bar(marker=chr(9188), left=chr(8866),
+           right=chr(8867)), ' ', pb.ETA(), ' ' ]
 silent = False
 
 

@@ -43,6 +43,23 @@ function test_files {
   fi
 }
 
+function test_arrays {
+  python3 test/check_arrays.py $1 $2 > /dev/null
+  cmp=$?
+  if [ $cmp -eq 1 ]
+  then
+    printf "%s%s%s" "$RED" "[FAIL]" "$NORMAL"
+    print_header
+    printf "\n"
+  else
+    printf "%s%s%s" "$GREEN" "[PASS]" "$NORMAL"
+    print_header
+    printf "\n"
+    ((NPASSED++))
+  fi
+
+}
+
 function print_descr {
   padding=80
   printf "%s[TEST] %s $1 " $YELLOW
@@ -68,13 +85,13 @@ $PROG surface --batch $TEST_DIR -o $TMP --no-restrict --order-important --silent
 test_files $TMP $SURFACENROI
 print_descr "hist --batch (spearman_roc)"
 $PROG hist --batch $TEST_DIR -o $TMP --silent
-test_files $TMP $HISTSP
+test_arrays $TMP $HISTSP
 print_descr "hist --batch (kendall_tau)"
 $PROG hist --batch $TEST_DIR -tkt -o $TMP --silent
-test_files $TMP $HISTKT
+test_arrays $TMP $HISTKT
 print_descr "hist --batch (hdistance)"
 $PROG hist --batch $TEST_DIR -thd -o $TMP --silent
-test_files $TMP $HISTHD
+test_arrays $TMP $HISTHD
 if [ $NPASSED -eq $NTESTS ]; then
   printf "%s[ALL TESTS PASSED]%s" $GREEN $NORMAL
 else

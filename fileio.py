@@ -19,7 +19,7 @@ nmdims = {"vertices":3, "indices":3, "coefficients":2}
 ndtypes = {"indices":np.int32, "atoms_inside_surface":np.int32,
            "atoms_outside_surface":np.int32,
            "d_e_face_atoms":np.int32, "d_i_face_atoms":np.int32,
-           "unit_cell":np.dtype('S3')}
+           "unit_cell":np.dtype((str, 3))}
 numerical = {"unit_cell":True}
 
 
@@ -81,9 +81,7 @@ def readcxsfile(fname, attributes):
                     arr[arr.size - count] = x
                 count -= 1
 
-
-
-            if line.startswith('begin '):
+            elif line.startswith('begin '):
                 name = line.split()[1]
 
                 if name in attributes:
@@ -101,6 +99,8 @@ def readcxsfile(fname, attributes):
                     else:
                         expectedVals = 1
                         outputs[name] = np.zeros(count, dtype=dtype)
+            elif line.startswith("   formula = "):
+                outputs["formula"] = line.split('"')[1]
 
     return outputs
 
@@ -161,7 +161,7 @@ def proc_file_sa(fname, restrict, order=False):
     r = readcxsfile(fname, ["vertices", "indices", "atoms_inside_surface",
                             "atoms_outside_surface", "d_i_face_atoms",
                             "d_e_face_atoms", "unit_cell", "d_e", "d_i"])
-    formula = "TODO"
+    formula = r["formula"]
     cname = os.path.basename(os.path.splitext(fname)[0])
 
     x = r["vertices"]
@@ -172,8 +172,8 @@ def proc_file_sa(fname, restrict, order=False):
     de = r["d_e_face_atoms"]
     uc = r["unit_cell"]
     distances = r["d_e"] + r["d_i"]
-    external = uc[ao[de -1 ] -1 ]
-    internal = uc[ai[di -1] - 1]
+    external = uc[ao[de - 1] - 1]
+    internal = uc[ai[di - 1] - 1]
 
     _, contrib_p  = calc.get_contrib_percentage(x, y, internal, external, distances,
                                        restrict=restrict, order=order)
@@ -223,7 +223,8 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
         outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
         plotfile(x, y, fname=outfile, nbins=resolution)
 
-    return h, cname
+    ret = (h, cname)
+    return ret
 
 
 def write_sa_file(fname, cnames, formulae, contribs):
@@ -275,7 +276,8 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         fs = [executor.submit(hist_helper, arg) for arg in args]
         for i, f in enumerate(concurrent.futures.as_completed(fs)):
             pbar.update(i)
-            vals.append(f.result())
+            a = f.result()
+            vals.append(a)
 
     pbar.finish()
     # Strip none values
@@ -283,6 +285,8 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     if len(vals) < nfiles:
         log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
         nfiles = len(vals)
+
+    vals = sorted(vals, key=lambda val: val[1])
 
     if nfiles > 0:
         # unzip the output
@@ -329,6 +333,8 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
         log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
         nfiles = len(vals)
 
+    vals = sorted(vals)
+
     if nfiles > 0:
         # unzip the output
         values, names = zip(*vals)
@@ -374,6 +380,8 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     if len(vals) < nfiles:
         log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
         nfiles = len(vals)
+
+    vals = sorted(vals)
 
     if nfiles > 0:
         cnames, formulae, contribs = zip(*vals)
