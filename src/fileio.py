@@ -47,28 +47,45 @@ def harmonics_helper(args):
     return proc_file_harmonics(fname, metric=metric)
 
 
+# split text up separated by double quotes ""
 def split_text(s):
     from itertools import groupby
     for k, g in groupby(s, str.isalpha):
         yield ''.join(list(g))
 
 
+# Break up a file into 1MB chunks of data
+def get_chunks(file, size=1024*1024):
+    f = open(file)
+    while 1:
+        start = f.tell()
+        f.seek(size, 1)
+        s = f.readline()  # this ensures each chunk ends after a newline
+        yield start, f.tell() - start
+        if not s:
+            break
+
+
 # Read a cxs file getting values specified in names
 # returns a dictionary contianing the values
 def readcxsfile(fname, attributes):
     outputs = {}
-    reading = None
+    reading = None  # Means we are currently not reading values
     count = 0
-    dtype = np.float64
-    expectedVals = 1
+    dtype = np.float64  # default dtype
+    expected = 1
+
     with open(fname) as f:
         for line in f:
-
+            # Check if there are any attributes left to find
+            if(attributes.empty()):
+                break
+            # if we are currently reading values into an array
             if reading and count > 0:
                 arr = outputs[reading]
                 try:
                     x = np.fromstring(line, dtype=dtype,
-                                      count=expectedVals, sep=' ')
+                                      count=expected, sep=' ')
                     if(x.size > 1):
                         if(len(arr.shape)) < 2:
                             log('Retrieved more values than expected????')
@@ -81,30 +98,34 @@ def readcxsfile(fname, attributes):
                     arr[arr.size - count] = x
                 count -= 1
 
+            # Otherwise check if a line begins with... begin
             elif line.startswith('begin '):
                 name = line.split()[1]
 
+                # Are we looking for this attribute?
                 if name in attributes:
                     reading = name
                     count = int(line.split()[2])
-
+                    attributes.remove(name)
+                    # is it not a float?
                     if name in ndtypes:
                         dtype = ndtypes[name]
                     else:
                         dtype = np.float64
-
+                    # is it multi-dimensional data?
                     if name in nmdims:
-                        expectedVals = nmdims[name]
-                        outputs[name] = np.zeros((count,
-                                                  expectedVals),
+                        expected = nmdims[name]
+                        outputs[name] = np.zeros((count, expected),
                                                  dtype=dtype)
-
                     else:
-                        expectedVals = 1
+                        expected = 1
                         outputs[name] = np.zeros(count, dtype=dtype)
+
+            # Special case to read formula
             elif line.startswith("   formula = "):
                 outputs["formula"] = line.split('"')[1]
 
+    # a dict of arrays indexed by attribute name
     return outputs
 
 
