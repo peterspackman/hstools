@@ -233,7 +233,7 @@ def area_tri(a, b, c):
 
     # Because these functions expect 6 doubles or 3 doubles as arguments
     # we have to unpack the values!
-    return np.linalg.norm(np.cross(v1,v2)) / 2
+    return np.linalg.norm(np.cross(v1, v2)) / 2
 
 
 def get_contrib_percentage(vertices, indices, internal,

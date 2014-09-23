@@ -15,12 +15,12 @@ import calc
 from data import widgets
 from data import log
 
-nmdims = {"vertices":3, "indices":3, "coefficients":2}
-ndtypes = {"indices":np.int32, "atoms_inside_surface":np.int32,
-           "atoms_outside_surface":np.int32,
-           "d_e_face_atoms":np.int32, "d_i_face_atoms":np.int32,
-           "unit_cell":np.dtype((str, 3))}
-numerical = {"unit_cell":True}
+nmdims = {"vertices": 3, "indices": 3, "coefficients": 2}
+ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
+           "atoms_outside_surface": np.int32,
+           "d_e_face_atoms": np.int32, "d_i_face_atoms": np.int32,
+           "unit_cell": np.dtype((str, 3))}
+numerical = {"unit_cell": True}
 
 
 # HELPER AND WRAPPER FUNCTIONS
@@ -49,7 +49,7 @@ def harmonics_helper(args):
 
 def split_text(s):
     from itertools import groupby
-    for k,g in groupby(s, str.isalpha):
+    for k, g in groupby(s, str.isalpha):
         yield ''.join(list(g))
 
 
@@ -68,9 +68,9 @@ def readcxsfile(fname, attributes):
                 arr = outputs[reading]
                 try:
                     x = np.fromstring(line, dtype=dtype,
-                                  count=expectedVals, sep=' ')
+                                      count=expectedVals, sep=' ')
                     if(x.size > 1):
-                        if(len(arr.shape)) <2:
+                        if(len(arr.shape)) < 2:
                             log('Retrieved more values than expected????')
                             raise ValueError
                         arr[arr.shape[0] - count, :] = x
@@ -89,12 +89,15 @@ def readcxsfile(fname, attributes):
                     count = int(line.split()[2])
 
                     if name in ndtypes:
-                            dtype = ndtypes[name]
-                    else: dtype = np.float64
+                        dtype = ndtypes[name]
+                    else:
+                        dtype = np.float64
 
                     if name in nmdims:
                         expectedVals = nmdims[name]
-                        outputs[name] = np.zeros((count, expectedVals), dtype=dtype)
+                        outputs[name] = np.zeros((count,
+                                                  expectedVals),
+                                                 dtype=dtype)
 
                     else:
                         expectedVals = 1
@@ -175,8 +178,9 @@ def proc_file_sa(fname, restrict, order=False):
     external = uc[ao[de - 1] - 1]
     internal = uc[ai[di - 1] - 1]
 
-    _, contrib_p  = calc.get_contrib_percentage(x, y, internal, external, distances,
-                                       restrict=restrict, order=order)
+    _, contrib_p = calc.get_contrib_percentage(x, y, internal,
+                                               external, distances,
+                                               restrict=restrict, order=order)
     return (cname, formula, contrib_p)
 
 

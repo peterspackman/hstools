@@ -28,7 +28,7 @@ def hist_main(args):
             log('Not saving figure, so this \
                         command will have no output')
         h, name = fio.proc_file_hist(fname, resolution=bins,
-                                        save_figs=save_figs)
+                                     save_figs=save_figs)
 
     elif args['<dir>']:
         dirname = args['<dir>']
@@ -37,8 +37,8 @@ def hist_main(args):
         distance = float(args['--distance'])
         # Program is being run to batch process a directory of cxs files
         histograms, names = fio.batch_hist(dirname, resolution=bins,
-                                            save_figs=save_figs,
-                                            procs=procs)
+                                           save_figs=save_figs,
+                                           procs=procs)
 
         log('Generating matrix using {0}'.format(tname))
         mat = calc.get_dist_mat(histograms, test=mtest, procs=procs)
@@ -46,10 +46,11 @@ def hist_main(args):
             fname = args['--output']
             fio.write_mat_file(fname, mat)
         calc.cluster(mat, names, tname, dump=args['--json'],
-                        dendrogram=dendrogram,
-                        method=method,
-                        distance=distance)
+                     dendrogram=dendrogram,
+                     method=method,
+                     distance=distance)
     footer(start_time)
+
 
 def harmonics_main(args):
     mtest = calc.dvalue
@@ -80,7 +81,7 @@ def harmonics_main(args):
             fio.write_mat_file(fname, mat)
 
         calc.cluster(mat, names, 'mdistance', dendrogram=dendrogram,
-                        method=method, distance=distance)
+                     method=method, distance=distance)
 
     footer(start_time)
 
@@ -97,7 +98,7 @@ def surface_main(args):
             log('WARNING: {0} does not have .cxs extension'.format(fname))
         # Generate the percentage contribution of each element
         cname, formula, contrib_p = fio.proc_file_sa(fname, restrict,
-                                                        order=order)
+                                                     order=order)
         log('{0} {1}'.format(cname, formula))
 
         for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
@@ -106,8 +107,8 @@ def surface_main(args):
     elif args['<dir>']:
         dirname = args['<dir>']
         cnames, formulae, contribs = fio.batch_surface(dirname, restrict,
-                                                        procs=procs,
-                                                        order=order)
+                                                       procs=procs,
+                                                       order=order)
         if restrict:
             log("Restricted interactions using CCDC Van Der Waal's Radii")
         # If we are writing to file
@@ -133,4 +134,3 @@ def surface_main(args):
 def footer(start_time):
     log('Process complete! Took {0:.2} s'.format(time.time() - start_time))
     sys.exit(0)
-

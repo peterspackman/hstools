@@ -183,7 +183,7 @@ elnames = {
 
 widgets = ['Working - ', pb.Percentage(), ' ',
            pb.Bar(marker=chr(9188), left=chr(8866),
-           right=chr(8867)), ' ', pb.ETA(), ' ' ]
+           right=chr(8867)), ' ', pb.ETA(), ' ']
 silent = False
 
 
