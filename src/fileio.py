@@ -361,7 +361,7 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
         log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
         nfiles = len(vals)
 
-    vals = sorted(vals)
+    vals = sorted(vals, key=lambda val: val[1])
 
     if nfiles > 0:
         # unzip the output

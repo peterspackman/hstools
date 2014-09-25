@@ -18,7 +18,6 @@ import scipy.stats as stats
 from . import data
 from .data import log
 
-
 def spearman_roc(x):
     """ Calculate the Spearman rank-order correlation coefficient from
     2 histograms This may need to be modified, I'm uncertain whether or
@@ -60,13 +59,16 @@ def hdistance(x):
 def dvalue(x):
     # unpack the tuple
     i1, i2 = x
-    assert(not np.isnan(np.sum(i1)))
-    assert(not np.isnan(np.sum(i2)))
+    i1[np.isnan(i1)] = 0
+    i2[np.isnan(i2)] = 0
     d = np.power(np.sum(np.power(i2 - i1, 2)), 0.5)
     if(d <= 1.0e-10):
         return 0.0
     else:
-        return d
+        return d * 1000
+
+def write_mat_file(fname, mat):
+    np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
 
 
 def get_dist_mat(histograms, test=spearman_roc, procs=4):
@@ -87,14 +89,16 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
     pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
     pbar.start()
 
+    i = 0
     # Parallel code
-    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
-        fs = [executor.submit(test, arg) for arg in c]
-        for i, f in enumerate(concurrent.futures.as_completed(fs)):
-            pbar.update(i)
-            a = f.result()
-            vals.append(a)
-
+    with concurrent.futures.ThreadPoolExecutor(8) as executor:
+        batch = c[i:i+100]
+        while batch:
+            for val in executor.map(test, batch, timeout=30):
+                vals.append(val)
+                i += 1
+                pbar.update(i)
+            batch = c[i:i+100]
     pbar.finish()
 
     vals = np.array(vals)
@@ -131,6 +135,12 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
         mat = 1.0 - np.round(mat, decimals=5)
     else:
         np.fill_diagonal(mat, 0.0)
+    symmetry = np.allclose(mat.transpose(1, 0), mat)
+    log("Matrix is symmetric: {0}".format(symmetry))
+    if not symmetry:
+        write_mat_file("mat1", mat)
+        write_mat_file("mat2", mat.transpose(1,0))
+
     t = time.time() - start_time
     output = 'Matrix took {0:.2}s to create, performing {1} pairwise \
               calculations'
@@ -145,7 +155,12 @@ def cluster(mat, names, tname, dump=None,
     """ Takes an NxN array of distances and an array of names with
       the same indices, performs cluster analysis and shows a dendrogram"""
 
-    distArray = scipy.spatial.distance.squareform(mat)
+    try:
+        distArray = scipy.spatial.distance.squareform(mat)
+    except ValueError as e:
+        print(e)
+        print(mat)
+        return
     start_time = time.time()
 
     # This is the actual clustering using fastcluster
