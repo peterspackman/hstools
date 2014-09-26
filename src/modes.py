@@ -1,6 +1,8 @@
 # Core imports
 import sys
 import time
+# Library imports
+import numpy as np
 # Local imports
 from .data import log
 from . import calc
@@ -12,7 +14,16 @@ test_f = {'sp': calc.spearman_roc,
 test_names = {'sp': 'Spearman rank order coefficient',
               'kt': "Kendall's Tau",
               'hd': 'naive histogram distance',
-              'dv': 'Custom invariant distance'}
+              'dv': 'Euclidean distance between invariants'}
+
+def logClosestPair(mat, names):
+    np.fill_diagonal(mat, np.inf)
+    x = np.nanargmin(mat)
+    minind = (x//len(names), x % len(names))
+    log('Closest pair: {0}, d= {1}'.format((names[minind[0]],
+                                            names[minind[1]]),
+                                            mat[minind]))
+    np.fill_diagonal(mat, 0.0)
 
 
 def hist_main(args):
@@ -43,10 +54,13 @@ def hist_main(args):
                                            procs=procs)
 
         log('Generating matrix using {0}'.format(tname))
-        mat = calc.get_dist_mat(histograms, test=mtest, procs=procs)
+        mat = calc.get_dist_mat(histograms, test=mtest, threads=procs*2)
         if args['--output']:
             fname = args['--output']
             fio.write_mat_file(fname, mat)
+
+        logClosestPair(mat, names)
+
         calc.cluster(mat, names, tname, dump=args['--json'],
                      dendrogram=dendrogram,
                      method=method,
@@ -77,13 +91,17 @@ def harmonics_main(args):
         values, names = fio.batch_harmonics(dirname, procs=procs)
         log('Generating matrix using: "{0}"'.format(tname))
         coefficients, invariants = zip(*values)
-        mat = calc.get_dist_mat(invariants, test=mtest)
+        mat = calc.get_dist_mat(invariants, test=mtest, threads=procs*2)
         if args['--output']:
             fname = args['--output']
             fio.write_mat_file(fname, mat)
+        logClosestPair(mat, names)
 
-        calc.cluster(mat, names, 'mdistance', dendrogram=dendrogram,
+
+
+        calc.cluster(mat, names, tname, dendrogram=dendrogram,
                      method=method, distance=distance)
+
 
     footer(start_time)
 

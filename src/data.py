@@ -181,9 +181,11 @@ elnames = {
     'Zr': 'Zirconium'
 }
 
-widgets = ['Working - ', pb.Percentage(), ' ',
-           pb.Bar(marker=chr(9188), left=chr(8866),
-           right=chr(8867)), ' ', pb.ETA(), ' ']
+def getWidgets(msg):
+    return [msg, pb.Percentage(), ' ',
+            pb.Bar(marker='.', left='',
+            right=''), ' ', pb.ETA(), ' ']
+
 silent = False
 
 

@@ -11,7 +11,7 @@ import numpy as np
 import progressbar as pb
 # Local imports
 from .data import log
-from .data import widgets
+from . import data
 from . import calc
 from . import hist
 
@@ -296,7 +296,8 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     histograms = []
     names = []
     vals = []
-    pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
+    pbar = pb.ProgressBar(widgets=data.getWidgets('Reading Files: '),
+                          maxval=nfiles)
     start_time = time.time()
     pbar.start()
 
@@ -319,7 +320,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
     if nfiles > 0:
         # unzip the output
         histograms, names = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
+        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
         log(output.format(nfiles, time.time() - start_time, procs))
 
         return (histograms, names)
@@ -344,7 +345,8 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
     names = []
     vals = []
     # Boilerplate
-    pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
+    pbar = pb.ProgressBar(widgets=data.getWidgets('Reading Files: '),
+                          maxval=nfiles)
     start_time = time.time()
     pbar.start()
 
@@ -366,7 +368,7 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
     if nfiles > 0:
         # unzip the output
         values, names = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
+        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
         log(output.format(nfiles, time.time() - start_time, procs))
 
         return (values, names)
@@ -391,7 +393,8 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
     formulae = []
     contribs = []
     vals = []
-    pbar = pb.ProgressBar(widgets=widgets, maxval=nfiles)
+    pbar = pb.ProgressBar(widgets=data.getWidgets('Reading Files: '),
+                          maxval=nfiles)
     start_time = time.time()
     pbar.start()
 
@@ -413,7 +416,7 @@ def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
 
     if nfiles > 0:
         cnames, formulae, contribs = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} threads.'
+        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
         log(output.format(nfiles, time.time() - start_time, procs))
         return (cnames, formulae, contribs)
     else:

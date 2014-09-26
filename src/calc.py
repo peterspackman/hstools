@@ -61,7 +61,10 @@ def dvalue(x):
     i1, i2 = x
     i1[np.isnan(i1)] = 0
     i2[np.isnan(i2)] = 0
-    d = np.power(np.sum(np.power(i2 - i1, 2)), 0.5)
+    ind1 = np.flatnonzero(i1)
+    ind2 = np.flatnonzero(i2)
+    ind = (np.union1d(ind1, ind2))
+    d = np.power(np.sum(np.power(i2[ind] - i1[ind], 2)), 0.5)
     if(d <= 1.0e-10):
         return 0.0
     else:
@@ -71,19 +74,19 @@ def write_mat_file(fname, mat):
     np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
 
 
-def get_dist_mat(histograms, test=spearman_roc, procs=4):
-    """ Given a list of histograms, calculate the distances between them
+def get_dist_mat(values, test=spearman_roc, threads=8):
+    """ Given a list of data, calculate the distances between them
         and return a NxN redundant array of these distances. """
-    n = len(histograms)
+    n = len(values)
     vals = []
     start_time = time.time()
-    widgets = data.widgets
+    widgets = data.getWidgets('Calculating Matrix: ')
 
-    output = "Creating {0}x{0} matrix, test={1}, using {2} processes"
-    log(output.format(n, test.__name__, procs))
+    output = "Creating {0}x{0} matrix, test={1}, using {2} threads"
+    log(output.format(n, test.__name__, threads))
 
     # Generating matrix will be O(exp(n)) time
-    c = list(combinations(histograms, 2))
+    c = list(combinations(values, 2))
     numcalc = len(c)
 
     pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
@@ -133,7 +136,6 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
             (getting 1.0 - 1.0 != 0.0). Must perform this step to convert
             correlation data to distance """
         mat = 1.0 - np.round(mat, decimals=5)
-    else:
         np.fill_diagonal(mat, 0.0)
     symmetry = np.allclose(mat.transpose(1, 0), mat)
     log("Matrix is symmetric: {0}".format(symmetry))
@@ -142,8 +144,7 @@ def get_dist_mat(histograms, test=spearman_roc, procs=4):
         write_mat_file("mat2", mat.transpose(1,0))
 
     t = time.time() - start_time
-    output = 'Matrix took {0:.2}s to create, performing {1} pairwise \
-              calculations'
+    output = 'Matrix took {0:.2}s to create. {1} pairwise calculations'
 
     log(output.format(t, numcalc))
     return mat
@@ -165,7 +166,7 @@ def cluster(mat, names, tname, dump=None,
 
     # This is the actual clustering using fastcluster
     Z = fc.linkage(distArray, method=method, metric=distance)
-    outstring = 'Clustering {0} histograms'.format(len(names))
+    outstring = 'Clustering {0} data points'.format(len(names))
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
     log(outstring)
     threshold = distance*max(Z[:, 2])
