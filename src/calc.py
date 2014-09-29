@@ -18,57 +18,78 @@ import scipy.stats as stats
 from . import data
 from .data import log
 
-def spearman_roc(x):
+def spearman_roc(histograms):
     """ Calculate the Spearman rank-order correlation coefficient from
     2 histograms This may need to be modified, I'm uncertain whether or
     not 2 zeroes are ignored READ likely that they aren't, as such
     artificially high correlations are probable"""
-    H1, H2 = x
-    hist1, _, _ = H1
-    hist2, _, _ = H2
-    x = hist1.flatten()
-    y = hist2.flatten()
+    H1, H2 = histograms
+    try:
+        hist1, _, _ = H1
+        hist2, _, _ = H2
+        x = hist1.flatten()
+        y = hist2.flatten()
 
-    r, p = stats.spearmanr(x, y)
-    return r
+        r, p = stats.spearmanr(x, y)
+        return r
 
-
-def kendall_tau(x):
-    """ Calculate Kendall's Tau from the given histograms"""
-    H1, H2 = x
-    hist1, _, _ = H1
-    hist2, _, _ = H2
-    x = hist1.flatten()
-    y = hist2.flatten()
-    r, p = stats.kendalltau(x, y)
-    return r
+    except ValueError as e:
+        print('Error: {0}.'.format(e))
+        print('Input must be a tuple of histograms.')
+        return
 
 
-def hdistance(x):
+def kendall_tau(histograms):
+    """ Calculate Kendall's Tau from the given histograms. Significantly slower
+    than Spearman ROC, and seems to produce slightly worse results."""
+    try:
+        H1, H2 = histograms
+        hist1, _, _ = H1
+        hist2, _, _ = H2
+        x = hist1.flatten()
+        y = hist2.flatten()
+        r, p = stats.kendalltau(x, y)
+        return r
+    except ValueError as e:
+        print('Error: {0}.'.format(e))
+        print('Input must be a tuple of histograms.')
+        return
+
+
+
+def hdistance(histograms):
     """ Calculate a naive distance between two histograms"""
-    H1, H2 = x
-    hist1, _, _ = H1
-    hist2, _, _ = H2
-    x = hist1
-    y = hist2
-    dmat = x - y
-    d = np.sum(dmat)
-    return abs(d)
+    try:
+        H1, H2 = histograms
+        hist1, _, _ = H1
+        hist2, _, _ = H2
+        x = hist1
+        y = hist2
+        dmat = x - y
+        d = np.sum(dmat)
+        return abs(d)
+
+    except ValueError as e:
+        print('Error: {0}.'.format(e))
+        print('Input must be a tuple of histograms.')
+        return
+
 
 
 def dvalue(x):
     # unpack the tuple
     i1, i2 = x
+    # Make NaNs zeroes
     i1[np.isnan(i1)] = 0
     i2[np.isnan(i2)] = 0
+    # find all values where at LEAST one array is nonzero, and use these to
+    # calculate distance
     ind1 = np.flatnonzero(i1)
     ind2 = np.flatnonzero(i2)
     ind = (np.union1d(ind1, ind2))
+    # Euclidean distance
     d = np.power(np.sum(np.power(i2[ind] - i1[ind], 2)), 0.5)
-    if(d <= 1.0e-10):
-        return 0.0
-    else:
-        return d * 1000
+    return d
 
 def write_mat_file(fname, mat):
     np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
@@ -120,9 +141,9 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
     try:
         mat[np.triu_indices(n, k=1)] = vals
     except ValueError as e:
-        log("Couldn't broadcast array to triangle upper indices?")
-        log(e)
-        log("vals: {0}".format(vals))
+        print("Error: {}".format(e))
+        print("Couldn't broadcast array to triangle upper indices?")
+        print("vals: {0}".format(vals))
         return
 
     # Make the matrix symmetric
@@ -130,13 +151,14 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
 
     # Because these tests give correlations not distances,
     # we must modify the values to give a distance equivalent
-
     if test is spearman_roc or test is kendall_tau:
         """ np.round() is used here because of floating point rounding
             (getting 1.0 - 1.0 != 0.0). Must perform this step to convert
             correlation data to distance """
         mat = 1.0 - np.round(mat, decimals=5)
         np.fill_diagonal(mat, 0.0)
+
+    # Error checking for matrix to see if it is symmetric
     symmetry = np.allclose(mat.transpose(1, 0), mat)
     log("Matrix is symmetric: {0}".format(symmetry))
     if not symmetry:
