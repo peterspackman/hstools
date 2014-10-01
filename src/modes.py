@@ -13,7 +13,7 @@ test_f = {'sp': calc.spearman_roc,
           'hd': calc.hdistance}
 test_names = {'sp': 'Spearman rank order coefficient',
               'kt': "Kendall's Tau",
-              'hd': 'naive histogram distance',
+              'hd': 'Sigma histogram distance',
               'dv': 'Euclidean distance between invariants'}
 
 def logClosestPair(mat, names):
