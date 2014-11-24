@@ -188,6 +188,7 @@ def cluster(mat, names, tname, dump=None,
 
     # This is the actual clustering using fastcluster
     Z = fc.linkage(distArray, method=method, metric=distance)
+    log(Z)
     outstring = 'Clustering {0} data points'.format(len(names))
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
     log(outstring)
