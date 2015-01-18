@@ -57,7 +57,7 @@ def split_text(s):
 # Break up a file into 1MB chunks of data
 def get_chunks(file, size=1024*1024):
     f = open(file)
-    while 1:
+    while True:
         start = f.tell()
         f.seek(size, 1)
         s = f.readline()  # this ensures each chunk ends after a newline
@@ -102,7 +102,7 @@ def readcxsfile(fname, attributes):
                     count = 0
 
             # Otherwise check if a line begins with... begin
-            elif line.startswith('begin '):
+            elif 'begin ' in line:
                 name = line.split()[1]
 
                 # Are we looking for this attribute?
@@ -125,7 +125,7 @@ def readcxsfile(fname, attributes):
                         outputs[name] = np.zeros(count, dtype=dtype)
 
             # Special case to read formula
-            elif line.startswith("   formula = "):
+            elif "   formula = " in line:
                 outputs["formula"] = line.split('"')[1]
 
     # a dict of arrays indexed by attribute name

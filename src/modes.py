@@ -1,6 +1,7 @@
 # Core imports
 import sys
 import time
+from collections import OrderedDict
 # Library imports
 import numpy as np
 # Local imports
@@ -121,8 +122,9 @@ def surface_main(args):
                                                      order=order)
         log('{0} {1}'.format(cname, formula))
 
-        for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
-            log('{0}: {1:.2%}'.format(key, contrib_p[key]))
+        d = OrderedDict(sorted(contrib_p.items(), key=lambda t: t[1]))
+        for k, v in iter(d.items()):
+            log('{0}: {1:.2%}'.format(k, v))
 
     elif args['<dir>']:
         dirname = args['<dir>']
@@ -143,11 +145,10 @@ def surface_main(args):
                 log('Molecular Formula: {0}'.format(formula))
                 if not contrib_p:
                     log(' -- Nil--')
-                for key in sorted(contrib_p,
-                                  key=lambda key: contrib_p[key]):
-                    log('{0}: {1:.2%}'.format(key,
-                                              contrib_p[key]))
 
+                d = OrderedDict(sorted(contrib_p.items(), key=lambda t: t[1]))
+                for k, v in iter(d.items()):
+                    log('{0}: {1:.2%}'.format(k, v))
     footer(start_time)
 
 
