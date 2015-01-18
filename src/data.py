@@ -5,6 +5,7 @@
 """
 from __future__ import print_function
 import progressbar as pb
+import termcolor as tc
 
 # Dict containing Van Der Waal's radii in angstroms
 vdw_radii = {
@@ -182,14 +183,14 @@ elnames = {
 }
 
 
-def getWidgets(msg):
-    return [msg, pb.Percentage(), ' ',
-            pb.Bar(marker='.', left='',
+def getWidgets(msg, color='white'):
+    return [tc.colored(msg, color, attrs=['bold']), pb.Percentage(), ' ',
+            pb.Bar(marker=chr(0x2500), left='',
             right=''), ' ', pb.ETA(), ' ']
 
 silent = False
 
 
-def log(s):
+def log(s, color='white'):
     if not silent:
-        print(s)
+        print(colored(s, color))
