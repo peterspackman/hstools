@@ -181,6 +181,7 @@ elnames = {
     'Zr': 'Zirconium'
 }
 
+
 def getWidgets(msg):
     return [msg, pb.Percentage(), ' ',
             pb.Bar(marker='.', left='',

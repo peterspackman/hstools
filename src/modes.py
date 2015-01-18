@@ -17,13 +17,14 @@ test_names = {'sp': 'Spearman rank order coefficient',
               'hd': 'Sigma histogram distance',
               'dv': 'Euclidean distance between invariants'}
 
+
 def logClosestPair(mat, names):
     np.fill_diagonal(mat, np.inf)
     x = np.nanargmin(mat)
     minind = (x//len(names), x % len(names))
     log('Closest pair: {0}, d= {1}'.format((names[minind[0]],
-                                            names[minind[1]]),
-                                            mat[minind]))
+                                           names[minind[1]]),
+                                           mat[minind]))
     np.fill_diagonal(mat, 0.0)
 
 
@@ -98,11 +99,8 @@ def harmonics_main(args):
             fio.write_mat_file(fname, mat)
         logClosestPair(mat, names)
 
-
-
         calc.cluster(mat, names, tname, dendrogram=dendrogram,
                      method=method, distance=distance)
-
 
     footer(start_time)
 

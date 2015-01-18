@@ -19,6 +19,7 @@ import scipy.stats as stats
 from . import data
 from .data import log
 
+
 def spearman_roc(histograms):
     """ Calculate the Spearman rank-order correlation coefficient from
     2 histograms This may need to be modified, I'm uncertain whether or
@@ -57,7 +58,6 @@ def kendall_tau(histograms):
         return
 
 
-
 def hdistance(histograms):
     """ Calculate a naive distance between two histograms"""
     try:
@@ -76,7 +76,6 @@ def hdistance(histograms):
         return
 
 
-
 def dvalue(x):
     # unpack the tuple
     i1, i2 = x
@@ -92,6 +91,7 @@ def dvalue(x):
     d = np.power(np.sum(np.power(i2[ind] - i1[ind], 2)), 0.5)
     return d
 
+
 def write_mat_file(fname, mat):
     np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
 
@@ -104,8 +104,8 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
     start_time = time.time()
     widgets = data.getWidgets('Calculating Matrix: ')
 
-    output = "Creating {0}x{0} matrix, test={1}, using {2} threads"
-    log(output.format(n, test.__name__, threads))
+    log("""Creating {0}x{0} matrix,
+        test={1}, using {2} threads""".format(n, test.__name__, threads))
 
     # Generating matrix will be O(exp(n)) time
     c = list(combinations(values, 2))
@@ -164,7 +164,7 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
     log("Matrix is symmetric: {0}".format(symmetry))
     if not symmetry:
         write_mat_file("mat1", mat)
-        write_mat_file("mat2", mat.transpose(1,0))
+        write_mat_file("mat2", mat.transpose(1, 0))
 
     t = time.time() - start_time
     output = 'Matrix took {0:.2}s to create. {1} pairwise calculations'
@@ -265,12 +265,7 @@ def label_tree(n, names):
 def area_tri(a, b, c):
     """ Calculate the area of a triangle given by its 3 vertices
     using the cross product formula |AxB|/2"""
-    v1 = a - b
-    v2 = c - b
-
-    # Because these functions expect 6 doubles or 3 doubles as arguments
-    # we have to unpack the values!
-    return np.linalg.norm(np.cross(v1, v2)) / 2
+    return np.linalg.norm(np.cross(a - b, c - b)) / 2
 
 
 def get_contrib_percentage(vertices, indices, internal,
