@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # Core imports
+from collections import defaultdict
 from functools import reduce
 from itertools import combinations
 import concurrent.futures
@@ -282,8 +283,12 @@ def get_contrib_percentage(vertices, indices, internal,
     calculate the makeup of the hirshfeld surface in terms of
     which element->element interactions are responsible for that
     area """
-    contrib = {}
-    contrib_p = {}
+    contrib = defaultdict(float)
+    contrib_p = defaultdict(float)
+    # setting defaults for these
+    avg_d = 0.
+    threshold = 1.
+
     if restrict:  # Check if we can restrict
         unique = np.unique(np.append(internal, external))
         for sym in unique:
@@ -291,23 +296,27 @@ def get_contrib_percentage(vertices, indices, internal,
                 log("{} not found in Van Der Waal's Radii list".format(sym))
                 restrict = False
 
-    for i in range(internal.size):
-        # Key in the form "internal -> external" e.g. "F -> H"
-        chsymi = internal[i]
-        chsyme = external[i]
-        if(not order):
-            chsymi, chsyme = sorted((chsymi, chsyme))
-        key = "{0} -> {1}".format(chsymi, chsyme)
+    for i, (chsymi, chsyme) in enumerate(zip(internal, external)):
+
+        # are we restricting to interactions closer than vdw radii?
         if restrict:
             avg_d = np.mean(distances[indices[i]])
             threshold = data.vdw_radii[chsymi] + data.vdw_radii[chsyme]
-        if not restrict or avg_d < threshold:
-            tri = [vertices[n] for n in indices[i]]
-            area = area_tri(tri[0], tri[1], tri[2])
-            if key in contrib:
-                contrib[key] += area
-            else:
-                contrib[key] = area
+            if avg_d > threshold:
+                continue
+
+        # Check if the order of the interaction is important
+        if(not order):
+            chsymi, chsyme = sorted((chsymi, chsyme))
+
+        # Key in the form "internal -> external" e.g. "F -> H"
+        key = "{0} -> {1}".format(chsymi, chsyme)
+
+        # get triangle indices, and find area of triangle
+        tri = [vertices[n] for n in indices[i]]
+        area = area_tri(tri[0], tri[1], tri[2])
+
+        contrib[key] += area
 
     for x in contrib:
         p = np.round(contrib[x] / sum(contrib.values()), decimals=8)
