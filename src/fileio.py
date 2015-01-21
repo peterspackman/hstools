@@ -1,10 +1,12 @@
 # Core imports
+from collections import defaultdict
 import concurrent.futures
 import glob
 import os
 import sys
 import time
 # Library imports
+import h5py
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 import numpy as np
@@ -131,6 +133,17 @@ def readcxsfile(fname, attributes):
     # a dict of arrays indexed by attribute name
     return outputs
 
+def readh5file(fname, attributes):
+    outputs = defaultdict()
+    with h5py.File(fname, 'r') as f:
+        for a in attributes:
+            if a not in f:
+                log("Couldn't find dset: {} in {}".format(a, f))
+            outputs[a] = f[a].value
+            if len(outputs[a].dtype) > 1:
+                outputs[a] = outputs[a].astype('complex64')
+    return outputs
+
 
 # FILE FUNCTIONS
 def plotfile(x, y, fname='out.png', type='linear', nbins=10):
@@ -218,7 +231,7 @@ def proc_file_harmonics(fname, metric='dnorm'):
             err = '{0} appears to be a directory, use --batch'
         log(err.format(fname))
         sys.exit(1)
-    r = readcxsfile(fname, ["coefficients", "invariants"])
+    r = readh5file(fname, ["coefficients", "invariants"])
     cname = os.path.basename(os.path.splitext(fname)[0])
     if not r:
         return None
@@ -329,7 +342,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         sys.exit(1)
 
 
-def batch_harmonics(dirname, metric='d_norm', suffix='.cxs', procs=4):
+def batch_harmonics(dirname, metric='d_norm', suffix='.h5', procs=4):
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
         log(err.format(dirname))

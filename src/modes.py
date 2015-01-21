@@ -83,7 +83,7 @@ def harmonics_main(args):
         values, cname = fio.proc_file_harmonics(fname)
         coefficients, invariants = values
         log(cname)
-        log(invariants)
+        log(values)
 
     if args['<dir>']:
         dendrogram = args['--dendrogram']

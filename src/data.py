@@ -193,4 +193,4 @@ silent = False
 
 def log(s, color='white'):
     if not silent:
-        print(colored(s, color))
+        print(tc.colored(s, color))
