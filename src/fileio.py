@@ -140,8 +140,6 @@ def readh5file(fname, attributes):
             if a not in f:
                 log("Couldn't find dset: {} in {}".format(a, f))
             outputs[a] = f[a].value
-            if len(outputs[a].dtype) > 1:
-                outputs[a] = outputs[a].astype('complex64')
     return outputs
 
 
@@ -255,8 +253,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
     if not r:
         return None
 
-    x = r["d_i"]
-    y = r["d_e"]
+    x, y  = r["d_i"], r["d_e"]
 
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)

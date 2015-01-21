@@ -196,9 +196,9 @@ def cluster(mat, names, tname, dump=None,
     threshold = distance*max(Z[:, 2])
     if dendrogram:
         # Create a dendrogram
-        dend(Z, labels=names, color_threshold=threshold)
+        dend(Z, no_labels=True, color_threshold=threshold)
         # Plot stuff
-        plt.xlabel('Compound Name')
+        plt.xlabel('Compound')
         plt.ylabel('Dissimilarity')
         dpi = 200
         plt.suptitle("""Clustering dendrogram of {0}
