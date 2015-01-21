@@ -95,6 +95,23 @@ def dvalue(x):
 def write_mat_file(fname, mat):
     np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
 
+def write_dendrogram_file(fname, Z, names, no_labels=False, test_name='test'):
+    threshold = distance*max(Z[:, 2])
+    # Create a dendrogram
+    dend(Z, no_labels=no_labels, color_threshold=threshold)
+    # Plot stuff
+    plt.xlabel('Compound')
+    plt.ylabel('Dissimilarity')
+    dpi = 200
+    plt.suptitle("""Clustering dendrogram of {0}
+                compounds using {1}""".format(len(names), tname))
+    if len(names) > 100:
+        fig = plt.gcf()
+        fig.set_size_inches(10.5, min(len(names)*0.1, 32768/dpi))
+    plt.savefig(fname, dpi=dpi)
+    plt.close()
+
+
 
 def get_dist_mat(values, test=spearman_roc, threads=8):
     """ Given a list of data, calculate the distances between them
@@ -189,27 +206,15 @@ def cluster(mat, names, tname, dump=None,
 
     # This is the actual clustering using fastcluster
     Z = fc.linkage(distArray, method=method, metric=distance)
-    log(Z)
+    # log(Z)
     outstring = 'Clustering {0} data points'.format(len(names))
     outstring += ' took {0:.3}s'.format(time.time() - start_time)
     log(outstring)
-    threshold = distance*max(Z[:, 2])
+
     if dendrogram:
-        # Create a dendrogram
-        dend(Z, no_labels=True, color_threshold=threshold)
-        # Plot stuff
-        plt.xlabel('Compound')
-        plt.ylabel('Dissimilarity')
-        dpi = 200
-        plt.suptitle("""Clustering dendrogram of {0}
-                    compounds using {1}""".format(len(names), tname))
-        if len(names) > 100:
-            fig = plt.gcf()
-            fig.set_size_inches(10.5, min(len(names)*0.1, 32768/dpi))
-        log('Saving dendrogram')
-        plt.savefig(dendrogram, dpi=dpi)
-        plt.close()
-    dump = 'clusters.txt'
+        write_dendrogram_file(dendrogram, Z,
+                              names, no_labels=True,
+                              test_name=tname)
     if dump:
         log('Dumping tree structure in {0}'.format(dump))
         T = scipy.cluster.hierarchy.to_tree(Z, rd=False)

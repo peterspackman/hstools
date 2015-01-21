@@ -22,7 +22,7 @@ def logClosestPair(mat, names):
     np.fill_diagonal(mat, np.inf)
     x = np.nanargmin(mat)
     minind = (x//len(names), x % len(names))
-    log('Closest pair: {0}, d= {1}'.format((names[minind[0]],
+    log('Closest pair: {0}, d= {1:.5f}'.format((names[minind[0]],
                                            names[minind[1]]),
                                            mat[minind]))
     np.fill_diagonal(mat, 0.0)

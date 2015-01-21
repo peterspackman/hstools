@@ -14,8 +14,8 @@ import progressbar as pb
 # Local imports
 from .data import log
 from . import data
-from . import calc
 from . import hist
+from . import calc
 
 nmdims = {"vertices": 3, "indices": 3, "coefficients": 2}
 ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
@@ -187,7 +187,6 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     plt.clf()
     plt.close()
 
-
 def proc_file_sa(fname, restrict, order=False):
     """ Process an input file for use in calculating the
     contribution of element -> element interactions on the
@@ -339,7 +338,7 @@ def batch_hist(dirname, suffix='.cxs', resolution=10,
         sys.exit(1)
 
 
-def batch_harmonics(dirname, metric='d_norm', suffix='.h5', procs=4):
+def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'
         log(err.format(dirname))
