@@ -158,7 +158,7 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     H = np.rot90(H)
     H = np.flipud(H)
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(5,5))
 
     # this is the key step, the rest is formatting
     plt.pcolormesh(xedges, yedges, H, norm=mpl.colors.LogNorm())
