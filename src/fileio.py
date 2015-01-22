@@ -195,12 +195,13 @@ def proc_file_sa(fname, restrict, order=False):
         err = 'Could not open {0} for reading, check to see if file exists'
         log(err.format(fname))
         sys.exit(1)
-    r = readcxsfile(fname, ["vertices", "indices", "atoms_inside_surface",
+    r = readh5file(fname, ["vertices", "indices", "atoms_inside_surface",
                             "atoms_outside_surface", "d_i_face_atoms",
-                            "d_e_face_atoms", "unit_cell", "d_e", "d_i"])
-    formula = r["formula"]
+                            "d_e_face_atoms", "unit_cell", "d_e", "d_i",
+                            "formula"])
     cname = os.path.basename(os.path.splitext(fname)[0])
 
+    formula = str(r["formula"], 'utf-8')
     x = r["vertices"]
     y = r["indices"]
     ai = r["atoms_inside_surface"]
@@ -209,8 +210,8 @@ def proc_file_sa(fname, restrict, order=False):
     de = r["d_e_face_atoms"]
     uc = r["unit_cell"]
     distances = r["d_e"] + r["d_i"]
-    external = uc[ao[de - 1] - 1]
-    internal = uc[ai[di - 1] - 1]
+    external = uc[ao[de - 1] - 1].astype("U")
+    internal = uc[ai[di - 1] - 1].astype("U")
 
     _, contrib_p = calc.get_contrib_percentage(x, y, internal,
                                                external, distances,
@@ -248,7 +249,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
             err = '{0} appears to be a directory, use --batch'
         log(err.format(fname))
         sys.exit(1)
-    r = readcxsfile(fname, ["d_e", "d_i"])
+    r = readh5file(fname, ["d_e", "d_i"])
     if not r:
         return None
 
@@ -287,7 +288,7 @@ def write_mat_file(fname, mat):
 
 
 # BATCH FUNCTIONS
-def batch_hist(dirname, suffix='.cxs', resolution=10,
+def batch_hist(dirname, suffix='.hdf5', resolution=10,
                save_figs=False, procs=4):
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names """
@@ -386,7 +387,7 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
         sys.exit(1)
 
 
-def batch_surface(dirname, restrict, suffix='.cxs', procs=4, order=False):
+def batch_surface(dirname, restrict, suffix='.hdf5', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
     if not os.path.isdir(dirname):
         err = '{0} does not appear to be a directory'

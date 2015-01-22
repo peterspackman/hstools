@@ -78,8 +78,6 @@ def harmonics_main(args):
 
     if args['<file>']:
         fname = args['<file>']
-        if not fname.endswith('.cxs'):
-            log('WARNING: {0} does not have .cxs extension'.format(fname))
         values, cname = fio.proc_file_harmonics(fname)
         coefficients, invariants = values
         log(cname)
@@ -113,8 +111,6 @@ def surface_main(args):
     order = args['--order-important']
     if args['<file>']:
         fname = args['<file>']
-        if not fname.endswith('.cxs'):
-            log('WARNING: {0} does not have .cxs extension'.format(fname))
         # Generate the percentage contribution of each element
         cname, formula, contrib_p = fio.proc_file_sa(fname, restrict,
                                                      order=order)
