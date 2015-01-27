@@ -8,6 +8,7 @@ import time
 # Library imports
 import h5py
 from matplotlib import pyplot as plt
+import seaborn as sns
 import matplotlib as mpl
 import numpy as np
 import progressbar as pb
@@ -24,12 +25,6 @@ ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
            "unit_cell": np.dtype((str, 3))}
 numerical = {"unit_cell": True}
 
-
-# HELPER AND WRAPPER FUNCTIONS
-def get_vals(lines, t=np.float64, index=0):
-    """ return a list, interpreting the nth word on each line
-        as the value to be stored based on the data type"""
-    return [t(line.split()[index]) for line in lines]
 
 
 def surface_helper(args):
@@ -49,90 +44,6 @@ def harmonics_helper(args):
     return proc_file_harmonics(fname, metric=metric)
 
 
-# split text up separated by double quotes ""
-def split_text(s):
-    from itertools import groupby
-    for k, g in groupby(s, str.isalpha):
-        yield ''.join(list(g))
-
-
-# Break up a file into 1MB chunks of data
-def get_chunks(file, size=1024*1024):
-    f = open(file)
-    while True:
-        start = f.tell()
-        f.seek(size, 1)
-        s = f.readline()  # this ensures each chunk ends after a newline
-        yield start, f.tell() - start
-        if not s:
-            break
-
-
-# Read a cxs file getting values specified in names
-# returns a dictionary contianing the values
-def readcxsfile(fname, attributes):
-    outputs = {}
-    reading = None  # Means we are currently not reading values
-    count = 0
-    dtype = np.float64  # default dtype
-    expected = 1
-
-    with open(fname) as f:
-        for line in f:
-            # Check if there are any attributes left to find
-            if not attributes and not reading:
-                break
-            # if we are currently reading values into an array
-            if reading:
-                arr = outputs[reading]
-                try:
-                    x = np.fromstring(line, dtype=dtype,
-                                      count=expected, sep=' ')
-                    if(x.size > 1):
-                        if(len(arr.shape)) < 2:
-                            log('Retrieved more values than expected????')
-                            raise ValueError
-                        arr[arr.shape[0] - count, :] = x
-                    else:
-                        arr[arr.size - count] = x
-                except:
-                    x = next(split_text(line))
-                    arr[arr.size - count] = x
-                count -= 1
-                if count < 1:
-                    reading = None
-                    count = 0
-
-            # Otherwise check if a line begins with... begin
-            elif 'begin ' in line:
-                name = line.split()[1]
-
-                # Are we looking for this attribute?
-                if name in attributes:
-                    reading = name
-                    count = int(line.split()[2])
-                    attributes.remove(name)
-                    # is it not a float?
-                    if name in ndtypes:
-                        dtype = ndtypes[name]
-                    else:
-                        dtype = np.float64
-                    # is it multi-dimensional data?
-                    if name in nmdims:
-                        expected = nmdims[name]
-                        outputs[name] = np.zeros((count, expected),
-                                                 dtype=dtype)
-                    else:
-                        expected = 1
-                        outputs[name] = np.zeros(count, dtype=dtype)
-
-            # Special case to read formula
-            elif "   formula = " in line:
-                outputs["formula"] = line.split('"')[1]
-
-    # a dict of arrays indexed by attribute name
-    return outputs
-
 def readh5file(fname, attributes):
     outputs = defaultdict()
     with h5py.File(fname, 'r') as f:
@@ -141,6 +52,61 @@ def readh5file(fname, attributes):
                 log("Couldn't find dset: {} in {}".format(a, f))
             outputs[a] = f[a].value
     return outputs
+
+def dir_file_join(d, f):
+    return [d, f].join('/')
+
+def standard_figure(figsize=(9,9), dpi=400):
+
+    f = plt.figure(figsize=figsize, dpi=dpi)
+    sns.set(style='white')
+    cmap = sns.cubehelix_palette(start=1.5, light=1, as_cmap=True)
+    extent = [0.5, 2.5, 0.5, 2.5]
+    ax = f.add_subplot(111, xlim=extent[0:2], ylim=extent[2:4])
+    plt.xticks(np.arange(0.5, 2.5, 0.2))
+    plt.yticks(np.arange(0.5, 2.5, 0.2))
+    plt.grid(b=True, which='major', axis='both')
+
+    ticklabelpad = mpl.rcParams['xtick.major.pad']
+
+    # Label our graph axes in nice places!
+    plt.annotate(r'$d_i$', fontsize=20, xy=(1, 0), xytext=(5, - ticklabelpad),
+                 ha='left', va='top', xycoords='axes fraction',
+                 textcoords='offset points')
+    plt.annotate(r'$d_e$', fontsize=20, xy=(0, 1.02),
+                 xytext=(5, - ticklabelpad), ha='right',
+                 va='bottom', xycoords='axes fraction',
+                 textcoords='offset points')
+
+    return f, cmap, ax, extent
+
+
+
+
+def kde_plotfile(x, y, fname='outhex.png', type='linear'):
+
+    f, cmap, ax, extent = standard_figure()
+
+    sns.kdeplot(x, y, cmap=cmap, shade=True, ax=ax)
+    ax.collections[0].set_alpha(0)
+
+    f.savefig(fname, bbox_inches='tight')
+    plt.clf()
+    plt.close()
+
+
+
+def hexbin_plotfile(x, y, fname='outhex.png', type='linear', nbins=10):
+    
+    f, cmap, ax, extent = standard_figure()
+
+    image = plt.hexbin(x, y, mincnt=1, gridsize=nbins,
+                       cmap=cmap, bins='log',
+                       extent = extent)
+    
+    f.savefig(fname, bbox_inches='tight')
+    plt.clf()
+    plt.close()
 
 
 # FILE FUNCTIONS
@@ -158,30 +124,17 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     H = np.rot90(H)
     H = np.flipud(H)
 
-    fig = plt.figure(figsize=(5,5))
+    f, cmap, ax, extent = standard_figure()
 
     # this is the key step, the rest is formatting
-    plt.pcolormesh(xedges, yedges, H, norm=mpl.colors.LogNorm())
-
-    # set x and y limits, the values to draw ticks, and turn on the grid
-    plt.xlim([0.5, 2.5])
-    plt.ylim([0.5, 2.5])
-    plt.xticks(np.arange(0.5, 2.5, 0.2))
-    plt.yticks(np.arange(0.5, 2.5, 0.2))
-    plt.grid()
-
-    ticklabelpad = mpl.rcParams['xtick.major.pad']
-    # Label our graph axes in nice places!
-    plt.annotate(r'$d_i$', fontsize=20, xy=(1, 0), xytext=(5, - ticklabelpad),
-                 ha='left', va='top', xycoords='axes fraction',
-                 textcoords='offset points')
-    plt.annotate(r'$d_e$', fontsize=20, xy=(0, 1.02),
-                 xytext=(5, - ticklabelpad), ha='right',
-                 va='bottom', xycoords='axes fraction',
-                 textcoords='offset points')
+    plt.pcolormesh(xedges, yedges, H,
+                   cmap=cmap,
+                   norm=mpl.colors.LogNorm())
+                   
+    plt.grid(b=True, which='major', axis='both')
 
     # SAVE TO PNG WITH LITTLE TO NO BORDER
-    fig.savefig(fname, bbox_inches='tight')
+    f.savefig(fname, bbox_inches='tight')
 
     # CLOSE UP
     plt.clf()
@@ -258,8 +211,11 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
     cname = os.path.basename(os.path.splitext(fname)[0])
     h = hist.bin_data(x, y, resolution)
     if(save_figs):
-        outfile = os.path.splitext(fname)[0] + '{0}bins.png'.format(resolution)
+        prefix = os.path.splitext(fname)[0] 
+        outfile = prefix + '{0}bins.png'.format(resolution)
         plotfile(x, y, fname=outfile, nbins=resolution)
+        hexbin_plotfile(x, y, fname='{}-hex.png'.format(prefix), nbins=resolution)
+        kde_plotfile(x, y, fname='{}-kde.png'.format(prefix))
 
     ret = (h, cname)
     return ret
