@@ -26,6 +26,14 @@ ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
 numerical = {"unit_cell": True}
 
 
+def dict_vals(d, *keys):
+    values = ()
+    for key in keys:
+        if key not in d:
+            values += (None,)
+        else:
+            values += (d[key],)
+    return values
 
 def surface_helper(args):
     """ Helper function for map_async to proc_file_sa"""
@@ -154,15 +162,16 @@ def proc_file_sa(fname, restrict, order=False):
                             "formula"])
     cname = os.path.basename(os.path.splitext(fname)[0])
 
+    x, y, ai, ao, di, de, uc = dict_vals(r, "vertices", "indices",
+                                         "atoms_inside_surface",
+                                         "atoms_outside_surface", 
+                                         "d_i_face_atoms",
+                                         "d_e_face_atoms",
+                                         "unit_cell")
     formula = str(r["formula"], 'utf-8')
-    x = r["vertices"]
-    y = r["indices"]
-    ai = r["atoms_inside_surface"]
-    ao = r["atoms_outside_surface"]
-    di = r["d_i_face_atoms"]
-    de = r["d_e_face_atoms"]
-    uc = r["unit_cell"]
+
     distances = r["d_e"] + r["d_i"]
+
     external = uc[ao[de - 1] - 1].astype("U")
     internal = uc[ai[di - 1] - 1].astype("U")
 
@@ -212,7 +221,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
     h = hist.bin_data(x, y, resolution)
     if(save_figs):
         prefix = os.path.splitext(fname)[0] 
-        outfile = prefix + '{0}bins.png'.format(resolution)
+        outfile = prefix + '{1}bins.png'.format(resolution)
         plotfile(x, y, fname=outfile, nbins=resolution)
         hexbin_plotfile(x, y, fname='{}-hex.png'.format(prefix), nbins=resolution)
         kde_plotfile(x, y, fname='{}-kde.png'.format(prefix))
