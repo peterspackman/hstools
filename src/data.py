@@ -18,12 +18,11 @@ logging.addLevelName(logging.CRITICAL, 'CRITICAL: ')
 logger = logging.getLogger("sarlacc")
 
 
-
 class Timer(object):
     """ A context manager timer class, to measure wall clock time"""
     def __init__(self):
         self.timer = default_timer
-        
+
     def __enter__(self):
         self.start = self.timer()
         return self
@@ -32,9 +31,10 @@ class Timer(object):
         self.end = self.timer()
         self.elapsed_s = self.elapsed()
         self.elapsed_s = self.elapsed_s * 1000.0
-        
+
     def elapsed(self):
         return self.timer() - self.start
+
 
 def log_traceback(e):
     logger.exception(e)
@@ -219,6 +219,7 @@ def getWidgets(msg, color='white'):
     return [msg, pb.Percentage(), ' ',
             pb.Bar(marker=chr(0x2500), left='',
             right=''), ' ', pb.ETA(), ' ']
+
 
 def log(s):
     logger.info(s)

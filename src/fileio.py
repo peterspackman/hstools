@@ -26,11 +26,14 @@ ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
            "unit_cell": np.dtype((str, 3))}
 numerical = {"unit_cell": True}
 
-class EmptyDirectoryException(Exception):
+
+class EmptyDirException(Exception):
     pass
+
 
 class FilesSkippedException(Exception):
     pass
+
 
 def dict_vals(d, *keys):
     values = ()
@@ -41,12 +44,13 @@ def dict_vals(d, *keys):
             values += (d[key],)
     return values
 
+
 @contextmanager
 def glob_directory(d, pattern):
     with data.Timer() as t:
         try:
             yield sorted(glob.glob(os.path.join(d, pattern)))
-        except EmptyDirectoryException as e:
+        except EmptyDirException as e:
             logger.exception(e)
         except Exception as e:
             logger.exception(e)
@@ -64,7 +68,6 @@ def hist_helper(args):
     """ Helper function for map_async on proc_file_hist"""
     fname, res, save_figs = args
     return proc_file_hist(fname, resolution=res, save_figs=save_figs)
-
 
 
 def harmonics_helper(args):
@@ -86,7 +89,7 @@ def dir_file_join(d, f):
     return [d, f].join('/')
 
 
-def standard_figure(figsize=(9,9), dpi=400):
+def standard_figure(figsize=(9, 9), dpi=400):
     f = plt.figure(figsize=figsize, dpi=dpi)
     sns.set(style='white')
     cmap = sns.cubehelix_palette(start=1.5, light=1, as_cmap=True)
@@ -106,10 +109,7 @@ def standard_figure(figsize=(9,9), dpi=400):
                  xytext=(5, - ticklabelpad), ha='right',
                  va='bottom', xycoords='axes fraction',
                  textcoords='offset points')
-
     return f, cmap, ax, extent
-
-
 
 
 def kde_plotfile(x, y, fname='outhex.png', type='linear'):
@@ -124,15 +124,13 @@ def kde_plotfile(x, y, fname='outhex.png', type='linear'):
     plt.close()
 
 
-
 def hexbin_plotfile(x, y, fname='outhex.png', type='linear', nbins=10):
-    
     f, cmap, ax, extent = standard_figure()
 
     image = plt.hexbin(x, y, mincnt=1, gridsize=nbins,
                        cmap=cmap, bins='log',
-                       extent = extent)
-    
+                       extent=extent)
+
     f.savefig(fname, bbox_inches='tight')
     plt.clf()
     plt.close()
@@ -159,7 +157,7 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     plt.pcolormesh(xedges, yedges, H,
                    cmap=cmap,
                    norm=mpl.colors.LogNorm())
-                   
+
     plt.grid(b=True, which='major', axis='both')
 
     # SAVE TO PNG WITH LITTLE TO NO BORDER
@@ -168,6 +166,7 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     # CLOSE UP
     plt.clf()
     plt.close()
+
 
 def get_basename(fname):
     return os.path.basename(os.path.splitext(fname)[0])
@@ -187,7 +186,7 @@ def proc_file_sa(fname, restrict, order=False):
 
         x, y, ai, ao, di, de, uc = dict_vals(r, "vertices", "indices",
                                              "atoms_inside_surface",
-                                             "atoms_outside_surface", 
+                                             "atoms_outside_surface",
                                              "d_i_face_atoms",
                                              "d_e_face_atoms",
                                              "unit_cell")
@@ -198,9 +197,9 @@ def proc_file_sa(fname, restrict, order=False):
         external = uc[ao[de - 1] - 1].astype("U")
         internal = uc[ai[di - 1] - 1].astype("U")
 
-        _, contrib_p = calc.get_contrib_percentage(x, y, internal,
-                                                   external, distances,
-                                                   restrict=restrict, order=order)
+        _, contrib_p = calc.get_contrib(x, y, internal,
+                                        external, distances,
+                                        restrict=restrict, order=order)
         ret = (cname, formula, contrib_p)
 
     except Exception as e:
@@ -208,7 +207,6 @@ def proc_file_sa(fname, restrict, order=False):
     finally:
         return ret
 
-    
 
 def proc_file_harmonics(fname, metric='dnorm'):
     """ Read a file from fname, collecting the coefficients/invariants
@@ -234,13 +232,17 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
     try:
         cname = get_basename(fname)
         r = readh5file(fname, ["d_e", "d_i"])
-        x, y  = r["d_i"], r["d_e"]
+        x, y = r["d_i"], r["d_e"]
         h = hist.bin_data(x, y, resolution)
+
         if(save_figs):
-            prefix = os.path.splitext(fname)[0] 
+            prefix = os.path.splitext(fname)[0]
             outfile = prefix + '{1}bins.png'.format(resolution)
             plotfile(x, y, fname=outfile, nbins=resolution)
-            hexbin_plotfile(x, y, fname='{}-hex.png'.format(prefix), nbins=resolution)
+            hexbin_plotfile(x,
+                            y,
+                            fname='{}-hex.png'.format(prefix),
+                            nbins=resolution)
             kde_plotfile(x, y, fname='{}-kde.png'.format(prefix))
 
         ret = (h, cname)
@@ -280,13 +282,13 @@ def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
     vals = []
     if progress:
         pbar = pb.ProgressBar(widgets=data.getWidgets(msg),
-                          maxval=len(args))
+                              maxval=len(args))
         pbar.start()
 
     with concurrent.futures.ProcessPoolExecutor(procs) as executor:
         fs = [executor.submit(function, arg) for arg in args]
         for i, f in enumerate(concurrent.futures.as_completed(fs)):
-            if progress: 
+            if progress:
                 pbar.update(i)
             vals.append(f.result())
 
@@ -304,11 +306,14 @@ def batch_hist(dirname, suffix='.hdf5', resolution=10,
 
         nfiles = len(files)
         if nfiles < 1:
-            raise EmptyDirectoryException('No files to read in {0}'.format(dirname))
+            raise EmptyDirException('No files to read in {0}'.format(dirname))
 
         args = [(fname, resolution, save_figs) for fname in files]
 
-        vals = batch_process(args, hist_helper, procs=procs, msg='Reading files: ')
+        vals = batch_process(args,
+                             hist_helper,
+                             procs=procs,
+                             msg='Reading files: ')
 
         # Strip none values
         vals = [x for x in vals if x is not None]
@@ -323,16 +328,20 @@ def batch_hist(dirname, suffix='.hdf5', resolution=10,
         histograms, names = zip(*vals)
         return (histograms, names)
 
+
 def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
 
     with glob_directory(dirname, '*'+suffix) as files:
         nfiles = len(files)
         if nfiles < 1:
-            raise EmptyDirectoryException('No files to read in {0}'.format(dirname))
+            raise EmptyDirException('No files to read in {0}'.format(dirname))
 
         args = [(fname, metric) for fname in files]
 
-        vals = batch_process(args, harmonics_helper, procs=procs, msg='Reading files: ')
+        vals = batch_process(args,
+                             harmonics_helper,
+                             procs=procs,
+                             msg='Reading files: ')
         # Strip none values
         vals = [x for x in vals if x is not None]
         if len(vals) < nfiles:
@@ -350,16 +359,18 @@ def batch_surface(dirname, restrict, suffix='.hdf5', procs=4, order=False):
     with glob_directory(dirname, '*'+suffix) as files:
         nfiles = len(files)
         if nfiles < 1:
-            raise EmptyDirectoryException('No files to read in {0}'.format(dirname))
+            raise EmptyDirException('No files to read in {0}'.format(dirname))
 
         args = [(fname, restrict, order) for fname in files]
 
-        vals = batch_process(args, surface_helper, procs=procs, msg='Reading files: ')
-        
+        vals = batch_process(args,
+                             surface_helper,
+                             procs=procs,
+                             msg='Reading files: ')
         # Strip none values
         vals = [x for x in vals if x is not None]
         if len(vals) < nfiles:
-            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals)) 
+            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
             logger.warning(err)
             nfiles = len(vals)
 

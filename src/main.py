@@ -55,13 +55,14 @@ Options:
                                    much. [default: 0.4]
 """
 
+import logging
 # Library imports
 from docopt import docopt
 # Local imports
 from . import data
 from . import modes
 
-version = "0.5"
+version = "0.8"
 args = docopt(__doc__, version=version)
 # *******        MAIN PROGRAM           ****** #
 
@@ -73,7 +74,7 @@ def main():
     """
     with data.Timer() as t:
         if args['--silent']:
-            data.silent = True
+            data.logger.setLevel(logging.WARNING)
         # Process histograms
         if args['hist']:
             modes.hist_main(args)

@@ -23,8 +23,8 @@ def logClosestPair(mat, names):
     x = np.nanargmin(mat)
     minind = (x//len(names), x % len(names))
     log('Closest pair: {0}, d= {1:.5f}'.format((names[minind[0]],
-                                           names[minind[1]]),
-                                           mat[minind]))
+                                               names[minind[1]]),
+                                               mat[minind]))
     np.fill_diagonal(mat, 0.0)
 
 
@@ -68,7 +68,6 @@ def hist_main(args):
 
         except Exception as e:
             log_traceback(e)
-
 
 
 def harmonics_main(args):

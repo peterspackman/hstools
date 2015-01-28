@@ -5,7 +5,6 @@ from functools import reduce
 from itertools import combinations
 import concurrent.futures
 import json
-import time
 # Library imports
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram as dend
@@ -17,7 +16,7 @@ import scipy.spatial.distance
 import scipy.stats as stats
 # Local imports
 from . import data
-from .data import log, logger
+from .data import log, logger, Timer
 
 
 def spearman_roc(histograms):
@@ -95,7 +94,9 @@ def dvalue(x):
 def write_mat_file(fname, mat):
     np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
 
-def write_dendrogram_file(fname, Z, names, no_labels=False, test_name='test', distance=0.4):
+
+def write_dendrogram_file(fname, Z, names, no_labels=False,
+                          test_name='test', distance=0.4):
     if not distance:
         distance = 0.4
     threshold = distance * max(Z[:, 2])
@@ -114,79 +115,78 @@ def write_dendrogram_file(fname, Z, names, no_labels=False, test_name='test', di
     plt.close()
 
 
-
 def get_dist_mat(values, test=spearman_roc, threads=8):
     """ Given a list of data, calculate the distances between them
         and return a NxN redundant array of these distances. """
     n = len(values)
     vals = []
-    start_time = time.time()
-    widgets = data.getWidgets('Calculating Matrix: ')
+    with Timer() as t:
 
-    log("""Creating {0}x{0} matrix,
-        test={1}, using {2} threads""".format(n, test.__name__, threads))
+        widgets = data.getWidgets('Calculating Matrix: ')
 
-    # Generating matrix will be O(exp(n)) time
-    c = list(combinations(values, 2))
-    numcalc = len(c)
+        log("""Creating {0}x{0} matrix,
+            test={1}, using {2} threads""".format(n, test.__name__, threads))
 
-    pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
-    pbar.start()
+        # Generating matrix will be O(exp(n)) time
+        c = list(combinations(values, 2))
+        numcalc = len(c)
 
-    i = 0
-    # Parallel code
-    with concurrent.futures.ThreadPoolExecutor(8) as executor:
-        batch = c[i:i+100]
-        while batch:
-            for val in executor.map(test, batch, timeout=30):
-                vals.append(val)
-                i += 1
-                pbar.update(i)
+        pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
+        pbar.start()
+
+        i = 0
+        # Parallel code
+        with concurrent.futures.ThreadPoolExecutor(8) as executor:
             batch = c[i:i+100]
-    pbar.finish()
+            while batch:
+                for val in executor.map(test, batch, timeout=30):
+                    vals.append(val)
+                    i += 1
+                    pbar.update(i)
+                batch = c[i:i+100]
+        pbar.finish()
 
-    vals = np.array(vals)
-    mat = np.identity(n)
-    """This step is key, basically we assign the upper triangle
-      indices of a matrix size N, i.e.
-      1    X    X    X
-      0    1    X    X
-      0    0    1    X
-      0    0    0    1
-      then we use the transpose of the matrix to copy the
-      upper triangle into the lower triangle (making a
-      symmetric matrix) """
+        vals = np.array(vals)
+        mat = np.identity(n)
+        """This step is key, basically we assign the upper triangle
+          indices of a matrix size N, i.e.
+          1    X    X    X
+          0    1    X    X
+          0    0    1    X
+          0    0    0    1
+          then we use the transpose of the matrix to copy the
+          upper triangle into the lower triangle (making a
+          symmetric matrix) """
 
-    # Assign upper triangle
-    try:
-        mat[np.triu_indices(n, k=1)] = vals
-    except ValueError as e:
-        print("Error: {}".format(e))
-        print("Couldn't broadcast array to triangle upper indices?")
-        print("vals: {0}".format(vals))
-        return
+        # Assign upper triangle
+        try:
+            mat[np.triu_indices(n, k=1)] = vals
+        except ValueError as e:
+            print("Error: {}".format(e))
+            print("Couldn't broadcast array to triangle upper indices?")
+            print("vals: {0}".format(vals))
+            return
 
-    # Make the matrix symmetric
-    mat = (mat + mat.T) / 2
+        # Make the matrix symmetric
+        mat = (mat + mat.T) / 2
 
-    # Because these tests give correlations not distances,
-    # we must modify the values to give a distance equivalent
-    if test is spearman_roc or test is kendall_tau:
-        """ np.round() is used here because of floating point rounding
-            (getting 1.0 - 1.0 != 0.0). Must perform this step to convert
-            correlation data to distance """
-        mat = 1.0 - np.round(mat, decimals=5)
-        np.fill_diagonal(mat, 0.0)
+        # Because these tests give correlations not distances,
+        # we must modify the values to give a distance equivalent
+        if test is spearman_roc or test is kendall_tau:
+            """ np.round() is used here because of floating point rounding
+                (getting 1.0 - 1.0 != 0.0). Must perform this step to convert
+                correlation data to distance """
+            mat = 1.0 - np.round(mat, decimals=5)
+            np.fill_diagonal(mat, 0.0)
 
-    # Error checking for matrix to see if it is symmetric
-    symmetry = np.allclose(mat.transpose(1, 0), mat)
-    if not symmetry:
-        logger.error('Matrix not symmetric...')
+        # Error checking for matrix to see if it is symmetric
+        symmetry = np.allclose(mat.transpose(1, 0), mat)
+        if not symmetry:
+            logger.error('Matrix not symmetric...')
 
-    t = time.time() - start_time
     output = 'Matrix took {0:.2}s to create. {1} pairwise calculations'
 
-    log(output.format(t, numcalc))
+    log(output.format(t.elapsed(), numcalc))
     return mat
 
 
@@ -202,37 +202,38 @@ def cluster(mat, names, tname, dump=None,
         print(e)
         print(mat)
         return
-    start_time = time.time()
+    with Timer() as t:
 
-    # This is the actual clustering using fastcluster
-    Z = fc.linkage(distArray, method=method, metric=distance)
-    # log(Z)
-    outstring = 'Clustering {0} data points'.format(len(names))
-    outstring += ' took {0:.3}s'.format(time.time() - start_time)
-    log(outstring)
+        # This is the actual clustering using fastcluster
+        Z = fc.linkage(distArray, method=method, metric=distance)
+        # log(Z)
+        outstring = 'Clustering {0} data points'.format(len(names))
+        outstring += ' took {0:.3}s'.format(t.elapsed())
+        log(outstring)
 
-    if dendrogram:
-        write_dendrogram_file(dendrogram, Z,
-                              names, no_labels=True,
-                              test_name=tname,
-                              distance=distance)
-    if dump:
-        log('Dumping tree structure in {0}'.format(dump))
-        T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
-        d = dict(children=[], name="Root1")
-        add_node(T, d)
-        label_tree(d["children"][0], names)
-        json.dump(d, open(dump, 'w'), sort_keys=True, indent=4)
-        log('printing clusters')
-        # HARDCODED NUMBER OF CLUSTERS
-        clusters = scipy.cluster.hierarchy.fcluster(Z, 4,
-                                                    criterion='maxclust')
-        nclusters = clusters.size
-        num = max(clusters)
-        c = []
-        for i in range(1, num):
-            c.append([names[x] for x in range(nclusters) if clusters[x] == i])
-        json.dump(c, open('clusters.txt', 'w'), indent=4)
+        if dendrogram:
+            write_dendrogram_file(dendrogram, Z,
+                                  names, no_labels=True,
+                                  test_name=tname,
+                                  distance=distance)
+        if dump:
+            log('Dumping tree structure in {0}'.format(dump))
+            T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
+            d = dict(children=[], name="Root1")
+            add_node(T, d)
+            label_tree(d["children"][0], names)
+            json.dump(d, open(dump, 'w'), sort_keys=True, indent=4)
+            log('printing clusters')
+            # HARDCODED NUMBER OF CLUSTERS
+            clusters = scipy.cluster.hierarchy.fcluster(Z, 4,
+                                                        criterion='maxclust')
+            nclusters = clusters.size
+            num = max(clusters)
+            c = []
+            for i in range(1, num):
+                c.append([names[x] for x in range(nclusters)
+                         if clusters[x] == i])
+            json.dump(c, open('clusters.txt', 'w'), indent=4)
 
 
 def add_node(node, parent):
@@ -274,10 +275,10 @@ def area_tri(a, b, c):
     return np.linalg.norm(np.cross(a - b, c - b)) / 2
 
 
-def get_contrib_percentage(vertices, indices, internal,
-                           external, distances,
-                           dp=8, restrict=True,
-                           order=False):
+def get_contrib(vertices, indices, internal,
+                external, distances,
+                dp=8, restrict=True,
+                order=False):
     """ Given a the triangles that make up a hirshfeld surface,
     and lists of the closest internal and external atoms along
     with their respective distances from the surface,
