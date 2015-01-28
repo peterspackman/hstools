@@ -45,6 +45,7 @@ out*
 # Log files
 *.log
 # Python mode stuff
+.ropeproject/
 # Other
 *.asc
 *.txt
