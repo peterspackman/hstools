@@ -7,13 +7,12 @@ with hirshfeld surface calculations interfacing with tonto.
 A list of contributors is available in contributors.txt
 
 Dependencies:
+
 * python-progressbar2
-* termcolor
+* h5py
 * fastcluster
 * numpy
+* seaborn
 * scipy
 * matplotlib
 * docopt
-
-Installing these dependencies is straightforward using pip or easy_install
-
