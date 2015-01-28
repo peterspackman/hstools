@@ -36,6 +36,7 @@ cif
 tonto
 shlk
 basis_sets
+sarlacc
 stdout
 stderr
 tmp
@@ -44,7 +45,6 @@ out*
 # Log files
 *.log
 # Python mode stuff
-.ropeproject*
 # Other
 *.asc
 *.txt
