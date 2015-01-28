@@ -17,7 +17,7 @@ import scipy.spatial.distance
 import scipy.stats as stats
 # Local imports
 from . import data
-from .data import log
+from .data import log, logger
 
 
 def spearman_roc(histograms):
@@ -95,8 +95,10 @@ def dvalue(x):
 def write_mat_file(fname, mat):
     np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
 
-def write_dendrogram_file(fname, Z, names, no_labels=False, test_name='test'):
-    threshold = distance*max(Z[:, 2])
+def write_dendrogram_file(fname, Z, names, no_labels=False, test_name='test', distance=0.4):
+    if not distance:
+        distance = 0.4
+    threshold = distance * max(Z[:, 2])
     # Create a dendrogram
     dend(Z, no_labels=no_labels, color_threshold=threshold)
     # Plot stuff
@@ -104,7 +106,7 @@ def write_dendrogram_file(fname, Z, names, no_labels=False, test_name='test'):
     plt.ylabel('Dissimilarity')
     dpi = 200
     plt.suptitle("""Clustering dendrogram of {0}
-                compounds using {1}""".format(len(names), tname))
+                compounds using {1}""".format(len(names), test_name))
     if len(names) > 100:
         fig = plt.gcf()
         fig.set_size_inches(10.5, min(len(names)*0.1, 32768/dpi))
@@ -178,10 +180,8 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
 
     # Error checking for matrix to see if it is symmetric
     symmetry = np.allclose(mat.transpose(1, 0), mat)
-    log("Matrix is symmetric: {0}".format(symmetry))
     if not symmetry:
-        write_mat_file("mat1", mat)
-        write_mat_file("mat2", mat.transpose(1, 0))
+        logger.error('Matrix not symmetric...')
 
     t = time.time() - start_time
     output = 'Matrix took {0:.2}s to create. {1} pairwise calculations'
@@ -214,7 +214,8 @@ def cluster(mat, names, tname, dump=None,
     if dendrogram:
         write_dendrogram_file(dendrogram, Z,
                               names, no_labels=True,
-                              test_name=tname)
+                              test_name=tname,
+                              distance=distance)
     if dump:
         log('Dumping tree structure in {0}'.format(dump))
         T = scipy.cluster.hierarchy.to_tree(Z, rd=False)

@@ -5,7 +5,7 @@ from collections import OrderedDict
 # Library imports
 import numpy as np
 # Local imports
-from .data import log
+from .data import log, log_traceback
 from . import calc
 from . import fileio as fio
 
@@ -31,7 +31,6 @@ def logClosestPair(mat, names):
 def hist_main(args):
     mtest = test_f[args['--test']]
     tname = test_names[args['--test']]
-    start_time = time.time()
     procs = int(args['--procs'])
 
     bins = int(args['--bins'])
@@ -50,24 +49,26 @@ def hist_main(args):
         dendrogram = args['--dendrogram']
         method = args['--method']
         distance = float(args['--distance'])
-        # Program is being run to batch process a directory of cxs files
-        histograms, names = fio.batch_hist(dirname, resolution=bins,
-                                           save_figs=save_figs,
-                                           procs=procs)
+        try:
+            histograms, names = fio.batch_hist(dirname, resolution=bins,
+                                               save_figs=save_figs,
+                                               procs=procs)
+            log('Generating matrix using {0}'.format(tname))
+            mat = calc.get_dist_mat(histograms, test=mtest, threads=procs*2)
+            if args['--output']:
+                fname = args['--output']
+                fio.write_mat_file(fname, mat)
 
-        log('Generating matrix using {0}'.format(tname))
-        mat = calc.get_dist_mat(histograms, test=mtest, threads=procs*2)
-        if args['--output']:
-            fname = args['--output']
-            fio.write_mat_file(fname, mat)
+            logClosestPair(mat, names)
 
-        logClosestPair(mat, names)
+            calc.cluster(mat, names, tname, dump=args['--json'],
+                         dendrogram=dendrogram,
+                         method=method,
+                         distance=distance)
 
-        calc.cluster(mat, names, tname, dump=args['--json'],
-                     dendrogram=dendrogram,
-                     method=method,
-                     distance=distance)
-    footer(start_time)
+        except Exception as e:
+            log_traceback(e)
+
 
 
 def harmonics_main(args):

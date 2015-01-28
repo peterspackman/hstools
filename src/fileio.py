@@ -1,5 +1,6 @@
 # Core imports
 from collections import defaultdict
+from contextlib import contextmanager
 import concurrent.futures
 import glob
 import os
@@ -13,7 +14,7 @@ import matplotlib as mpl
 import numpy as np
 import progressbar as pb
 # Local imports
-from .data import log
+from .data import log, log_traceback, logger
 from . import data
 from . import hist
 from . import calc
@@ -25,6 +26,11 @@ ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
            "unit_cell": np.dtype((str, 3))}
 numerical = {"unit_cell": True}
 
+class EmptyDirectoryException(Exception):
+    pass
+
+class FilesSkippedException(Exception):
+    pass
 
 def dict_vals(d, *keys):
     values = ()
@@ -34,6 +40,19 @@ def dict_vals(d, *keys):
         else:
             values += (d[key],)
     return values
+
+@contextmanager
+def glob_directory(d, pattern):
+    with data.Timer() as t:
+        try:
+            yield sorted(glob.glob(os.path.join(d, pattern)))
+        except EmptyDirectoryException as e:
+            logger.exception(e)
+        except Exception as e:
+            logger.exception(e)
+        finally:
+            logger.info('Done: {:.2}s.'.format(t.elapsed()))
+
 
 def surface_helper(args):
     """ Helper function for map_async to proc_file_sa"""
@@ -47,6 +66,7 @@ def hist_helper(args):
     return proc_file_hist(fname, resolution=res, save_figs=save_figs)
 
 
+
 def harmonics_helper(args):
     fname, metric = args
     return proc_file_harmonics(fname, metric=metric)
@@ -57,15 +77,16 @@ def readh5file(fname, attributes):
     with h5py.File(fname, 'r') as f:
         for a in attributes:
             if a not in f:
-                log("Couldn't find dset: {} in {}".format(a, f))
+                logger.error("Couldn't find dset: {} in {}".format(a, f))
             outputs[a] = f[a].value
     return outputs
+
 
 def dir_file_join(d, f):
     return [d, f].join('/')
 
-def standard_figure(figsize=(9,9), dpi=400):
 
+def standard_figure(figsize=(9,9), dpi=400):
     f = plt.figure(figsize=figsize, dpi=dpi)
     sns.set(style='white')
     cmap = sns.cubehelix_palette(start=1.5, light=1, as_cmap=True)
@@ -148,86 +169,85 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
     plt.clf()
     plt.close()
 
+def get_basename(fname):
+    return os.path.basename(os.path.splitext(fname)[0])
+
+
 def proc_file_sa(fname, restrict, order=False):
     """ Process an input file for use in calculating the
     contribution of element -> element interactions on the
     hirshfeld surface """
-    if not os.path.isfile(fname):
-        err = 'Could not open {0} for reading, check to see if file exists'
-        log(err.format(fname))
-        sys.exit(1)
-    r = readh5file(fname, ["vertices", "indices", "atoms_inside_surface",
-                            "atoms_outside_surface", "d_i_face_atoms",
-                            "d_e_face_atoms", "unit_cell", "d_e", "d_i",
-                            "formula"])
-    cname = os.path.basename(os.path.splitext(fname)[0])
+    ret = None
+    try:
+        cname = get_basename(fname)
+        r = readh5file(fname, ["vertices", "indices", "atoms_inside_surface",
+                               "atoms_outside_surface", "d_i_face_atoms",
+                               "d_e_face_atoms", "unit_cell", "d_e", "d_i",
+                               "formula"])
 
-    x, y, ai, ao, di, de, uc = dict_vals(r, "vertices", "indices",
-                                         "atoms_inside_surface",
-                                         "atoms_outside_surface", 
-                                         "d_i_face_atoms",
-                                         "d_e_face_atoms",
-                                         "unit_cell")
-    formula = str(r["formula"], 'utf-8')
+        x, y, ai, ao, di, de, uc = dict_vals(r, "vertices", "indices",
+                                             "atoms_inside_surface",
+                                             "atoms_outside_surface", 
+                                             "d_i_face_atoms",
+                                             "d_e_face_atoms",
+                                             "unit_cell")
+        formula = str(r["formula"], 'utf-8')
 
-    distances = r["d_e"] + r["d_i"]
+        distances = r["d_e"] + r["d_i"]
 
-    external = uc[ao[de - 1] - 1].astype("U")
-    internal = uc[ai[di - 1] - 1].astype("U")
+        external = uc[ao[de - 1] - 1].astype("U")
+        internal = uc[ai[di - 1] - 1].astype("U")
 
-    _, contrib_p = calc.get_contrib_percentage(x, y, internal,
-                                               external, distances,
-                                               restrict=restrict, order=order)
-    return (cname, formula, contrib_p)
+        _, contrib_p = calc.get_contrib_percentage(x, y, internal,
+                                                   external, distances,
+                                                   restrict=restrict, order=order)
+        ret = (cname, formula, contrib_p)
 
+    except Exception as e:
+        logger.warning('Skipping {}'.format(fname))
+    finally:
+        return ret
+
+    
 
 def proc_file_harmonics(fname, metric='dnorm'):
     """ Read a file from fname, collecting the coefficients/invariants
         and returning them as arrays
     """
-    if not os.path.isfile(fname):
-        err = 'Could not open {0} for reading, check to see if file exists'
-        if os.path.isdir(fname):
-            err = '{0} appears to be a directory, use --batch'
-        log(err.format(fname))
-        sys.exit(1)
-    r = readh5file(fname, ["coefficients", "invariants"])
-    cname = os.path.basename(os.path.splitext(fname)[0])
-    if not r:
-        return None
-    harmonics = (r["coefficients"], r["invariants"])
-    return (harmonics, cname)
+    ret = None
+    try:
+        cname = get_basename(fname)
+        r = readh5file(fname, ["coefficients", "invariants"])
+        harmonics = (r["coefficients"], r["invariants"])
+        ret = (harmonics, cname)
+    except Exception as e:
+        logger.warning('Skipping {}'.format(fname))
+    finally:
+        return ret
 
 
 def proc_file_hist(fname, resolution=10, save_figs=False):
     """ Read a file from fname, generate a histogram and potentially write
         the png of it to file.
-        FUTURE: offer the restrictions of internal and external atoms
-        using internal[] and external[] along with indices[]
     """
-    if not os.path.isfile(fname):
-        err = 'Could not open {0} for reading, check to see if file exists'
-        if os.path.isdir(fname):
-            err = '{0} appears to be a directory, use --batch'
-        log(err.format(fname))
-        sys.exit(1)
-    r = readh5file(fname, ["d_e", "d_i"])
-    if not r:
-        return None
+    ret = None
+    try:
+        cname = get_basename(fname)
+        r = readh5file(fname, ["d_e", "d_i"])
+        x, y  = r["d_i"], r["d_e"]
+        h = hist.bin_data(x, y, resolution)
+        if(save_figs):
+            prefix = os.path.splitext(fname)[0] 
+            outfile = prefix + '{1}bins.png'.format(resolution)
+            plotfile(x, y, fname=outfile, nbins=resolution)
+            hexbin_plotfile(x, y, fname='{}-hex.png'.format(prefix), nbins=resolution)
+            kde_plotfile(x, y, fname='{}-kde.png'.format(prefix))
 
-    x, y  = r["d_i"], r["d_e"]
-
-    cname = os.path.basename(os.path.splitext(fname)[0])
-    h = hist.bin_data(x, y, resolution)
-    if(save_figs):
-        prefix = os.path.splitext(fname)[0] 
-        outfile = prefix + '{1}bins.png'.format(resolution)
-        plotfile(x, y, fname=outfile, nbins=resolution)
-        hexbin_plotfile(x, y, fname='{}-hex.png'.format(prefix), nbins=resolution)
-        kde_plotfile(x, y, fname='{}-kde.png'.format(prefix))
-
-    ret = (h, cname)
-    return ret
+        ret = (h, cname)
+    except Exception as e:
+        logger.warning('Skipping {}'.format(fname))
+    finally:
+        return ret
 
 
 def write_sa_file(fname, cnames, formulae, contribs):
@@ -253,147 +273,97 @@ def write_mat_file(fname, mat):
 
 
 # BATCH FUNCTIONS
+
+# Takes a list of arguments (args), and a function, and calls
+# that function with that list of args using a Processpoolexecutor
+def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
+    vals = []
+    if progress:
+        pbar = pb.ProgressBar(widgets=data.getWidgets(msg),
+                          maxval=len(args))
+        pbar.start()
+
+    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
+        fs = [executor.submit(function, arg) for arg in args]
+        for i, f in enumerate(concurrent.futures.as_completed(fs)):
+            if progress: 
+                pbar.update(i)
+            vals.append(f.result())
+
+    if progress:
+        pbar.finish()
+
+    return vals
+
+
 def batch_hist(dirname, suffix='.hdf5', resolution=10,
                save_figs=False, procs=4):
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names """
-    if not os.path.isdir(dirname):
-        err = '{0} does not appear to be a directory'
-        log(err.format(dirname))
-        sys.exit(1)
-    files = sorted(glob.glob(os.path.join(dirname, '*'+suffix)))
-    nfiles = len(files)
-    if nfiles < 1:
-        log('No files to read in {0}'.format(dirname))
-        sys.exit(1)
-    args = [(fname, resolution, save_figs) for fname in files]
+    with glob_directory(dirname, '*'+suffix) as files:
 
-    histograms = []
-    names = []
-    vals = []
-    pbar = pb.ProgressBar(widgets=data.getWidgets('Reading Files: '),
-                          maxval=nfiles)
-    start_time = time.time()
-    pbar.start()
+        nfiles = len(files)
+        if nfiles < 1:
+            raise EmptyDirectoryException('No files to read in {0}'.format(dirname))
 
-    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
-        fs = [executor.submit(hist_helper, arg) for arg in args]
-        for i, f in enumerate(concurrent.futures.as_completed(fs)):
-            pbar.update(i)
-            a = f.result()
-            vals.append(a)
+        args = [(fname, resolution, save_figs) for fname in files]
 
-    pbar.finish()
-    # Strip none values
-    vals = [x for x in vals if x is not None]
-    if len(vals) < nfiles:
-        log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
-        nfiles = len(vals)
+        vals = batch_process(args, hist_helper, procs=procs, msg='Reading files: ')
 
-    vals = sorted(vals, key=lambda val: val[1])
+        # Strip none values
+        vals = [x for x in vals if x is not None]
+        if len(vals) < nfiles:
+            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
+            logger.warning(err)
+            nfiles = len(vals)
 
-    if nfiles > 0:
+        vals = sorted(vals, key=lambda val: val[1])
+
         # unzip the output
         histograms, names = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-        log(output.format(nfiles, time.time() - start_time, procs))
-
         return (histograms, names)
-    else:
-        log('Errors reading all files, exiting.')
-        sys.exit(1)
-
 
 def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
-    if not os.path.isdir(dirname):
-        err = '{0} does not appear to be a directory'
-        log(err.format(dirname))
-        sys.exit(1)
-    files = sorted(glob.glob(os.path.join(dirname, '*'+suffix)))
-    nfiles = len(files)
-    if nfiles < 1:
-        log('No files to read in {0}'.format(dirname))
-        sys.exit(1)
-    args = [(fname, metric) for fname in files]
 
-    values = []
-    names = []
-    vals = []
-    # Boilerplate
-    pbar = pb.ProgressBar(widgets=data.getWidgets('Reading Files: '),
-                          maxval=nfiles)
-    start_time = time.time()
-    pbar.start()
+    with glob_directory(dirname, '*'+suffix) as files:
+        nfiles = len(files)
+        if nfiles < 1:
+            raise EmptyDirectoryException('No files to read in {0}'.format(dirname))
 
-    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
-        fs = [executor.submit(harmonics_helper, arg) for arg in args]
-        for i, f in enumerate(concurrent.futures.as_completed(fs)):
-            pbar.update(i)
-            vals.append(f.result())
+        args = [(fname, metric) for fname in files]
 
-    pbar.finish()
-    # Strip none values
-    vals = [x for x in vals if x is not None]
-    if len(vals) < nfiles:
-        log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
-        nfiles = len(vals)
+        vals = batch_process(args, harmonics_helper, procs=procs, msg='Reading files: ')
+        # Strip none values
+        vals = [x for x in vals if x is not None]
+        if len(vals) < nfiles:
+            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
+            logger.warning(err)
+            nfiles = len(vals)
 
-    vals = sorted(vals, key=lambda val: val[1])
-
-    if nfiles > 0:
         # unzip the output
         values, names = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-        log(output.format(nfiles, time.time() - start_time, procs))
-
         return (values, names)
-    else:
-        log('Errors reading all files, exiting.')
-        sys.exit(1)
 
 
 def batch_surface(dirname, restrict, suffix='.hdf5', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
-    if not os.path.isdir(dirname):
-        err = '{0} does not appear to be a directory'
-        log(err.format(dirname))
-        sys.exit(1)
-    files = sorted(glob.glob(os.path.join(dirname, '*'+suffix)))
-    nfiles = len(files)
-    if nfiles < 1:
-        log('No files to read in {0}'.format(dirname))
-        sys.exit(1)
-    args = [(fname, restrict, order) for fname in files]
+    with glob_directory(dirname, '*'+suffix) as files:
+        nfiles = len(files)
+        if nfiles < 1:
+            raise EmptyDirectoryException('No files to read in {0}'.format(dirname))
 
-    formulae = []
-    contribs = []
-    vals = []
-    pbar = pb.ProgressBar(widgets=data.getWidgets('Reading Files: '),
-                          maxval=nfiles)
-    start_time = time.time()
-    pbar.start()
+        args = [(fname, restrict, order) for fname in files]
 
-    with concurrent.futures.ProcessPoolExecutor(procs) as executor:
-        fs = [executor.submit(surface_helper, arg) for arg in args]
-        for i, f in enumerate(concurrent.futures.as_completed(fs)):
-            pbar.update(i)
-            vals.append(f.result())
+        vals = batch_process(args, surface_helper, procs=procs, msg='Reading files: ')
+        
+        # Strip none values
+        vals = [x for x in vals if x is not None]
+        if len(vals) < nfiles:
+            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals)) 
+            logger.warning(err)
+            nfiles = len(vals)
 
-    pbar.finish()
+        vals = sorted(vals)
 
-    # Strip none values
-    vals = [x for x in vals if x is not None]
-    if len(vals) < nfiles:
-        log('Skipped {0} files due to errors'.format(nfiles - len(vals)))
-        nfiles = len(vals)
-
-    vals = sorted(vals)
-
-    if nfiles > 0:
         cnames, formulae, contribs = zip(*vals)
-        output = 'Reading {0} files took {1:.2} seconds using {2} processes.'
-        log(output.format(nfiles, time.time() - start_time, procs))
         return (cnames, formulae, contribs)
-    else:
-        log('Errors reading all files, exiting.')
-        sys.exit(1)

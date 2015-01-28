@@ -71,18 +71,20 @@ def main():
     This program currently rounds distance matrices to 5 d.p.
     due to floating point arithmetic problems!!'
     """
-    if args['--silent']:
-        data.silent = True
-    # Process histograms
-    if args['hist']:
-        modes.hist_main(args)
+    with data.Timer() as t:
+        if args['--silent']:
+            data.silent = True
+        # Process histograms
+        if args['hist']:
+            modes.hist_main(args)
 
-    if args['harmonics']:
-        modes.harmonics_main(args)
+        if args['harmonics']:
+            modes.harmonics_main(args)
 
-    # Process surface area statistics
-    if args['surface']:
-        modes.surface_main(args)
+        # Process surface area statistics
+        if args['surface']:
+            modes.surface_main(args)
+    data.log('Program complete in {:.2}s.'.format(t.elapsed()))
 
 
 if __name__ == '__main__':

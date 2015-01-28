@@ -3,9 +3,41 @@
     such as the Van Der Waal's radii for various
     elements etc.
 """
-from __future__ import print_function
+import logging
 import progressbar as pb
-import termcolor as tc
+from timeit import default_timer
+
+FORMAT = "%(levelname)s%(message)s"
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+logging.addLevelName(logging.ERROR, 'error: ')
+logging.addLevelName(logging.WARNING, 'warning: ')
+logging.addLevelName(logging.INFO, '')
+logging.addLevelName(logging.DEBUG, 'debug: ')
+logging.addLevelName(logging.CRITICAL, 'CRITICAL: ')
+
+logger = logging.getLogger("sarlacc")
+
+
+
+class Timer(object):
+    """ A context manager timer class, to measure wall clock time"""
+    def __init__(self):
+        self.timer = default_timer
+        
+    def __enter__(self):
+        self.start = self.timer()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.end = self.timer()
+        self.elapsed_s = self.elapsed()
+        self.elapsed_s = self.elapsed_s * 1000.0
+        
+    def elapsed(self):
+        return self.timer() - self.start
+
+def log_traceback(e):
+    logger.exception(e)
 
 # Dict containing Van Der Waal's radii in angstroms
 vdw_radii = {
@@ -184,13 +216,9 @@ elnames = {
 
 
 def getWidgets(msg, color='white'):
-    return [tc.colored(msg, color, attrs=['bold']), pb.Percentage(), ' ',
+    return [msg, pb.Percentage(), ' ',
             pb.Bar(marker=chr(0x2500), left='',
             right=''), ' ', pb.ETA(), ' ']
 
-silent = False
-
-
-def log(s, color='white'):
-    if not silent:
-        print(tc.colored(s, color))
+def log(s):
+    logger.info(s)
