@@ -21,11 +21,19 @@ test_names = {'sp': 'Spearman rank order coefficient',
 def logClosestPair(mat, names):
     np.fill_diagonal(mat, np.inf)
     x = np.nanargmin(mat)
-    minind = (x//len(names), x % len(names))
-    log('Closest pair: {0}, d= {1:.5f}'.format((names[minind[0]],
-                                               names[minind[1]]),
-                                               mat[minind]))
+    ind = (x//len(names), x % len(names))
+    a = str(names[ind[0]], 'utf-8')
+    b = str(names[ind[1]], 'utf-8')
+    log('Closest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
     np.fill_diagonal(mat, 0.0)
+
+def logFarthestPair(mat, names):
+    x = np.nanargmax(mat)
+    ind = (x//len(names), x % len(names))
+    a = str(names[ind[0]],'utf-8')
+    b = str(names[ind[1]],'utf-8')
+    log('Farthest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
+
 
 
 def hist_main(args):
@@ -55,16 +63,18 @@ def hist_main(args):
                                                procs=procs)
             log('Generating matrix using {0}'.format(tname))
             mat = calc.get_dist_mat(histograms, test=mtest, threads=procs*2)
+            clusters = calc.cluster(mat, names, tname, dump=args['--json'],
+                                    dendrogram=dendrogram,
+                                    method=method,
+                                    distance=distance)
+            logClosestPair(mat, names)
+            logFarthestPair(mat, names)
+
             if args['--output']:
                 fname = args['--output']
-                fio.write_mat_file(fname, mat)
+                fio.write_mat_file(fname, mat, np.array(names, dtype='S10'), clusters)
 
-            logClosestPair(mat, names)
-
-            calc.cluster(mat, names, tname, dump=args['--json'],
-                         dendrogram=dendrogram,
-                         method=method,
-                         distance=distance)
+            
 
         except Exception as e:
             log_traceback(e)
@@ -89,16 +99,20 @@ def harmonics_main(args):
         distance = float(args['--distance'])
         dirname = args['<dir>']
         values, names = fio.batch_harmonics(dirname, procs=procs)
+        names = np.array(names, dtype='S10')
         log('Generating matrix using: "{0}"'.format(tname))
         coefficients, invariants = zip(*values)
         mat = calc.get_dist_mat(invariants, test=mtest, threads=procs*2)
+        clusters = calc.cluster(mat, names, tname, dendrogram=dendrogram,
+                                method=method, distance=distance)
+
         if args['--output']:
             fname = args['--output']
-            fio.write_mat_file(fname, mat)
-        logClosestPair(mat, names)
+            fio.write_mat_file(fname, mat, names, clusters)
 
-        calc.cluster(mat, names, tname, dendrogram=dendrogram,
-                     method=method, distance=distance)
+        logClosestPair(mat, names)
+        logFarthestPair(mat, names)
+
 
     footer(start_time)
 

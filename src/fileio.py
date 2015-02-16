@@ -25,6 +25,7 @@ ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
            "d_e_face_atoms": np.int32, "d_i_face_atoms": np.int32,
            "unit_cell": np.dtype((str, 3))}
 numerical = {"unit_cell": True}
+data_directory = "data"
 
 
 class EmptyDirException(Exception):
@@ -51,7 +52,8 @@ def glob_directory(d, pattern):
         try:
             yield sorted(glob.glob(os.path.join(d, pattern)))
         except EmptyDirException as e:
-            logger.exception(e)
+            logger.error(e)
+            sys.exit(1)
         except Exception as e:
             logger.exception(e)
         finally:
@@ -83,6 +85,18 @@ def readh5file(fname, attributes):
                 logger.error("Couldn't find dset: {} in {}".format(a, f))
             outputs[a] = f[a].value
     return outputs
+
+
+
+# Takes a dictionary of dataset_name
+def writeh5file(fname, attributes):
+    with h5py.File(fname, 'w') as f:
+        for k in attributes.keys():
+            data = attributes[k]
+            dset = f.create_dataset(k, data.shape, data.dtype, compression='gzip')
+            dset[...] = data[...]
+
+
 
 
 def dir_file_join(d, f):
@@ -217,9 +231,13 @@ def proc_file_harmonics(fname, metric='dnorm'):
         cname = get_basename(fname)
         r = readh5file(fname, ["coefficients", "invariants"])
         harmonics = (r["coefficients"], r["invariants"])
+        if np.any(np.isnan(r["coefficients"])):
+            raise ValueError('NaN in coefficients')
+        if np.any(np.isnan(r["invariants"])):
+            raise ValueError('NaN in invariants')
         ret = (harmonics, cname)
     except Exception as e:
-        logger.warning('Skipping {}'.format(fname))
+        logger.warning('Skipping {0} => {1}'.format(fname, str(e)))
     finally:
         return ret
 
@@ -237,7 +255,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
 
         if(save_figs):
             prefix = os.path.splitext(fname)[0]
-            outfile = prefix + '{1}bins.png'.format(resolution)
+            outfile = prefix + 'bins.png'
             plotfile(x, y, fname=outfile, nbins=resolution)
             hexbin_plotfile(x,
                             y,
@@ -270,8 +288,12 @@ def write_sa_file(fname, cnames, formulae, contribs):
             f.write(line + '\n')
 
 
-def write_mat_file(fname, mat):
-    np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
+def write_mat_file(fname, mat, names, clusters):
+    d = defaultdict()
+    d['matrix'] = mat
+    d['names'] = names
+    d['clusters'] = clusters
+    writeh5file(fname, d)
 
 
 # BATCH FUNCTIONS
@@ -348,10 +370,12 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
             err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
             logger.warning(err)
             nfiles = len(vals)
-
         # unzip the output
         values, names = zip(*vals)
+
         return (values, names)
+
+
 
 
 def batch_surface(dirname, restrict, suffix='.hdf5', procs=4, order=False):

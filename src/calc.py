@@ -91,8 +91,13 @@ def dvalue(x):
     return d
 
 
-def write_mat_file(fname, mat):
-    np.savetxt(fname, mat, fmt="%.4e", delimiter=' ')
+# insert a vector of length l into a new matrix, 
+# keeping values from mat into the upper triangle
+def insert_into_distance_mat(mat, vec):
+    tmp = np.zeros((vec.size, vec.size))
+    tmp[0, :] = vec
+    tmp[1:, 1:] = mat
+    return tmp
 
 
 def write_dendrogram_file(fname, Z, names, no_labels=False,
@@ -169,6 +174,7 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
 
         # Make the matrix symmetric
         mat = (mat + mat.T) / 2
+        np.fill_diagonal(mat, 0.0)
 
         # Because these tests give correlations not distances,
         # we must modify the values to give a distance equivalent
@@ -202,11 +208,15 @@ def cluster(mat, names, tname, dump=None,
         print(e)
         print(mat)
         return
+
+    clusters = []
     with Timer() as t:
 
         # This is the actual clustering using fastcluster
         Z = fc.linkage(distArray, method=method, metric=distance)
-        # log(Z)
+        clusters = scipy.cluster.hierarchy.fcluster(Z, 8,
+                                                    criterion='maxclust')
+
         outstring = 'Clustering {0} data points'.format(len(names))
         outstring += ' took {0:.3}s'.format(t.elapsed())
         log(outstring)
@@ -216,24 +226,7 @@ def cluster(mat, names, tname, dump=None,
                                   names, no_labels=True,
                                   test_name=tname,
                                   distance=distance)
-        if dump:
-            log('Dumping tree structure in {0}'.format(dump))
-            T = scipy.cluster.hierarchy.to_tree(Z, rd=False)
-            d = dict(children=[], name="Root1")
-            add_node(T, d)
-            label_tree(d["children"][0], names)
-            json.dump(d, open(dump, 'w'), sort_keys=True, indent=4)
-            log('printing clusters')
-            # HARDCODED NUMBER OF CLUSTERS
-            clusters = scipy.cluster.hierarchy.fcluster(Z, 4,
-                                                        criterion='maxclust')
-            nclusters = clusters.size
-            num = max(clusters)
-            c = []
-            for i in range(1, num):
-                c.append([names[x] for x in range(nclusters)
-                         if clusters[x] == i])
-            json.dump(c, open('clusters.txt', 'w'), indent=4)
+    return clusters
 
 
 def add_node(node, parent):

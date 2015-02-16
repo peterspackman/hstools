@@ -85,6 +85,7 @@ def main():
         # Process surface area statistics
         if args['surface']:
             modes.surface_main(args)
+
     data.log('Program complete in {:.2}s.'.format(t.elapsed()))
 
 
