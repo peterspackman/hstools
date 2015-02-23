@@ -11,27 +11,27 @@ from . import fileio as fio
 
 test_f = {'sp': calc.spearman_roc,
           'kt': calc.kendall_tau,
-          'hd': calc.hdistance}
+          'hd': calc.absolute_distance}
 test_names = {'sp': 'Spearman rank order coefficient',
               'kt': "Kendall's Tau",
               'hd': 'Sigma histogram distance',
-              'dv': 'Euclidean distance between invariants'}
+              'dv': 'euclidean distance between spherical invariants'}
 
 
 def logClosestPair(mat, names):
     np.fill_diagonal(mat, np.inf)
     x = np.nanargmin(mat)
     ind = (x//len(names), x % len(names))
-    a = str(names[ind[0]], 'utf-8')
-    b = str(names[ind[1]], 'utf-8')
+    a = str(names[ind[0]])
+    b = str(names[ind[1]])
     log('Closest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
     np.fill_diagonal(mat, 0.0)
 
 def logFarthestPair(mat, names):
     x = np.nanargmax(mat)
     ind = (x//len(names), x % len(names))
-    a = str(names[ind[0]],'utf-8')
-    b = str(names[ind[1]],'utf-8')
+    a = str(names[ind[0]])
+    b = str(names[ind[1]])
     log('Farthest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
 
 
@@ -81,7 +81,7 @@ def hist_main(args):
 
 
 def harmonics_main(args):
-    mtest = calc.dvalue
+    mtest = calc.euclidean
     tname = test_names['dv']
     start_time = time.time()
     procs = int(args['--procs'])

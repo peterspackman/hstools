@@ -1,3 +1,3 @@
 # potentially add new methods of visualising data
 # Write automated tests!
-# correctly implement --silent wrt. progressbar
+# Form methods to save and reuse already calculated data

@@ -106,7 +106,7 @@ def dir_file_join(d, f):
 def standard_figure(figsize=(9, 9), dpi=400):
     f = plt.figure(figsize=figsize, dpi=dpi)
     sns.set(style='white')
-    cmap = sns.cubehelix_palette(start=1.5, light=1, as_cmap=True)
+    cmap = mpl.cm.jet
     extent = [0.5, 2.5, 0.5, 2.5]
     ax = f.add_subplot(111, xlim=extent[0:2], ylim=extent[2:4])
     plt.xticks(np.arange(0.5, 2.5, 0.2))
@@ -366,6 +366,7 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
                              msg='Reading files: ')
         # Strip none values
         vals = [x for x in vals if x is not None]
+        vals = sorted(vals, key=lambda val: val[1])
         if len(vals) < nfiles:
             err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
             logger.warning(err)

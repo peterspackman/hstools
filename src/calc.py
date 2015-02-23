@@ -25,69 +25,39 @@ def spearman_roc(histograms):
     not 2 zeroes are ignored READ likely that they aren't, as such
     artificially high correlations are probable"""
     H1, H2 = histograms
-    try:
-        hist1, _, _ = H1
-        hist2, _, _ = H2
-        x = hist1.flatten()
-        y = hist2.flatten()
+    hist1, _, _ = H1
+    hist2, _, _ = H2
+    x = hist1.flatten()
+    y = hist2.flatten()
 
-        r, p = stats.spearmanr(x, y)
-        return r
-
-    except ValueError as e:
-        print('Error: {0}.'.format(e))
-        print('Input must be a tuple of histograms.')
-        return
+    r, p = stats.spearmanr(x, y)
+    return r
 
 
 def kendall_tau(histograms):
     """ Calculate Kendall's Tau from the given histograms. Significantly slower
     than Spearman ROC, and seems to produce slightly worse results."""
-    try:
-        H1, H2 = histograms
-        hist1, _, _ = H1
-        hist2, _, _ = H2
-        x = hist1.flatten()
-        y = hist2.flatten()
-        r, p = stats.kendalltau(x, y)
-        return r
-    except ValueError as e:
-        print('Error: {0}.'.format(e))
-        print('Input must be a tuple of histograms.')
-        return
+    H1, H2 = histograms
+    hist1, _, _ = H1
+    hist2, _, _ = H2
+    x = hist1.flatten()
+    y = hist2.flatten()
+    r, p = stats.kendalltau(x, y)
+    return r
 
 
-def hdistance(histograms):
-    """ Calculate a naive distance between two histograms"""
-    try:
-        H1, H2 = histograms
-        hist1, _, _ = H1
-        hist2, _, _ = H2
-        x = hist1
-        y = hist2
-        dmat = x - y
-        d = np.sum(dmat)
-        return abs(d)
+def absolute_distance(histograms):
+    """ Calculate the absolute distance between two histograms"""
+    H1, H2 = histograms
+    x, _, _ = H1
+    y, _, _ = H2
+    d = np.sum(np.subtract(x, y))
+    return abs(d)
 
-    except ValueError as e:
-        print('Error: {0}.'.format(e))
-        print('Input must be a tuple of histograms.')
-        return
-
-
-def dvalue(x):
-    # unpack the tuple
+    
+def euclidean(x):
     i1, i2 = x
-    # Make NaNs zeroes
-    i1[np.isnan(i1)] = 0
-    i2[np.isnan(i2)] = 0
-    # find all values where at LEAST one array is nonzero, and use these to
-    # calculate distance
-    ind1 = np.flatnonzero(i1)
-    ind2 = np.flatnonzero(i2)
-    ind = (np.union1d(ind1, ind2))
-    # Euclidean distance
-    d = np.power(np.sum(np.power(i2[ind] - i1[ind], 2)), 0.5)
+    d = np.power(np.sum(np.power(np.subtract(i2, i1), 2)), 0.5)
     return d
 
 
