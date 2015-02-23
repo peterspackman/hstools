@@ -16,7 +16,6 @@ import progressbar as pb
 # Local imports
 from .data import log, log_traceback, logger
 from . import data
-from . import hist
 from . import calc
 
 nmdims = {"vertices": 3, "indices": 3, "coefficients": 2}
@@ -87,16 +86,16 @@ def readh5file(fname, attributes):
     return outputs
 
 
-
 # Takes a dictionary of dataset_name
 def writeh5file(fname, attributes):
     with h5py.File(fname, 'w') as f:
         for k in attributes.keys():
             data = attributes[k]
-            dset = f.create_dataset(k, data.shape, data.dtype, compression='gzip')
+            dset = f.create_dataset(k,
+                                    data.shape,
+                                    data.dtype,
+                                    compression='gzip')
             dset[...] = data[...]
-
-
 
 
 def dir_file_join(d, f):
@@ -157,9 +156,9 @@ def plotfile(x, y, fname='out.png', type='linear', nbins=10):
 
     # Not sure why but we have linear and log as options
     if(type == 'linear'):
-        H, xedges, yedges = hist.bin_data(x, y, bins=nbins)
+        H, xedges, yedges = calc.bin_data(x, y, bins=nbins)
     else:
-        H, xedges, yedges = hist.bin_data_log(x, y, bins=nbins)
+        H, xedges, yedges = calc.bin_data_log(x, y, bins=nbins)
 
     # NEED TO ROTATE AXES
     H = np.rot90(H)
@@ -251,7 +250,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
         cname = get_basename(fname)
         r = readh5file(fname, ["d_e", "d_i"])
         x, y = r["d_i"], r["d_e"]
-        h = hist.bin_data(x, y, resolution)
+        h = calc.bin_data(x, y, resolution)
 
         if(save_figs):
             prefix = os.path.splitext(fname)[0]
@@ -265,6 +264,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
 
         ret = (h, cname)
     except Exception as e:
+        print(e)
         logger.warning('Skipping {}'.format(fname))
     finally:
         return ret
@@ -375,8 +375,6 @@ def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
         values, names = zip(*vals)
 
         return (values, names)
-
-
 
 
 def batch_surface(dirname, restrict, suffix='.hdf5', procs=4, order=False):

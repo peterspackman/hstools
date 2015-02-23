@@ -1,43 +1,91 @@
-#!/usr/bin/python
-""" This module contains methods for the creation and
-    manipulation of histograms from given data"""
+"""
+Usage:
+    sarlacc hist [options] [<filepattern>]
+
+    -h, --help
+    -n, --dry-run
+    -v, --verbose
+    -b=NUM, --bins=NUM             Set the number of bins to use
+                                   in the histogram. [default: 100]
+    -t=TEST, --test=TEST           Select which test will be used.
+                                   [default: sp]
+    -p, --save-figures             Plot histograms calculated and
+                                   save them to file.
+    -o=FILE, --output=FILE         Write the result to a given file.
+                                   Works for both surface and hist modes.
+                                   Will save the distance matrix in hist mode,
+                                   and write S.A. infor in surface mode
+    -d=FILE, --dendrogram=FILE     Save the the generated clustering as a
+                                   dendrogram.
+    -m=METHOD, --method=METHOD     Use METHOD when calculating linkage. One of
+                                   'average', 'single', 'complete', 'weighted',
+                                   'centroid', 'median', 'ward'.
+                                   [default: complete]
+    --distance=THRESHOLD           The threshold distance for leaves to be
+                                   classified as clustered. Unlikely to change
+                                   much. [default: 0.4]
+"""
+
 # Core imports
+import os
 import re
 import sys
 # Library imports
 import numpy as np
 import scipy.sparse
+from docopt import docopt
+from .data import log, log_traceback
+from . import calc
+from .fileio import proc_file_hist, batch_hist, write_mat_file
+from .modes import logClosestPair, logFarthestPair
+
+test_f = {'sp': calc.spearman_roc,
+          'kt': calc.kendall_tau,
+          'hd': calc.absolute_distance}
+
+test_names = {'sp': 'Spearman rank order coefficient',
+              'kt': "Kendall's Tau",
+              'hd': 'Sigma histogram distance'}
 
 
-def bin_data(x, y, bins=10, bounds=False):
-    """ Puts the data x & y into a given number of bins.
-        Currently, bounds simply tells the program to use
-        set bins."""
+def hist_main(argv, procs=4):
+    args = docopt(__doc__, argv=argv)
+    mtest = test_f[args['--test']]
 
-    nx = ny = bins
+    bins = int(args['--bins'])
+    save_figs = args['--save-figures']
 
-    if not bounds:
-        xmin, xmax = min(x), max(x)
-        ymin, ymax = min(y), max(y)
-    else:
-        xmin, ymin = 0.5, 0.5
-        xmax, ymax = 2.5, 2.5
+    if os.path.isfile(args['<filepattern>']):
+        fname = args['<filepattern>']
+        if not save_figs:
+            log('Not saving figure, so this \
+                        command will have no output')
+        h, name = proc_file_hist(fname, resolution=bins,
+                                 save_figs=save_figs)
 
-    dx = (xmax - xmin) / (nx - 1.0)
-    dy = (ymax - ymin) / (ny - 1.0)
+    elif os.path.isdir(args['<filepattern>']):
+        dirname = args['<filepattern>']
+        dendrogram = args['--dendrogram']
+        method = args['--method']
+        distance = float(args['--distance'])
+        try:
+            histograms, names = batch_hist(dirname, resolution=bins,
+                                           save_figs=save_figs,
+                                           procs=procs)
+            mat = calc.get_dist_mat(histograms, test=mtest, threads=procs*2)
+            clusters = calc.cluster(mat, names,
+                                    dendrogram=dendrogram,
+                                    method=method,
+                                    distance=distance)
+            logClosestPair(mat, names)
+            logFarthestPair(mat, names)
 
-    weights = np.ones(len(x))
+            if args['--output']:
+                fname = args['--output']
+                write_mat_file(fname,
+                               mat,
+                               np.array(names, dtype='S10'),
+                               clusters)
 
-    # this is a slightly modified version of np.digitize()
-    xyi = np.vstack((x, y)).T
-    xyi -= [xmin, ymin]
-    xyi /= [dx, dy]
-    xyi = np.floor(xyi, xyi).T
-
-    grid = scipy.sparse.coo_matrix((weights, xyi), shape=(nx, ny)).toarray()
-
-    return grid, np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)
-
-
-def bin_data_log(x, y, bins=10):
-    return bin_data(np.log(x), np.log(y), bins)
+        except Exception as e:
+            log_traceback(e)

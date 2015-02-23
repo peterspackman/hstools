@@ -54,14 +54,14 @@ def absolute_distance(histograms):
     d = np.sum(np.subtract(x, y))
     return abs(d)
 
-    
+
 def euclidean(x):
     i1, i2 = x
     d = np.power(np.sum(np.power(np.subtract(i2, i1), 2)), 0.5)
     return d
 
 
-# insert a vector of length l into a new matrix, 
+# insert a vector of length l into a new matrix,
 # keeping values from mat into the upper triangle
 def insert_into_distance_mat(mat, vec):
     tmp = np.zeros((vec.size, vec.size))
@@ -97,10 +97,10 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
     vals = []
     with Timer() as t:
 
-        widgets = data.getWidgets('Calculating Matrix: ')
+        widgets = data.getWidgets('Evaluating distances: ')
 
-        log("""Creating {0}x{0} matrix,
-            test={1}, using {2} threads""".format(n, test.__name__, threads))
+        log("Creating {0}x{0} matrix, test function: ({1})"
+            " {2} threads""".format(n, test.__name__, threads))
 
         # Generating matrix will be O(exp(n)) time
         c = list(combinations(values, 2))
@@ -160,13 +160,13 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
         if not symmetry:
             logger.error('Matrix not symmetric...')
 
-    output = 'Matrix took {0:.2}s to create. {1} pairwise calculations'
+    log("Matrix took {0:.2}s to create: "
+        "{1} pairwise calculations".format(t.elapsed(), numcalc))
 
-    log(output.format(t.elapsed(), numcalc))
     return mat
 
 
-def cluster(mat, names, tname, dump=None,
+def cluster(mat, names, dump=None,
             dendrogram=None, method=None,
             distance=None):
     """ Takes an NxN array of distances and an array of names with
@@ -194,7 +194,6 @@ def cluster(mat, names, tname, dump=None,
         if dendrogram:
             write_dendrogram_file(dendrogram, Z,
                                   names, no_labels=True,
-                                  test_name=tname,
                                   distance=distance)
     return clusters
 
@@ -288,3 +287,37 @@ def get_contrib(vertices, indices, internal,
         contrib_p[x] = p
 
     return contrib, contrib_p
+
+
+def bin_data(x, y, bins=10, bounds=False):
+    """ Puts the data x & y into a given number of bins.
+        Currently, bounds simply tells the program to use
+        set bins."""
+
+    nx = ny = bins
+
+    if not bounds:
+        xmin, xmax = min(x), max(x)
+        ymin, ymax = min(y), max(y)
+    else:
+        xmin, ymin = 0.5, 0.5
+        xmax, ymax = 2.5, 2.5
+
+    dx = (xmax - xmin) / (nx - 1.0)
+    dy = (ymax - ymin) / (ny - 1.0)
+
+    weights = np.ones(len(x))
+
+    # this is a slightly modified version of np.digitize()
+    xyi = np.vstack((x, y)).T
+    xyi -= [xmin, ymin]
+    xyi /= [dx, dy]
+    xyi = np.floor(xyi, xyi).T
+
+    grid = scipy.sparse.coo_matrix((weights, xyi), shape=(nx, ny)).toarray()
+
+    return grid, np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)
+
+
+def bin_data_log(x, y, bins=10):
+    return bin_data(np.log(x), np.log(y), bins)

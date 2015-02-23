@@ -1,9 +1,25 @@
 #!/usr/bin/python
-"""Usage:
-    sarlacc hist (--batch <dir> | <file>) [options]
+"""
+Usage:
+    sarlacc [--help] [--silent] [--version] <command> [<args>...]
+
+options:
+    -h, --help          Show this help message and exit.
+    --version           Print the program version and exit.
+    -s, --silent        Do not print output to stdout/stderr
+
+The available commands are:
+
+    hist                Process files by constructing Hirshfeld fingerprints
+                        i.e. histograms of distances on the surface.
+    harmonics           Process files by spherical harmonic invariants.
+    surface             Calclute statistics associated with values on the
+                        Hirshfeld surface.
+
+(--batch <dir> | <file>) [options]
+
     sarlacc surface (--batch <dir> | <file>) [options]
     sarlacc harmonics (--batch <dir> | <file>) [options]
-    sarlacc (--version | --help | -h)
 
 Simple And ReuseabLe Algorithms for Computational Chemistry (Sarlacc)
 
@@ -17,42 +33,9 @@ In addition this program can:
 various elements. (using surface command)
 
 Options:
-    -h, --help                     Show this help message and exit.
-    --version                      Show program's version number and exit.
-    -b=NUM, --bins=NUM             Set the number of bins to use
-                                   in the histogram. [default: 100]
-    -t=TEST, --test=TEST           Select which test will be used.
-                                   [default: sp]
-    -p, --save-figures             Plot histograms calculated and
-                                   save them to file.
+
     -n=N, --procs=N                The number of processes to parse
                                    files with. [default: 4]
-    -i=ATOM, --internal-atom=ATOM  Restrict the closest internal atom
-                                   in the histogram
-    -e=ATOM, --external-atom=ATOM  Restrict the closest external atom
-                                   in the histogram
-    -j=FILE, --json=FILE           Dump the dendrogram tree to JSON
-
-    --no-restrict                  Don't restrict the surface area
-                                   values to only those closer than
-                                   Van Der Waal's Radii
-    --order-important              When classifying surface area,
-                                   indicate that H -> O is different
-                                   to O -> H. (i.e. order is important)
-    -o=FILE, --output=FILE         Write the result to a given file.
-                                   Works for both surface and hist modes.
-                                   Will save the distance matrix in hist mode,
-                                   and write S.A. infor in surface mode
-    -d=FILE, --dendrogram=FILE     Save the the generated clustering as a
-                                   dendrogram.
-    -s, --silent                   Do not print output to stdout/stderr
-    -m=METHOD, --method=METHOD     Use METHOD when calculating linkage. One of
-                                   'average', 'single', 'complete', 'weighted',
-                                   'centroid', 'median', 'ward'.
-                                   [default: complete]
-    --distance=THRESHOLD           The threshold distance for leaves to be
-                                   classified as clustered. Unlikely to change
-                                   much. [default: 0.4]
 """
 # system
 import logging
@@ -62,29 +45,42 @@ from docopt import docopt
 from . import data
 from . import modes
 
-version = "0.8"
-args = docopt(__doc__, version=version)
-# *******        MAIN PROGRAM           ****** #
+version = "0.86"
+args = docopt(__doc__, version=version,
+              options_first=True)
+
+available_commands = ['harmonics', 'hist', 'surface']
 
 
 def main():
-    """
-    This program currently rounds distance matrices to 5 d.p.
-    due to floating point arithmetic problems!!'
-    """
+    argv = [args['<command>']] + args['<args>']
     with data.Timer() as t:
         if args['--silent']:
             data.logger.setLevel(logging.WARNING)
-        # Process histograms
-        if args['hist']:
-            modes.hist_main(args)
 
-        if args['harmonics']:
-            modes.harmonics_main(args)
+        command = args['<command>']
 
-        # Process surface area statistics
-        if args['surface']:
-            modes.surface_main(args)
+        if command == 'harmonics':
+            from . import harmonics
+            harmonics.harmonics_main(argv)
+
+        elif command == 'hist':
+            from . import hist
+            hist.hist_main(argv)
+
+        elif command == 'surface':
+            from . import surface
+            surface.surface_main(argv)
+
+        else:
+            from fuzzywuzzy import process
+            print('Unknown command -- {}'.format(command))
+            x = process.extract(command,
+                                available_commands,
+                                limit=1)
+            closest, ratio = x[0]
+            if(ratio > 60):
+                print('Perhaps you meant -- {}?'.format(closest))
 
     data.log('Program complete in {:.2}s.'.format(t.elapsed()))
 
