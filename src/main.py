@@ -42,7 +42,6 @@ import sys
 from docopt import docopt
 # Local imports
 from . import data
-from . import modes
 
 program_name = "sarlacc"
 version = "2015.02.24"
