@@ -1,6 +1,6 @@
 """
 Usage:
-    sarlacc hist [options] [<filepattern>]
+    sarlacc hist [options] [<filepattern>...]
 
     -h, --help
     -n, --dry-run
@@ -34,7 +34,7 @@ import sys
 import numpy as np
 import scipy.sparse
 from docopt import docopt
-from .data import log, log_traceback
+from .data import log, log_traceback, log_error
 from . import calc
 from .fileio import proc_file_hist, batch_hist, write_mat_file
 from .modes import logClosestPair, logFarthestPair
@@ -48,44 +48,55 @@ test_names = {'sp': 'Spearman rank order coefficient',
               'hd': 'Sigma histogram distance'}
 
 
+def process_file_list(files, args, procs):
+    dendrogram = args['--dendrogram']
+    method = args['--method']
+    distance = float(args['--distance'])
+    if len(files) < 1:
+        log_error('No files to process.')
+        sys.exit(1)
+
+    histograms, names = batch_hist(files,
+                                   resolution=int(args['--bins']),
+                                   save_figs=args['--save-figures'],
+                                   procs=procs)
+
+    mat = calc.get_dist_mat(histograms, test=test_f[args['--test']],
+                            threads=procs*2)
+
+    clusters = calc.cluster(mat, names,
+                            dendrogram=dendrogram,
+                            method=method,
+                            distance=distance)
+    logClosestPair(mat, names)
+    logFarthestPair(mat, names)
+
+    if args['--output']:
+        fname = args['--output']
+        write_mat_file(fname,
+                       mat,
+                       np.array(names, dtype='S10'),
+                       clusters)
+
+
 def hist_main(argv, procs=4):
     args = docopt(__doc__, argv=argv)
-    mtest = test_f[args['--test']]
 
-    bins = int(args['--bins'])
-    save_figs = args['--save-figures']
+    if len(args['<filepattern>']) < 2:
+        file_pattern = args['<filepattern>'][0]
 
-    if os.path.isfile(args['<filepattern>']):
-        fname = args['<filepattern>']
-        if not save_figs:
-            log('Not saving figure, so this \
-                        command will have no output')
-        h, name = proc_file_hist(fname, resolution=bins,
-                                 save_figs=save_figs)
+        if os.path.isfile(file_pattern):
+            fname = file_pattern
+            if not save_figs:
+                log('Not saving figure, so this '
+                    'command will have no output')
+            h, name = proc_file_hist(fname, resolution=args['--bins'],
+                                     save_figs=args['--save_figs'])
 
-    elif os.path.isdir(args['<filepattern>']):
-        dirname = args['<filepattern>']
-        dendrogram = args['--dendrogram']
-        method = args['--method']
-        distance = float(args['--distance'])
-        try:
-            histograms, names = batch_hist(dirname, resolution=bins,
-                                           save_figs=save_figs,
-                                           procs=procs)
-            mat = calc.get_dist_mat(histograms, test=mtest, threads=procs*2)
-            clusters = calc.cluster(mat, names,
-                                    dendrogram=dendrogram,
-                                    method=method,
-                                    distance=distance)
-            logClosestPair(mat, names)
-            logFarthestPair(mat, names)
+        elif os.path.isdir(file_pattern):
+            from .fileio import glob_directory
+            with glob_directory(file_pattern, '*.hdf5') as files:
+                process_file_list(files, args, procs)
 
-            if args['--output']:
-                fname = args['--output']
-                write_mat_file(fname,
-                               mat,
-                               np.array(names, dtype='S10'),
-                               clusters)
-
-        except Exception as e:
-            log_traceback(e)
+    else:
+        process_file_list(args['<filepattern>'], args, procs)

@@ -223,3 +223,6 @@ def getWidgets(msg, color='white'):
 
 def log(s):
     logger.info(s)
+
+def log_error(s):
+    logger.error(s)

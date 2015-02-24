@@ -302,6 +302,7 @@ def write_mat_file(fname, mat, names, clusters):
 # that function with that list of args using a Processpoolexecutor
 def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
     vals = []
+
     if progress:
         pbar = pb.ProgressBar(widgets=data.getWidgets(msg),
                               maxval=len(args))
@@ -320,84 +321,74 @@ def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
     return vals
 
 
-def batch_hist(dirname, suffix='.hdf5', resolution=10,
+def batch_hist(files, resolution=10,
                save_figs=False, procs=4):
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names """
-    with glob_directory(dirname, '*'+suffix) as files:
+    nfiles = len(files)
 
-        nfiles = len(files)
-        if nfiles < 1:
-            raise EmptyDirException('No files to read in {0}'.format(dirname))
+    args = [(fname, resolution, save_figs) for fname in files]
 
-        args = [(fname, resolution, save_figs) for fname in files]
+    vals = batch_process(args,
+                         hist_helper,
+                         procs=procs,
+                         msg='Reading files: ')
 
-        vals = batch_process(args,
-                             hist_helper,
-                             procs=procs,
-                             msg='Reading files: ')
+    # Strip none values
+    vals = [x for x in vals if x is not None]
+    if len(vals) < nfiles:
+        err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
+        logger.warning(err)
+        nfiles = len(vals)
 
-        # Strip none values
-        vals = [x for x in vals if x is not None]
-        if len(vals) < nfiles:
-            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
-            logger.warning(err)
-            nfiles = len(vals)
+    vals = sorted(vals, key=lambda val: val[1])
 
-        vals = sorted(vals, key=lambda val: val[1])
-
-        # unzip the output
-        histograms, names = zip(*vals)
-        return (histograms, names)
+    # unzip the output
+    histograms, names = zip(*vals)
+    return (histograms, names)
 
 
-def batch_harmonics(dirname, metric='d_norm', suffix='.hdf5', procs=4):
+def batch_harmonics(files, metric='d_norm', suffix='.hdf5', procs=4):
 
-    with glob_directory(dirname, '*'+suffix) as files:
-        nfiles = len(files)
-        if nfiles < 1:
-            raise EmptyDirException('No files to read in {0}'.format(dirname))
+    nfiles = len(files)
 
-        args = [(fname, metric) for fname in files]
+    args = [(fname, metric) for fname in files]
 
-        vals = batch_process(args,
-                             harmonics_helper,
-                             procs=procs,
-                             msg='Reading files: ')
-        # Strip none values
-        vals = [x for x in vals if x is not None]
-        vals = sorted(vals, key=lambda val: val[1])
-        if len(vals) < nfiles:
-            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
-            logger.warning(err)
-            nfiles = len(vals)
-        # unzip the output
-        values, names = zip(*vals)
+    vals = batch_process(args,
+                         harmonics_helper,
+                         procs=procs,
+                         msg='Reading files: ')
+    # Strip none values
+    vals = [x for x in vals if x is not None]
+    vals = sorted(vals, key=lambda val: val[1])
+    if len(vals) < nfiles:
+        err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
+        logger.warning(err)
+        nfiles = len(vals)
+    # unzip the output
+    values, names = zip(*vals)
 
-        return (values, names)
+    return (values, names)
 
 
-def batch_surface(dirname, restrict, suffix='.hdf5', procs=4, order=False):
+def batch_surface(files, restrict, suffix='.hdf5', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
-    with glob_directory(dirname, '*'+suffix) as files:
-        nfiles = len(files)
-        if nfiles < 1:
-            raise EmptyDirException('No files to read in {0}'.format(dirname))
+    nfiles = len(files)
 
-        args = [(fname, restrict, order) for fname in files]
+    args = [(fname, restrict, order) for fname in files]
 
-        vals = batch_process(args,
-                             surface_helper,
-                             procs=procs,
-                             msg='Reading files: ')
-        # Strip none values
-        vals = [x for x in vals if x is not None]
-        if len(vals) < nfiles:
-            err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
-            logger.warning(err)
-            nfiles = len(vals)
+    vals = batch_process(args,
+                         surface_helper,
+                         procs=procs,
+                         msg='Processing files: ')
+    # Strip none values
+    vals = [x for x in vals if x is not None]
+    if len(vals) < nfiles:
+        err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
+        logger.warning(err)
+        nfiles = len(vals)
 
-        vals = sorted(vals)
+    vals = sorted(vals)
 
-        cnames, formulae, contribs = zip(*vals)
-        return (cnames, formulae, contribs)
+    cnames, formulae, contribs = zip(*vals)
+    return (cnames, formulae, contribs)

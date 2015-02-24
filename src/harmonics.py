@@ -1,6 +1,6 @@
 """
 Usage:
-    sarlacc harmonics [options] [<filepattern>]
+    sarlacc harmonics [options] [<filepattern>...]
 
     -h, --help
     -n, --dry-run
@@ -28,35 +28,45 @@ from .data import log
 from .fileio import proc_file_harmonics, batch_harmonics, write_mat_file
 from .modes import logClosestPair, logFarthestPair
 
+def process_file_list(files, args, procs):
+    mtest = calc.euclidean
+    dendrogram = args['--dendrogram']
+    method = args['--method']
+    distance = float(args['--distance'])
+    values, names = batch_harmonics(files, procs=procs)
+    coefficients, invariants = zip(*values)
+    mat = calc.get_dist_mat(invariants, test=mtest, threads=procs*2)
+    clusters = calc.cluster(mat, names, dendrogram=dendrogram,
+                            method=method, distance=distance)
+
+    if args['--output']:
+        fname = args['--output']
+        write_mat_file(fname,
+                       mat,
+                       np.array(names, dtype='S10'),
+                       clusters)
+
+    logClosestPair(mat, names)
+    logFarthestPair(mat, names)
+
+
 
 def harmonics_main(argv, procs=4):
     args = docopt(__doc__, argv=argv)
     mtest = calc.euclidean
 
-    if os.path.isfile(args['<filepattern>']):
-        fname = args['<filepattern>']
-        values, cname = proc_file_harmonics(fname)
-        coefficients, invariants = values
-        log(cname)
-        log(coefficients)
+    if len(args['<filepattern>']) < 2:
 
-    elif os.path.isdir(args['<filepattern>']):
-        dendrogram = args['--dendrogram']
-        method = args['--method']
-        distance = float(args['--distance'])
-        dirname = args['<filepattern>']
-        values, names = batch_harmonics(dirname, procs=procs)
-        coefficients, invariants = zip(*values)
-        mat = calc.get_dist_mat(invariants, test=mtest, threads=procs*2)
-        clusters = calc.cluster(mat, names, dendrogram=dendrogram,
-                                method=method, distance=distance)
+        file_pattern = args['<filepattern>'][0]
 
-        if args['--output']:
-            fname = args['--output']
-            write_mat_file(fname,
-                           mat,
-                           np.array(names, dtype='S10'),
-                           clusters)
+        if os.path.isfile(file_pattern):
+            fname = file_pattern
+            values, cname = proc_file_harmonics(fname)
+            coefficients, invariants = values
+            log(cname)
+            log(coefficients)
 
-        logClosestPair(mat, names)
-        logFarthestPair(mat, names)
+        elif os.path.isdir(file_pattern):
+            from .fileio import glob_directory
+            with glob_directory(file_pattern, '*.hdf5') as files:
+                process_file_list(files, args, procs)
