@@ -180,21 +180,14 @@ def cluster(mat, names, dump=None,
         return
 
     clusters = []
-    with Timer() as t:
-
-        # This is the actual clustering using fastcluster
-        Z = fc.linkage(distArray, method=method, metric=distance)
-        clusters = scipy.cluster.hierarchy.fcluster(Z, 8,
-                                                    criterion='maxclust')
-
-        outstring = 'Clustering {0} data points'.format(len(names))
-        outstring += ' took {0:.3}s'.format(t.elapsed())
-        log(outstring)
-
-        if dendrogram:
-            write_dendrogram_file(dendrogram, Z,
-                                  names, no_labels=True,
-                                  distance=distance)
+    # This is the actual clustering using fastcluster
+    Z = fc.linkage(distArray, method=method, metric=distance)
+    clusters = scipy.cluster.hierarchy.fcluster(Z, 8,
+                                                criterion='maxclust')
+    if dendrogram:
+        write_dendrogram_file(dendrogram, Z,
+                              names, no_labels=True,
+                              distance=distance)
     return clusters
 
 

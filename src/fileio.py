@@ -6,17 +6,19 @@ import glob
 import os
 import sys
 import time
+
 # Library imports
-import h5py
 from matplotlib import pyplot as plt
-import seaborn as sns
+import h5py
 import matplotlib as mpl
 import numpy as np
 import progressbar as pb
+import seaborn as sns
+
 # Local imports
-from .data import log, log_traceback, logger
-from . import data
 from . import calc
+from . import data
+from .data import log, log_traceback, logger
 
 nmdims = {"vertices": 3, "indices": 3, "coefficients": 2}
 ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
@@ -47,16 +49,13 @@ def dict_vals(d, *keys):
 
 @contextmanager
 def glob_directory(d, pattern):
-    with data.Timer() as t:
-        try:
-            yield sorted(glob.glob(os.path.join(d, pattern)))
-        except EmptyDirException as e:
-            logger.error(e)
-            sys.exit(1)
-        except Exception as e:
-            logger.exception(e)
-        finally:
-            logger.info('Done: {:.2}s.'.format(t.elapsed()))
+    try:
+        yield sorted(glob.glob(os.path.join(d, pattern)))
+    except EmptyDirException as e:
+        logger.error(e)
+        sys.exit(1)
+    except Exception as e:
+        logger.exception(e)
 
 
 def surface_helper(args):
@@ -216,7 +215,7 @@ def proc_file_sa(fname, restrict, order=False):
         ret = (cname, formula, contrib_p)
 
     except Exception as e:
-        logger.warning('Skipping {}'.format(fname))
+        logger.warning('Skipping {0} => {1}'.format(fname, str(e)))
     finally:
         return ret
 

@@ -24,18 +24,23 @@ Usage:
     --distance=THRESHOLD           The threshold distance for leaves to be
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
+
 """
 
 # Core imports
 import os
 import re
 import sys
+
 # Library imports
+from docopt import docopt
 import numpy as np
 import scipy.sparse
-from docopt import docopt
-from .data import log, log_traceback, log_error, logClosestPair, logFarthestPair
+
+# Local imports
 from . import calc
+from .data import log, log_traceback, log_error,  \
+    logClosestPair, logFarthestPair
 from .fileio import proc_file_hist, batch_hist, write_mat_file
 
 
@@ -60,6 +65,9 @@ def process_file_list(files, args, procs):
                                    resolution=int(args['--bins']),
                                    save_figs=args['--save-figures'],
                                    procs=procs)
+    if len(histograms) < 2:
+        log_error("Need at least 2 things to compare!")
+        return
 
     mat = calc.get_dist_mat(histograms, test=test_f[args['--test']],
                             threads=procs*2)

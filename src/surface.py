@@ -20,27 +20,35 @@ Options:
                                    and write S.A. infor in surface mode
 
 """
+# Core imports
 import os
 from collections import OrderedDict
 
+# Library imports
 from docopt import docopt
+
+# Local imports
 from . import calc
-from .data import log, logClosestPair, logFarthestPair
+from .data import log, log_error, logClosestPair, logFarthestPair
 from .fileio import proc_file_sa, batch_surface, write_sa_file
 
 
-
 def process_file_list(files, args, procs):
+    if len(files) < 1:
+        log_error("No files to process.")
+        return
     cnames, formulae, contribs = batch_surface(files,
                                                args['--restrict'],
                                                procs=procs,
                                                order=args['--order-important'])
     if args['--restrict']:
         log("Restricted interactions using CCDC Van Der Waal's Radii")
+
     # If we are writing to file
     if args['--output']:
         fname = args['--output']
         write_sa_file(fname, cnames, formulae, contribs)
+
     # Otherwise we are printing to stdout
     else:
         for i in range(len(formulae)):
@@ -53,6 +61,7 @@ def process_file_list(files, args, procs):
             d = OrderedDict(sorted(contrib_p.items(), key=lambda t: t[1]))
             for k, v in iter(d.items()):
                 log('{0}: {1:.2%}'.format(k, v))
+
 
 def surface_main(argv, procs=4):
     args = docopt(__doc__, argv=argv)
@@ -78,6 +87,13 @@ def surface_main(argv, procs=4):
         elif os.path.isdir(file_pattern):
             from .fileio import glob_directory
             with glob_directory(file_pattern, '*.hdf5') as files:
+                process_file_list(files, args, procs)
+        else:
+            from glob import glob
+            files = glob(file_pattern)
+            if len(files) < 1:
+                log_error("pattern {} matched no files.".format(file_pattern))
+            else:
                 process_file_list(files, args, procs)
 
     else:

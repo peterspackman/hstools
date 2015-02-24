@@ -214,6 +214,7 @@ elnames = {
     'Zr': 'Zirconium'
 }
 
+
 def logClosestPair(mat, names):
     import numpy as np
     np.fill_diagonal(mat, np.inf)
@@ -233,6 +234,7 @@ def logFarthestPair(mat, names):
     b = str(names[ind[1]])
     log('Farthest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
 
+
 def getWidgets(msg, color='white'):
     return [msg, pb.Percentage(), ' ',
             pb.Bar(marker=chr(0x2500), left='',
@@ -241,6 +243,7 @@ def getWidgets(msg, color='white'):
 
 def log(s):
     logger.info(s)
+
 
 def log_error(s):
     logger.error(s)

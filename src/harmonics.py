@@ -19,13 +19,16 @@ Usage:
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
 """
-
+# Core imports
 import os
 
+# Library imports
 from docopt import docopt
 import numpy as np
+
+# Local imports
 from . import calc
-from .data import log, logClosestPair, logFarthestPair
+from .data import log, log_error, logClosestPair, logFarthestPair
 from .fileio import proc_file_harmonics, batch_harmonics, write_mat_file
 
 
@@ -35,6 +38,9 @@ def process_file_list(files, args, procs):
     method = args['--method']
     distance = float(args['--distance'])
     values, names = batch_harmonics(files, procs=procs)
+    if len(values) < 2:
+        log_error("Need at least 2 things to compare!")
+        return
     coefficients, invariants = zip(*values)
     mat = calc.get_dist_mat(invariants, test=mtest, threads=procs*2)
     clusters = calc.cluster(mat, names, dendrogram=dendrogram,
@@ -49,7 +55,6 @@ def process_file_list(files, args, procs):
 
     logClosestPair(mat, names)
     logFarthestPair(mat, names)
-
 
 
 def harmonics_main(argv, procs=4):
@@ -71,3 +76,13 @@ def harmonics_main(argv, procs=4):
             from .fileio import glob_directory
             with glob_directory(file_pattern, '*.hdf5') as files:
                 process_file_list(files, args, procs)
+        else:
+            from glob import glob
+            files = glob(file_pattern)
+            if len(files) < 1:
+                log_error("pattern {} matched no files.".format(file_pattern))
+            else:
+                process_file_list(files, args, procs)
+
+    else:
+        process_file_list(args['<filepattern>'], args, procs)
