@@ -34,10 +34,10 @@ import sys
 import numpy as np
 import scipy.sparse
 from docopt import docopt
-from .data import log, log_traceback, log_error
+from .data import log, log_traceback, log_error, logClosestPair, logFarthestPair
 from . import calc
 from .fileio import proc_file_hist, batch_hist, write_mat_file
-from .modes import logClosestPair, logFarthestPair
+
 
 test_f = {'sp': calc.spearman_roc,
           'kt': calc.kendall_tau,

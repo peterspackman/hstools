@@ -19,14 +19,15 @@ Usage:
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
 """
+
 import os
 
 from docopt import docopt
 import numpy as np
 from . import calc
-from .data import log
+from .data import log, logClosestPair, logFarthestPair
 from .fileio import proc_file_harmonics, batch_harmonics, write_mat_file
-from .modes import logClosestPair, logFarthestPair
+
 
 def process_file_list(files, args, procs):
     mtest = calc.euclidean

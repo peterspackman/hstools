@@ -25,9 +25,9 @@ from collections import OrderedDict
 
 from docopt import docopt
 from . import calc
-from .data import log
+from .data import log, logClosestPair, logFarthestPair
 from .fileio import proc_file_sa, batch_surface, write_sa_file
-from .modes import logClosestPair, logFarthestPair
+
 
 
 def process_file_list(files, args, procs):
