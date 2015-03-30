@@ -71,8 +71,8 @@ def hist_helper(args):
 
 
 def harmonics_helper(args):
-    fname, metric = args
-    return proc_file_harmonics(fname, metric=metric)
+    fname, p = args
+    return proc_file_harmonics(fname, p=p)
 
 
 def readh5file(fname, attributes):
@@ -83,6 +83,12 @@ def readh5file(fname, attributes):
                 logger.error("Couldn't find dset: {} in {}".format(a, f))
             outputs[a] = f[a].value
     return outputs
+
+
+def load_saved_data(fname):
+    attributes = ['matrix', 'names']
+    data = readh5file(fname, attributes)
+    return data['matrix'], data['names']
 
 
 # Takes a dictionary of dataset_name
@@ -220,19 +226,23 @@ def proc_file_sa(fname, restrict, order=False):
         return ret
 
 
-def proc_file_harmonics(fname, metric='dnorm'):
+def proc_file_harmonics(fname, p=False):
     """ Read a file from fname, collecting the coefficients/invariants
         and returning them as arrays
     """
     ret = None
     try:
         cname = get_basename(fname)
-        r = readh5file(fname, ["coefficients", "invariants"])
-        harmonics = (r["coefficients"], r["invariants"])
-        if np.any(np.isnan(r["coefficients"])):
-            raise ValueError('NaN in coefficients')
-        if np.any(np.isnan(r["invariants"])):
-            raise ValueError('NaN in invariants')
+        r = readh5file(fname, ["coefficients", "invariants",
+                       "property_coefficients", "property_invariants"])
+        harmonics = (None, None)
+        if not p:
+            harmonics = (r["coefficients"], r["invariants"])
+        else:
+            harmonics = (r["property_coefficients"], r["property_invariants"])
+        for a in harmonics:
+            if np.any(np.isnan(a)):
+                raise ValueError('NaN found in array')
         ret = (harmonics, cname)
     except Exception as e:
         logger.warning('Skipping {0} => {1}'.format(fname, str(e)))
@@ -347,11 +357,11 @@ def batch_hist(files, resolution=10,
     return (histograms, names)
 
 
-def batch_harmonics(files, metric='d_norm', suffix='.hdf5', procs=4):
+def batch_harmonics(files, p=False , suffix='.hdf5', procs=4):
 
     nfiles = len(files)
 
-    args = [(fname, metric) for fname in files]
+    args = [(fname, p) for fname in files]
 
     vals = batch_process(args,
                          harmonics_helper,

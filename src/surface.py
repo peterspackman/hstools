@@ -10,7 +10,7 @@ Options:
                                    in the histogram
     --restrict                     Toggle restricting the surface area
                                    values to only those closer than
-                                   Van Der Waal's Radii [default: True]
+                                   Van der Waals Radii [default: True]
     --order-important              When classifying surface area,
                                    indicate that H -> O is different
                                    to O -> H. (i.e. order is important)
@@ -42,7 +42,7 @@ def process_file_list(files, args, procs):
                                                procs=procs,
                                                order=args['--order-important'])
     if args['--restrict']:
-        log("Restricted interactions using CCDC Van Der Waal's Radii")
+        log("Restricted interactions using CCDC Van der Waals Radii")
 
     # If we are writing to file
     if args['--output']:

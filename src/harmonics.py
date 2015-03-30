@@ -18,6 +18,7 @@ Usage:
     --distance=THRESHOLD           The threshold distance for leaves to be
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
+    -p, --property                 Use property coefficients not shape
 """
 # Core imports
 import os
@@ -37,7 +38,8 @@ def process_file_list(files, args, procs):
     dendrogram = args['--dendrogram']
     method = args['--method']
     distance = float(args['--distance'])
-    values, names = batch_harmonics(files, procs=procs)
+    use_property = args['--property']
+    values, names = batch_harmonics(files, procs=procs, p=use_property)
     if len(values) < 2:
         log_error("Need at least 2 things to compare!")
         return

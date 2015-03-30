@@ -172,18 +172,18 @@ def cluster(mat, names, dump=None,
     """ Takes an NxN array of distances and an array of names with
       the same indices, performs cluster analysis and shows a dendrogram"""
 
+    clusters = []
+
     try:
         distArray = scipy.spatial.distance.squareform(mat)
     except ValueError as e:
         print(e)
-        print(mat)
-        return
+        return clusters
 
-    clusters = []
     # This is the actual clustering using fastcluster
     Z = fc.linkage(distArray, method=method, metric=distance)
-    clusters = scipy.cluster.hierarchy.fcluster(Z, 8,
-                                                criterion='maxclust')
+    clusters = scipy.cluster.hierarchy.fcluster(Z, 1.0)
+
     if dendrogram:
         write_dendrogram_file(dendrogram, Z,
                               names, no_labels=True,
