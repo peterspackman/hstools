@@ -20,14 +20,6 @@ from . import calc
 from . import data
 from .data import log, log_traceback, logger
 
-nmdims = {"vertices": 3, "indices": 3, "coefficients": 2}
-ndtypes = {"indices": np.int32, "atoms_inside_surface": np.int32,
-           "atoms_outside_surface": np.int32,
-           "d_e_face_atoms": np.int32, "d_i_face_atoms": np.int32,
-           "unit_cell": np.dtype((str, 3))}
-numerical = {"unit_cell": True}
-data_directory = "data"
-
 
 class EmptyDirException(Exception):
     pass
@@ -56,23 +48,6 @@ def glob_directory(d, pattern):
         sys.exit(1)
     except Exception as e:
         logger.exception(e)
-
-
-def surface_helper(args):
-    """ Helper function for map_async to proc_file_sa"""
-    fname, restrict, order = args
-    return proc_file_sa(fname, restrict, order=order)
-
-
-def hist_helper(args):
-    """ Helper function for map_async on proc_file_hist"""
-    fname, res, save_figs = args
-    return proc_file_hist(fname, resolution=res, save_figs=save_figs)
-
-
-def harmonics_helper(args):
-    fname, p = args
-    return proc_file_harmonics(fname, p=p)
 
 
 def readh5file(fname, attributes):
@@ -318,7 +293,7 @@ def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
         pbar.start()
 
     with concurrent.futures.ProcessPoolExecutor(procs) as executor:
-        fs = [executor.submit(function, arg) for arg in args]
+        fs = [executor.submit(function, *arg) for arg in args]
         for i, f in enumerate(concurrent.futures.as_completed(fs)):
             if progress:
                 pbar.update(i)
@@ -339,7 +314,7 @@ def batch_hist(files, resolution=10,
     args = [(fname, resolution, save_figs) for fname in files]
 
     vals = batch_process(args,
-                         hist_helper,
+                         proc_file_hist,
                          procs=procs,
                          msg='Reading files: ')
 
@@ -364,7 +339,7 @@ def batch_harmonics(files, p=False , suffix='.hdf5', procs=4):
     args = [(fname, p) for fname in files]
 
     vals = batch_process(args,
-                         harmonics_helper,
+                         proc_file_harmonics,
                          procs=procs,
                          msg='Reading files: ')
     # Strip none values
@@ -387,7 +362,7 @@ def batch_surface(files, restrict, suffix='.hdf5', procs=4, order=False):
     args = [(fname, restrict, order) for fname in files]
 
     vals = batch_process(args,
-                         surface_helper,
+                         proc_file_sa,
                          procs=procs,
                          msg='Processing files: ')
     # Strip none values
