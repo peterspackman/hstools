@@ -16,3 +16,4 @@ Dependencies:
 * scipy
 * matplotlib
 * docopt
+* periodictable
