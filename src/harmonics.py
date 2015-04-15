@@ -18,7 +18,9 @@ Usage:
     --distance=THRESHOLD           The threshold distance for leaves to be
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
-    -p, --property                 Use property coefficients not shape
+    -p=NAME, --property=NAME       Use invariants of property on surface. On of
+                                   'dnorm', 'curvature', 'shape'.
+                                   [default: shape]
 """
 # Core imports
 import os
@@ -38,8 +40,7 @@ def process_file_list(files, args, procs):
     dendrogram = args['--dendrogram']
     method = args['--method']
     distance = float(args['--distance'])
-    use_property = args['--property']
-    values, names = batch_harmonics(files, procs=procs, p=use_property)
+    values, names = batch_harmonics(files, procs=procs, property=args['--property'])
     if len(values) < 2:
         log_error("Need at least 2 things to compare!")
         return
@@ -69,7 +70,7 @@ def harmonics_main(argv, procs=4):
 
         if os.path.isfile(file_pattern):
             fname = file_pattern
-            values, cname = proc_file_harmonics(fname)
+            values, cname = proc_file_harmonics(fname, property=args['--property'])
             coefficients, invariants = values
             log(cname)
             log(coefficients)

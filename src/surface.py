@@ -8,9 +8,6 @@ Options:
                                    in the histogram
     -e=ATOM, --external-atom=ATOM  Restrict the closest external atom
                                    in the histogram
-    --restrict                     Toggle restricting the surface area
-                                   values to only those closer than
-                                   Van der Waals Radii [default: True]
     --order-important              When classifying surface area,
                                    indicate that H -> O is different
                                    to O -> H. (i.e. order is important)
@@ -38,11 +35,8 @@ def process_file_list(files, args, procs):
         log_error("No files to process.")
         return
     cnames, formulae, contribs = batch_surface(files,
-                                               args['--restrict'],
                                                procs=procs,
                                                order=args['--order-important'])
-    if args['--restrict']:
-        log("Restricted interactions using CCDC Van der Waals Radii")
 
     # If we are writing to file
     if args['--output']:
@@ -66,9 +60,6 @@ def process_file_list(files, args, procs):
 def surface_main(argv, procs=4):
     args = docopt(__doc__, argv=argv)
 
-    args['--restrict'] = not args['--restrict']
-    restrict = args['--restrict']
-
     order = args['--order-important']
     if len(args['<filepattern>']) < 2:
         file_pattern = args['<filepattern>'][0]
@@ -76,7 +67,6 @@ def surface_main(argv, procs=4):
         if os.path.isfile(file_pattern):
             # Generate the percentage contribution of each element
             cname, formula, contrib_p = proc_file_sa(file_pattern,
-                                                     restrict,
                                                      order=order)
             log('{0} {1}'.format(cname, formula))
 

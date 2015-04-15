@@ -16,7 +16,7 @@ import scipy.spatial.distance
 import scipy.stats as stats
 # Local imports
 from . import data
-from .data import log, logger, Timer
+from .data import log, logger, Timer, elements
 
 
 def spearman_roc(histograms):
@@ -230,10 +230,15 @@ def area_tri(a, b, c):
     return np.linalg.norm(np.cross(a - b, c - b)) / 2
 
 
-def get_contrib(vertices, indices, internal,
-                external, distances,
-                dp=8, restrict=True,
-                order=False):
+def key_from_indices(i, j, order=False):
+    symbols = (str(elements[i+1]), str(elements[j+1]))
+    if order:
+        return "{0} -> {1}".format(*symbols)
+    else:
+        return "{0} -> {1}".format(*sorted(symbols))
+
+
+def get_contrib(sa, order=False):
     """ Given a the triangles that make up a hirshfeld surface,
     and lists of the closest internal and external atoms along
     with their respective distances from the surface,
@@ -243,37 +248,11 @@ def get_contrib(vertices, indices, internal,
     contrib = defaultdict(float)
     contrib_p = defaultdict(float)
     # setting defaults for these
-    avg_d = 0.
-    threshold = 1.
-
-    if restrict:  # Check if we can restrict
-        unique = np.unique(np.append(internal, external))
-        for sym in unique:
-            if sym not in data.vdw_radii:
-                log("{} not found in Van Der Waal's Radii list".format(sym))
-                restrict = False
-
-    for i, (chsymi, chsyme) in enumerate(zip(internal, external)):
-
-        # are we restricting to interactions closer than vdw radii?
-        if restrict:
-            avg_d = np.mean(distances[indices[i]])
-            threshold = data.vdw_radii[chsymi] + data.vdw_radii[chsyme]
-            if avg_d > threshold:
-                continue
-
-        # Check if the order of the interaction is important
-        if(not order):
-            chsymi, chsyme = sorted((chsymi, chsyme))
-
+    
+    for i, j in np.transpose(np.nonzero(sa)):
         # Key in the form "internal -> external" e.g. "F -> H"
-        key = "{0} -> {1}".format(chsymi, chsyme)
-
-        # get triangle indices, and find area of triangle
-        tri = [vertices[n] for n in indices[i]]
-        area = area_tri(tri[0], tri[1], tri[2])
-
-        contrib[key] += area
+        key = key_from_indices(i, j, order=order)
+        contrib[key] += sa[i, j]
 
     for x in contrib:
         p = np.round(contrib[x] / sum(contrib.values()), decimals=8)

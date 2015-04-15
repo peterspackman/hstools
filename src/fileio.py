@@ -165,34 +165,19 @@ def get_basename(fname):
     return os.path.basename(os.path.splitext(fname)[0])
 
 
-def proc_file_sa(fname, restrict, order=False):
+def proc_file_sa(fname, order=False):
     """ Process an input file for use in calculating the
     contribution of element -> element interactions on the
     hirshfeld surface """
     ret = None
     try:
         cname = get_basename(fname)
-        r = readh5file(fname, ["vertices", "indices", "atoms_inside_surface",
-                               "atoms_outside_surface", "d_i_face_atoms",
-                               "d_e_face_atoms", "unit_cell", "d_e", "d_i",
-                               "formula"])
+        r = readh5file(fname, ["surface_contribution", "formula"])
 
-        x, y, ai, ao, di, de, uc = dict_vals(r, "vertices", "indices",
-                                             "atoms_inside_surface",
-                                             "atoms_outside_surface",
-                                             "d_i_face_atoms",
-                                             "d_e_face_atoms",
-                                             "unit_cell")
+        sa = r["surface_contribution"]
         formula = str(r["formula"], 'utf-8')
 
-        distances = r["d_e"] + r["d_i"]
-
-        external = uc[ao[de - 1] - 1].astype("U")
-        internal = uc[ai[di - 1] - 1].astype("U")
-
-        _, contrib_p = calc.get_contrib(x, y, internal,
-                                        external, distances,
-                                        restrict=restrict, order=order)
+        contrib, contrib_p = calc.get_contrib(sa, order=order)
         ret = (cname, formula, contrib_p)
 
     except Exception as e:
@@ -201,7 +186,7 @@ def proc_file_sa(fname, restrict, order=False):
         return ret
 
 
-def proc_file_harmonics(fname, p=False):
+def proc_file_harmonics(fname, property='shape'):
     """ Read a file from fname, collecting the coefficients/invariants
         and returning them as arrays
     """
@@ -209,12 +194,16 @@ def proc_file_harmonics(fname, p=False):
     try:
         cname = get_basename(fname)
         r = readh5file(fname, ["coefficients", "invariants",
-                       "property_coefficients", "property_invariants"])
+                       "dnorm_coefficients", "dnorm_invariants",
+                       "curvature_coefficients", "curvature_invariants"])
         harmonics = (None, None)
-        if not p:
-            harmonics = (r["coefficients"], r["invariants"])
+
+        if property == 'curvature':
+            harmonics = (r["curvature_coefficients"], r["curvature_invariants"])
+        elif property == 'dnorm':
+            harmonics = (r["dnorm_coefficients"], r["dnorm_invariants"])
         else:
-            harmonics = (r["property_coefficients"], r["property_invariants"])
+            harmonics = (r["coefficients"], r["invariants"])
         for a in harmonics:
             if np.any(np.isnan(a)):
                 raise ValueError('NaN found in array')
@@ -332,11 +321,11 @@ def batch_hist(files, resolution=10,
     return (histograms, names)
 
 
-def batch_harmonics(files, p=False , suffix='.hdf5', procs=4):
+def batch_harmonics(files, property='shape' , suffix='.hdf5', procs=4):
 
     nfiles = len(files)
 
-    args = [(fname, p) for fname in files]
+    args = [(fname, property) for fname in files]
 
     vals = batch_process(args,
                          proc_file_harmonics,
@@ -355,11 +344,11 @@ def batch_harmonics(files, p=False , suffix='.hdf5', procs=4):
     return (values, names)
 
 
-def batch_surface(files, restrict, suffix='.hdf5', procs=4, order=False):
+def batch_surface(files, suffix='.hdf5', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
     nfiles = len(files)
 
-    args = [(fname, restrict, order) for fname in files]
+    args = [(fname, order) for fname in files]
 
     vals = batch_process(args,
                          proc_file_sa,
