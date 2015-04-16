@@ -57,18 +57,21 @@ def process_file_list(files, args, procs):
     dendrogram = args['--dendrogram']
     method = args['--method']
     distance = float(args['--distance'])
+
     if len(files) < 1:
         log_error('No files to process.')
         sys.exit(1)
 
-    histograms, names = batch_hist(files,
-                                   resolution=int(args['--bins']),
-                                   save_figs=args['--save-figures'],
-                                   procs=procs)
-    if len(histograms) < 2:
+    descriptors = batch_hist(files,
+                             resolution=int(args['--bins']),
+                             save_figs=args['--save-figures'],
+                             procs=procs)
+
+    if len(descriptors) < 2:
         log_error("Need at least 2 things to compare!")
         return
 
+    histograms, names = zip(*[(x.histogram, x.name) for x in descriptors])
     mat = calc.get_dist_mat(histograms, test=test_f[args['--test']],
                             threads=procs*2)
 

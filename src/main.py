@@ -97,6 +97,5 @@ def main():
     data.log('Program complete in {:.2}s.'.format(t.elapsed()))
     sys.exit(0)
 
-
 if __name__ == '__main__':
     main()

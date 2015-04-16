@@ -1,5 +1,5 @@
 # Core imports
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from contextlib import contextmanager
 import concurrent.futures
 import glob
@@ -19,6 +19,10 @@ import seaborn as sns
 from . import calc
 from . import data
 from .data import log, log_traceback, logger
+
+Harmonic = namedtuple('Harmonic', 'coefficients invariants name')
+Surface = namedtuple('Surface', 'contributions formula name')
+Hist = namedtuple('Hist', 'histogram name')
 
 
 class EmptyDirException(Exception):
@@ -178,7 +182,7 @@ def proc_file_sa(fname, order=False):
         formula = str(r["formula"], 'utf-8')
 
         contrib, contrib_p = calc.get_contrib(sa, order=order)
-        ret = (cname, formula, contrib_p)
+        ret = Surface(contrib_p, formula, cname)
 
     except Exception as e:
         logger.warning('Skipping {0} => {1}'.format(fname, str(e)))
@@ -190,28 +194,26 @@ def proc_file_harmonics(fname, property='shape'):
     """ Read a file from fname, collecting the coefficients/invariants
         and returning them as arrays
     """
-    ret = None
     try:
-        cname = get_basename(fname)
+        name = get_basename(fname)
         r = readh5file(fname, ["coefficients", "invariants",
                        "dnorm_coefficients", "dnorm_invariants",
                        "curvature_coefficients", "curvature_invariants"])
-        harmonics = (None, None)
 
         if property == 'curvature':
-            harmonics = (r["curvature_coefficients"], r["curvature_invariants"])
+            return Harmonic(r['curvature_coefficients'],
+                            r['curvature_invariants'],
+                            name)
         elif property == 'dnorm':
-            harmonics = (r["dnorm_coefficients"], r["dnorm_invariants"])
+            return Harmonic(r["dnorm_coefficients"],
+                            r["dnorm_invariants"],
+                            name)
         else:
-            harmonics = (r["coefficients"], r["invariants"])
-        for a in harmonics:
-            if np.any(np.isnan(a)):
-                raise ValueError('NaN found in array')
-        ret = (harmonics, cname)
+            return Harmonic(r["coefficients"],
+                            r["invariants"],
+                            name)
     except Exception as e:
-        logger.warning('Skipping {0} => {1}'.format(fname, str(e)))
-    finally:
-        return ret
+        logger.error('Skipping {0} => {1}'.format(fname, str(e)))
 
 
 def proc_file_hist(fname, resolution=10, save_figs=False):
@@ -235,7 +237,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
                             nbins=resolution)
             kde_plotfile(x, y, fname='{}-kde.png'.format(prefix))
 
-        ret = (h, cname)
+        ret = Hist(h, cname)
     except Exception as e:
         print(e)
         logger.warning('Skipping {}'.format(fname))
@@ -243,21 +245,19 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
         return ret
 
 
-def write_sa_file(fname, cnames, formulae, contribs):
+def write_sa_file(fname, surfaces):
     """ Write out the surface area contribution info to a given
     file."""
     with open(fname, 'w') as f:
-        for i in range(len(formulae)):
-            cname = cnames[i]
-            formula = formulae[i]
-            contrib_p = contribs[i]
-            line = '{0}, {1}'.format(cname, formula)
-            if not contrib_p:
+        for x in surfaces:
+            contributions = x.contributions
+            line = '{0}, {1}'.format(x.name, x.formula)
+            if not contributions:
                 line = line + '--Nil--'
             else:
-                for key in sorted(contrib_p, key=lambda key: contrib_p[key]):
+                for key in sorted(contributions, key=lambda key: contributions[key]):
                     line = line + ', '
-                    line = line + '{0} = {1:.2%}'.format(key, contrib_p[key])
+                    line = line + '{0} = {1:.2%}'.format(key, contributions[key])
             f.write(line + '\n')
 
 
@@ -291,77 +291,43 @@ def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
     if progress:
         pbar.finish()
 
-    return vals
+    vals = [x for x in vals if x is not None]
+    if len(vals) < len(args):
+        err = 'Skipped {0} files due to errors'.format(len(args)- len(vals))
+        logger.warning(err)
+
+    return sorted(vals, key=lambda x: x.name)
 
 
 def batch_hist(files, resolution=10,
                save_figs=False, procs=4):
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names """
-    nfiles = len(files)
 
     args = [(fname, resolution, save_figs) for fname in files]
 
-    vals = batch_process(args,
+    return batch_process(args,
                          proc_file_hist,
                          procs=procs,
                          msg='Reading files: ')
 
-    # Strip none values
-    vals = [x for x in vals if x is not None]
-    if len(vals) < nfiles:
-        err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
-        logger.warning(err)
-        nfiles = len(vals)
-
-    vals = sorted(vals, key=lambda val: val[1])
-
-    # unzip the output
-    histograms, names = zip(*vals)
-    return (histograms, names)
-
 
 def batch_harmonics(files, property='shape' , suffix='.hdf5', procs=4):
 
-    nfiles = len(files)
-
     args = [(fname, property) for fname in files]
 
-    vals = batch_process(args,
+    return batch_process(args,
                          proc_file_harmonics,
                          procs=procs,
                          msg='Reading files: ')
-    # Strip none values
-    vals = [x for x in vals if x is not None]
-    vals = sorted(vals, key=lambda val: val[1])
-    if len(vals) < nfiles:
-        err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
-        logger.warning(err)
-        nfiles = len(vals)
-    # unzip the output
-    values, names = zip(*vals)
-
-    return (values, names)
 
 
 def batch_surface(files, suffix='.hdf5', procs=4, order=False):
     """ Traverse a directory calculating the surface area contribution"""
-    nfiles = len(files)
 
     args = [(fname, order) for fname in files]
 
-    vals = batch_process(args,
-                         proc_file_sa,
-                         procs=procs,
-                         msg='Processing files: ')
-    # Strip none values
-    vals = [x for x in vals if x is not None]
-    if len(vals) < nfiles:
-        err = 'Skipped {0} files due to errors'.format(nfiles - len(vals))
-        logger.warning(err)
-        nfiles = len(vals)
-
-    vals = sorted(vals)
-
-    cnames, formulae, contribs = zip(*vals)
-    return (cnames, formulae, contribs)
+    return  batch_process(args,
+                          proc_file_sa,
+                          procs=procs,
+                          msg='Processing files: ')

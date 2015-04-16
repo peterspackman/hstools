@@ -40,18 +40,21 @@ def process_file_list(files, args, procs):
     dendrogram = args['--dendrogram']
     method = args['--method']
     distance = float(args['--distance'])
-    values, names = batch_harmonics(files, procs=procs, property=args['--property'])
-    if len(values) < 2:
+    descriptors = batch_harmonics(files, 
+                                  procs=procs, 
+                                  property=args['--property'])
+    if len(descriptors) < 2:
         log_error("Need at least 2 things to compare!")
         return
-    coefficients, invariants = zip(*values)
+
+    invariants, names  = zip(*[(x.invariants, x.name) for x in descriptors])
+
     mat = calc.get_dist_mat(invariants, test=mtest, threads=procs*2)
     clusters = calc.cluster(mat, names, dendrogram=dendrogram,
                             method=method, distance=distance)
 
     if args['--output']:
-        fname = args['--output']
-        write_mat_file(fname,
+        write_mat_file(args['--output'],
                        mat,
                        np.array(names, dtype='S10'),
                        clusters)

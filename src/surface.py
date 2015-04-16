@@ -34,25 +34,23 @@ def process_file_list(files, args, procs):
     if len(files) < 1:
         log_error("No files to process.")
         return
-    cnames, formulae, contribs = batch_surface(files,
-                                               procs=procs,
-                                               order=args['--order-important'])
+    surfaces = batch_surface(files,
+               procs=procs,
+               order=args['--order-important'])
 
     # If we are writing to file
     if args['--output']:
         fname = args['--output']
-        write_sa_file(fname, cnames, formulae, contribs)
+        write_sa_file(fname, surfaces)
 
     # Otherwise we are printing to stdout
     else:
-        for i in range(len(formulae)):
-            formula = formulae[i]
-            contrib_p = contribs[i]
-            log('Molecular Formula: {0}'.format(formula))
-            if not contrib_p:
+        for x in surfaces:
+            log('Molecular Formula: {0}'.format(x.formula))
+            if not x.contributions:
                 log(' -- Nil--')
 
-            d = OrderedDict(sorted(contrib_p.items(), key=lambda t: t[1]))
+            d = OrderedDict(sorted(x.contributions.items(), key=lambda t: t[1]))
             for k, v in iter(d.items()):
                 log('{0}: {1:.2%}'.format(k, v))
 
