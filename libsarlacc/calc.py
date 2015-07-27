@@ -13,7 +13,7 @@ import numpy as np
 import progressbar as pb
 import scipy.cluster.hierarchy
 import scipy.spatial.distance
-import scipy.stats as stats
+import scipy.stats
 # Local imports
 from . import data
 from .data import log, logger, Timer, elements
@@ -21,16 +21,16 @@ from .data import log, logger, Timer, elements
 
 def spearman_roc(histograms):
     """ Calculate the Spearman rank-order correlation coefficient from
-    2 histograms This may need to be modified, I'm uncertain whether or
-    not 2 zeroes are ignored READ likely that they aren't, as such
-    artificially high correlations are probable"""
+    2 histograms.
+
+    """
     H1, H2 = histograms
     hist1, _, _ = H1
     hist2, _, _ = H2
     x = hist1.flatten()
     y = hist2.flatten()
 
-    r, p = stats.spearmanr(x, y)
+    r, p = scipy.stats.spearmanr(x, y)
     return r
 
 
@@ -42,7 +42,7 @@ def kendall_tau(histograms):
     hist2, _, _ = H2
     x = hist1.flatten()
     y = hist2.flatten()
-    r, p = stats.kendalltau(x, y)
+    r, p = scipy.stats.kendalltau(x, y)
     return r
 
 
@@ -56,6 +56,17 @@ def absolute_distance(histograms):
 
 
 def euclidean(x):
+    """ Calculate the euclidean distance between two vectors (passed as a tuple)
+
+    Argument is expected to be a tuple of arrays.
+
+    >>> euclidean((np.array([1,2,3]), np.array([1,2,3])))
+    0.0
+    >>> euclidean((np.array([4,5,6]), np.array([1,2,3])))
+    5.196152422706632
+
+
+    """
     i1, i2 = x
     d = np.power(np.sum(np.power(np.subtract(i2, i1), 2)), 0.5)
     return d
