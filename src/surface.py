@@ -57,32 +57,27 @@ def process_file_list(files, args, procs):
 
 def surface_main(argv, procs=4):
     args = docopt(__doc__, argv=argv)
+    files = []
 
-    order = args['--order-important']
-    if len(args['<filepattern>']) < 2:
-        file_pattern = args['<filepattern>'][0]
-
+    for file_pattern in args['<filepattern>']:
         if os.path.isfile(file_pattern):
-            # Generate the percentage contribution of each element
-            cname, formula, contrib_p = proc_file_sa(file_pattern,
-                                                     order=order)
-            log('{0} {1}'.format(cname, formula))
-
-            d = OrderedDict(sorted(contrib_p.items(), key=lambda t: t[1]))
-            for k, v in iter(d.items()):
-                log('{0}: {1:.2%}'.format(k, v))
+            fname = file_pattern
+            files.append(file_pattern)
 
         elif os.path.isdir(file_pattern):
             from .fileio import glob_directory
-            with glob_directory(file_pattern, '*.hdf5') as files:
-                process_file_list(files, args, procs)
+            new_files = glob_directory(file_pattern, '*.h5')
+            files += new_files
+            if len(new_files) < 1:
+                log_error("{} no files matching {}.".format(file_pattern, '*.h5'))
         else:
             from glob import glob
-            files = glob(file_pattern)
-            if len(files) < 1:
+            new_files = glob(file_pattern)
+            files += new_files
+            if len(new_files) < 1:
                 log_error("pattern {} matched no files.".format(file_pattern))
-            else:
-                process_file_list(files, args, procs)
 
+    if len(files) > 0:
+        process_file_list(files, args, procs)
     else:
-        process_file_list(args['<filepattern>'], args, procs)
+        log_error('No files found...')

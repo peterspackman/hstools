@@ -74,19 +74,22 @@ def write_dendrogram_file(fname, Z, names, no_labels=False,
                           test_name='test', distance=0.4):
     if not distance:
         distance = 0.4
-    threshold = distance * max(Z[:, 2])
-    # Create a dendrogram
-    dend(Z, no_labels=no_labels, color_threshold=threshold)
+    threshold = distance * np.max(Z[:, 2])
     # Plot stuff
     plt.xlabel('Compound')
     plt.ylabel('Dissimilarity')
+    plt.style.use('ggplot')
     dpi = 200
     plt.suptitle("""Clustering dendrogram of {0}
                 compounds using {1}""".format(len(names), test_name))
+        # Create a dendrogram
+    dend(Z, no_labels=no_labels, color_threshold=threshold, labels=names)
+    locs, labels = plt.xticks()
+    plt.setp(labels, rotation=90)
     if len(names) > 100:
         fig = plt.gcf()
         fig.set_size_inches(10.5, min(len(names)*0.1, 32768/dpi))
-    plt.savefig(fname, dpi=dpi)
+    plt.savefig(fname, dpi=dpi, bbox_inches='tight')
     plt.close()
 
 
@@ -182,52 +185,13 @@ def cluster(mat, names, dump=None,
 
     # This is the actual clustering using fastcluster
     Z = fc.linkage(distArray, method=method, metric=distance)
-    clusters = scipy.cluster.hierarchy.fcluster(Z, 1.0)
+    clusters = scipy.cluster.hierarchy.fcluster(Z, 3., criterion='maxclust')
 
     if dendrogram:
         write_dendrogram_file(dendrogram, Z,
-                              names, no_labels=True,
+                              names,
                               distance=distance)
     return clusters
-
-
-def add_node(node, parent):
-    """ A Helper method for outputting the dendrogram
-    linkage for visualisation in d3.js"""
-    newNode = dict(node_id=node.id, children=[])
-    parent["children"].append(newNode)
-    # Recursively add the current node's children
-    if node.left:
-        add_node(node.left, newNode)
-    if node.right:
-        add_node(node.right, newNode)
-
-
-def label_tree(n, names):
-    """ Helper function to label the tree """
-    id2name = dict(zip(range(len(names)), names))
-    # If it's a leaf node we have the name
-    if len(n["children"]) == 0:
-        leafNames = [id2name[n["node_id"]]]
-    # Otherwise flatten all the leaves in the subtree
-    else:
-        leafNames = reduce(lambda ls, c: ls + label_tree(c, names),
-                           n["children"], [])
-    # Delete the node id as it is no longer needed
-    del n["node_id"]
-
-    n["name"] = "-".join(sorted(map(str, leafNames)))
-    if len(n["name"]) > 16:
-        n["name"] = n["name"][:16] + '...'
-    # Labeling convention: "-" separates leaf names
-
-    return leafNames
-
-
-def area_tri(a, b, c):
-    """ Calculate the area of a triangle given by its 3 vertices
-    using the cross product formula |AxB|/2"""
-    return np.linalg.norm(np.cross(a - b, c - b)) / 2
 
 
 def key_from_indices(i, j, order=False):
@@ -248,7 +212,7 @@ def get_contrib(sa, order=False):
     contrib = defaultdict(float)
     contrib_p = defaultdict(float)
     # setting defaults for these
-    
+
     for i, j in np.transpose(np.nonzero(sa)):
         # Key in the form "internal -> external" e.g. "F -> H"
         key = key_from_indices(i, j, order=order)

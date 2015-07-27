@@ -63,7 +63,7 @@ def logFarthestPair(mat, names):
 
 def getWidgets(msg, color='white'):
     return [msg, pb.Percentage(), ' ',
-            pb.Bar(marker=chr(0x2500), left='',
+            pb.Bar(marker='-', left='',
             right=''), ' ', pb.ETA(), ' ']
 
 

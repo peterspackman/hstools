@@ -20,6 +20,8 @@ The available commands are:
     harmonics           Process files by spherical harmonic invariants.
     surface             Calclute statistics associated with values on the
                         Hirshfeld surface.
+    clusters            Calculate clusters and compare their contents for
+                        the various methods in harmonics and metrics.
 
 Sarlacc
 
@@ -51,7 +53,7 @@ version = "2015.02.24"
 args = docopt(__doc__, version=version,
               options_first=True)
 
-available_commands = ['harmonics', 'hist', 'surface']
+available_commands = ['harmonics', 'hist', 'surface', 'clusters']
 
 
 def main():
@@ -76,6 +78,13 @@ def main():
         elif command == 'surface':
             from . import surface
             surface.surface_main(argv, procs=procs)
+
+        elif command == 'clusters':
+            from . import clusters
+            clusters.clusters_main(argv, procs=procs)
+        elif command == 'corr':
+            from . import corr
+            corr.main(argv, procs=procs)
 
         else:
             """ Not really necessary, but provided fuzzing

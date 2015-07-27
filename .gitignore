@@ -49,3 +49,5 @@ out*
 # Other
 *.asc
 *.txt
+*.hdf5
+*.h5

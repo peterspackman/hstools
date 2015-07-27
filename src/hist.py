@@ -24,7 +24,6 @@ Usage:
     --distance=THRESHOLD           The threshold distance for leaves to be
                                    classified as clustered. Unlikely to change
                                    much. [default: 0.4]
-
 """
 
 # Core imports
@@ -43,20 +42,26 @@ from .data import log, log_traceback, log_error,  \
     logClosestPair, logFarthestPair
 from .fileio import proc_file_hist, batch_hist, write_mat_file
 
-
 test_f = {'sp': calc.spearman_roc,
           'kt': calc.kendall_tau,
           'hd': calc.absolute_distance}
 
-test_names = {'sp': 'Spearman rank order coefficient',
+test_names = {'sp': 'Spearman ROC',
               'kt': "Kendall's Tau",
-              'hd': 'Sigma histogram distance'}
+              'hd': 'absolute histogram distance'}
 
+
+def test_from_arg(key):
+    if key not in test_f:
+        log_error('{} is not a valid option.'.format(key))
+        sys.exit(1)
+    return test_f[key]
 
 def process_file_list(files, args, procs):
     dendrogram = args['--dendrogram']
     method = args['--method']
     distance = float(args['--distance'])
+    test = test_from_arg(args['--test'])
 
     if len(files) < 1:
         log_error('No files to process.')
@@ -72,7 +77,7 @@ def process_file_list(files, args, procs):
         return
 
     histograms, names = zip(*[(x.histogram, x.name) for x in descriptors])
-    mat = calc.get_dist_mat(histograms, test=test_f[args['--test']],
+    mat = calc.get_dist_mat(histograms, test=test,
                             threads=procs*2)
 
     clusters = calc.cluster(mat, names,
@@ -92,22 +97,28 @@ def process_file_list(files, args, procs):
 
 def hist_main(argv, procs=4):
     args = docopt(__doc__, argv=argv)
+    mtest = calc.euclidean
+    files = []
 
-    if len(args['<filepattern>']) < 2:
-        file_pattern = args['<filepattern>'][0]
-
+    for file_pattern in args['<filepattern>']:
         if os.path.isfile(file_pattern):
             fname = file_pattern
-            if not save_figs:
-                log('Not saving figure, so this '
-                    'command will have no output')
-            h, name = proc_file_hist(fname, resolution=args['--bins'],
-                                     save_figs=args['--save_figs'])
+            files.append(file_pattern)
 
         elif os.path.isdir(file_pattern):
             from .fileio import glob_directory
-            with glob_directory(file_pattern, '*.hdf5') as files:
-                process_file_list(files, args, procs)
+            new_files = glob_directory(file_pattern, '*.h5')
+            files += new_files
+            if len(new_files) < 1:
+                log_error("{} no files matching {}.".format(file_pattern, '*.h5'))
+        else:
+            from glob import glob
+            new_files = glob(file_pattern)
+            files += new_files
+            if len(new_files) < 1:
+                log_error("pattern {} matched no files.".format(file_pattern))
 
+    if len(files) > 0:
+        process_file_list(files, args, procs)
     else:
-        process_file_list(args['<filepattern>'], args, procs)
+        log_error('No files found...')
