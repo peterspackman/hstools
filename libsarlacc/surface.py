@@ -25,9 +25,8 @@ from collections import OrderedDict
 from docopt import docopt
 
 # Local imports
-from . import calc
-from .data import log, log_error, logClosestPair, logFarthestPair
-from .fileio import proc_file_sa, batch_surface, write_sa_file
+from .data import log, log_error
+from .fileio import batch_surface, write_sa_file
 
 
 def process_file_list(files, args, procs):
@@ -61,7 +60,6 @@ def surface_main(argv, procs=4):
 
     for file_pattern in args['<filepattern>']:
         if os.path.isfile(file_pattern):
-            fname = file_pattern
             files.append(file_pattern)
 
         elif os.path.isdir(file_pattern):

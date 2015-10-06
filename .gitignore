@@ -51,3 +51,6 @@ out*
 *.txt
 *.hdf5
 *.h5
+*.ply
+*.swp
+venv

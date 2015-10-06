@@ -28,23 +28,21 @@ Usage:
 
 # Core imports
 import os
-import re
 import sys
 
 # Library imports
 from docopt import docopt
 import numpy as np
-import scipy.sparse
 
 # Local imports
-from . import calc
-from .data import log, log_traceback, log_error,  \
-    logClosestPair, logFarthestPair
-from .fileio import proc_file_hist, batch_hist, write_mat_file
+from .calc import spearman_roc, kendall_tau, absolute_distance, \
+    get_dist_mat, cluster
+from .data import log_error, logClosestPair, logFarthestPair
+from .fileio import batch_hist, write_mat_file
 
-test_f = {'sp': calc.spearman_roc,
-          'kt': calc.kendall_tau,
-          'hd': calc.absolute_distance}
+test_f = {'sp': spearman_roc,
+          'kt': kendall_tau,
+          'hd': absolute_distance}
 
 test_names = {'sp': 'Spearman ROC',
               'kt': "Kendall's Tau",
@@ -77,10 +75,10 @@ def process_file_list(files, args, procs):
         return
 
     histograms, names = zip(*[(x.histogram, x.name) for x in descriptors])
-    mat = calc.get_dist_mat(histograms, test=test,
+    mat = get_dist_mat(histograms, metric=test,
                             threads=procs*2)
 
-    clusters = calc.cluster(mat, names,
+    clusters = cluster(mat, names,
                             dendrogram=dendrogram,
                             method=method,
                             distance=distance)
@@ -97,12 +95,10 @@ def process_file_list(files, args, procs):
 
 def hist_main(argv, procs=4):
     args = docopt(__doc__, argv=argv)
-    mtest = calc.euclidean
     files = []
 
     for file_pattern in args['<filepattern>']:
         if os.path.isfile(file_pattern):
-            fname = file_pattern
             files.append(file_pattern)
 
         elif os.path.isdir(file_pattern):

@@ -22,16 +22,13 @@ Usage:
 """
 # Core imports
 import os
+import sys
 
 # Library imports
 from docopt import docopt
-import numpy as np
 
 # Local imports
-from .harmonics import process_file_list as harmonics_list
-from .hist import process_file_list as hist_list
-from . import calc
-from .data import log, log_error, logClosestPair, logFarthestPair
+from .data import log, log_error
 from .fileio import get_files_from_pattern
 
 
@@ -45,9 +42,9 @@ def check_clusters(files):
     log(get_files_from_pattern(files))
 
 
-def clusters_main(argv, procs=4):
+def clusters_main(argv):
     args = docopt(__doc__, argv=argv)
-
+    files = []
     if len(args['<filepattern>']) < 2:
 
         file_pattern = args['<filepattern>'][0]

@@ -1,11 +1,9 @@
 # Core imports
 from collections import defaultdict, namedtuple
-from contextlib import contextmanager
 import concurrent.futures
 import glob
 import os
 import sys
-import time
 from functools import reduce
 
 # Library imports
@@ -16,9 +14,8 @@ import numpy as np
 import progressbar as pb
 
 # Local imports
-from . import calc
-from . import data
-from .data import log, log_traceback, logger
+from .calc import bin_data, bin_data_log, get_contrib
+from .data import log, logger, getWidgets
 
 Harmonic = namedtuple('Harmonic', 'coefficients invariants name')
 Surface = namedtuple('Surface', 'contributions formula name')
@@ -49,9 +46,6 @@ def glob_directory(d, pattern):
     except EmptyDirException as e:
         logger.error(e)
         sys.exit(1)
-    except Exception as e:
-        logger.exception(e)
-
 
 def readh5file(fname, attributes):
     outputs = defaultdict()
@@ -81,10 +75,6 @@ def writeh5file(fname, attributes):
             dset[...] = data[...]
 
 
-def dir_file_join(d, f):
-    return [d, f].join('/')
-
-
 def standard_figure(figsize=(9, 9), dpi=400):
     import seaborn as sns
     f = plt.figure(figsize=figsize, dpi=dpi)
@@ -109,9 +99,9 @@ def standard_figure(figsize=(9, 9), dpi=400):
     return f, cmap, ax, extent
 
 
-def kde_plotfile(x, y, fname='outhex.png', type='linear'):
+def kde_plotfile(x, y, fname='outhex.png'):
     import seaborn as sns
-    f, cmap, ax, extent = standard_figure()
+    f, cmap, ax, _ = standard_figure()
 
     sns.kdeplot(x, y, cmap=cmap, shade=True, ax=ax)
     ax.collections[0].set_alpha(0)
@@ -121,12 +111,12 @@ def kde_plotfile(x, y, fname='outhex.png', type='linear'):
     plt.close()
 
 
-def hexbin_plotfile(x, y, fname='outhex.png', type='linear', nbins=10):
-    f, cmap, ax, extent = standard_figure()
+def hexbin_plotfile(x, y, fname='outhex.png', kind='log', nbins=10):
+    f, cmap, _ , extent = standard_figure()
 
-    image = plt.hexbin(x, y, mincnt=1, gridsize=nbins,
-                       cmap=cmap, bins='log',
-                       extent=extent)
+    plt.hexbin(x, y, mincnt=1, gridsize=nbins,
+               cmap=cmap, bins=kind,
+               extent=extent)
 
     f.savefig(fname, bbox_inches='tight')
     plt.clf()
@@ -134,21 +124,21 @@ def hexbin_plotfile(x, y, fname='outhex.png', type='linear', nbins=10):
 
 
 # FILE FUNCTIONS
-def plotfile(x, y, fname='out.png', type='linear', nbins=10):
+def plotfile(x, y, fname='out.png', kind='linear', nbins=10):
     """ Construct a histogram, plot it, then write the image as a png
     to a given filename."""
 
     # Not sure why but we have linear and log as options
-    if(type == 'linear'):
-        H, xedges, yedges = calc.bin_data(x, y, bins=nbins)
+    if(kind == 'linear'):
+        H, xedges, yedges = bin_data(x, y, bins=nbins)
     else:
-        H, xedges, yedges = calc.bin_data_log(x, y, bins=nbins)
+        H, xedges, yedges = bin_data_log(x, y, bins=nbins)
 
     # NEED TO ROTATE AXES
     H = np.rot90(H)
     H = np.flipud(H)
 
-    f, cmap, ax, extent = standard_figure()
+    f, cmap, _, _ = standard_figure()
 
     # this is the key step, the rest is formatting
     plt.pcolormesh(xedges, yedges, H,
@@ -174,30 +164,25 @@ def proc_file_sa(fname, order=False, matrix=False):
     contribution of element -> element interactions on the
     hirshfeld surface """
     ret = None
-    try:
-        cname = get_basename(fname)
-        r = readh5file(fname, ["surface_contribution", "formula"])
+    cname = get_basename(fname)
+    r = readh5file(fname, ["surface_contribution", "formula"])
 
-        sa = r["surface_contribution"]
-        formula = str(r["formula"], 'utf-8')
+    sa = r["surface_contribution"]
+    formula = str(r["formula"], 'utf-8')
 
-        if matrix:
-            sa += np.triu(np.rollaxis(sa, 1), 1)
-            sa = np.triu(sa)
-            sa /= np.sum(sa)
+    if matrix:
+        sa += np.triu(np.rollaxis(sa, 1), 1)
+        sa = np.triu(sa)
+        sa /= np.sum(sa)
 
-            ret = Surface(sa, formula, cname)
-        else:
-            contrib, contrib_p = calc.get_contrib(sa, order=order)
-            ret = Surface(contrib_p, formula, cname)
+        ret = Surface(sa, formula, cname)
+    else:
+        _, contrib_p = get_contrib(sa, order=order)
+        ret = Surface(contrib_p, formula, cname)
 
-    except Exception as e:
-        logger.warning('Skipping {0} => {1}'.format(fname, str(e)))
-    finally:
-        return ret
+    return ret
 
-
-def proc_file_harmonics(fname, property='shape'):
+def proc_file_harmonics(fname, surface_property='shape'):
     """ Read a file from fname, collecting the coefficients/invariants
         and returning them as arrays
     """
@@ -207,19 +192,19 @@ def proc_file_harmonics(fname, property='shape'):
                        "dnorm_coefficients", "dnorm_invariants",
                        "curvature_coefficients", "curvature_invariants"])
 
-        if property == 'curvature':
+        if surface_property == 'curvature':
             return Harmonic(r['curvature_coefficients'],
                             np.array(r['curvature_invariants']),
                             name)
-        elif property == 'dnorm':
+        elif surface_property == 'dnorm':
             return Harmonic(r["dnorm_coefficients"],
                             np.array(r["dnorm_invariants"]),
                             name)
-        elif property == 'all':
+        elif surface_property == 'all':
             return Harmonic(r["coefficients"],
                             np.concatenate([r["invariants"],
-                                               r["curvature_invariants"],
-                                               r["dnorm_invariants"]]),
+                                            r["curvature_invariants"],
+                                            r["dnorm_invariants"]]),
                             name)
         else:
             return Harmonic(r["coefficients"],
@@ -238,7 +223,7 @@ def proc_file_hist(fname, resolution=10, save_figs=False):
         cname = get_basename(fname)
         r = readh5file(fname, ["d_e", "d_i"])
         x, y = r["d_i"], r["d_e"]
-        h = calc.bin_data(x, y, resolution)
+        h = bin_data(x, y, resolution)
 
         if(save_figs):
             prefix = os.path.splitext(fname)[0]
@@ -291,7 +276,7 @@ def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
     vals = []
 
     if progress:
-        pbar = pb.ProgressBar(widgets=data.getWidgets(msg),
+        pbar = pb.ProgressBar(widgets=getWidgets(msg),
                               maxval=len(args))
         pbar.start()
 
@@ -314,7 +299,8 @@ def batch_process(args, function, procs=4, msg='Processing: ', progress=True):
 
 
 def batch_hist(files, resolution=10,
-               save_figs=False, procs=4):
+               save_figs=False, procs=4,
+               progress=True):
     """Generate n histograms from a directory, returning a list of them
        and their corresponding substance names """
 
@@ -326,17 +312,20 @@ def batch_hist(files, resolution=10,
                          msg='Reading files: ')
 
 
-def batch_harmonics(files, property='shape' , suffix='.h5', procs=4):
+def batch_harmonics(files, surface_property='shape' ,procs=4,
+                    progress=True):
 
-    args = [(fname, property) for fname in files]
+    args = [(fname, surface_property) for fname in files]
 
     return batch_process(args,
                          proc_file_harmonics,
                          procs=procs,
-                         msg='Reading files: ')
+                         msg='Reading files: ',
+                         progress=progress)
 
 
-def batch_surface(files, procs=4, order=False, matrix=False):
+def batch_surface(files, procs=4, order=False, matrix=False,
+                  progress=True):
     """ Traverse a directory calculating the surface area contribution"""
 
     args = [(fname, order, matrix) for fname in files]

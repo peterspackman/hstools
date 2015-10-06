@@ -6,12 +6,11 @@ from scipy.cluster.vq import kmeans, vq
 colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
 
 
-def scatter(x, y, km=True):
+def scatter(x, y):
     """
     Produce a 2D scatter plot of x and y
     """
     data = np.array(zip(x, y))
-    print data
     n = 7
     centroids, _ = kmeans(data, n)
     idx, _ = vq(data, centroids)

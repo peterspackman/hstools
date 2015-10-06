@@ -16,12 +16,12 @@ from docopt import docopt
 import numpy as np
 
 from .fileio import readh5file
-from .data import log
+from .data import log, log_error
 
 
 def print_correlation(filename):
     data = readh5file(filename, ['vertices', 'd_norm', 'indices'])
-    vertices, dnorm, faces = data['vertices'], data['d_norm'], data['indices']
+    vertices, dnorm = data['vertices'], data['d_norm']
     center = np.apply_along_axis(np.mean, 0, vertices)
     print("Centered at: {}".format(center))
     get_radius = lambda x: np.linalg.norm(x - center)
@@ -30,7 +30,7 @@ def print_correlation(filename):
     log(np.corrcoef(radii, dnorm))
 
 
-def main(argv, procs=4):
+def corr_main(argv):
     args = docopt(__doc__, argv=argv)
 
     if len(args['<filepattern>']) < 2:

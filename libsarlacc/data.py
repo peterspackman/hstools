@@ -6,7 +6,6 @@
 import logging
 import progressbar as pb
 from timeit import default_timer
-from periodictable import elements
 
 FORMAT = "%(levelname)s%(message)s"
 logging.basicConfig(level=logging.INFO, format=FORMAT)
@@ -23,6 +22,9 @@ class Timer(object):
     """ A context manager timer class, to measure wall clock time"""
     def __init__(self):
         self.timer = default_timer
+        self.start = 0
+        self.end = 0
+        self.elapsed_s = 0
 
     def __enter__(self):
         self.start = self.timer()
@@ -61,7 +63,7 @@ def logFarthestPair(mat, names):
     log('Farthest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
 
 
-def getWidgets(msg, color='white'):
+def getWidgets(msg):
     return [msg, pb.Percentage(), ' ',
             pb.Bar(marker='-', left='',
             right=''), ' ', pb.ETA(), ' ']

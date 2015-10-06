@@ -22,6 +22,9 @@ The available commands are:
                         Hirshfeld surface.
     clusters            Calculate clusters and compare their contents for
                         the various methods in harmonics and metrics.
+    corr                Correlation between ...
+    poly                Read data from a HDF5 file and write the Hirshfeld
+                        surface out as a .ply file
 
 Sarlacc
 
@@ -45,7 +48,7 @@ import sys
 from docopt import docopt
 
 # Local imports
-from . import data
+from .data import Timer, logger, log
 
 program_name = "sarlacc"
 version = "2015.02.24"
@@ -53,38 +56,45 @@ version = "2015.02.24"
 args = docopt(__doc__, version=version,
               options_first=True)
 
-available_commands = ['harmonics', 'hist', 'surface', 'clusters']
+available_commands = ['harmonics', 'hist',
+                      'surface', 'clusters',
+                      'corr', 'poly']
 
 
 def main():
     argv = [args['<command>']] + args['<args>']
     procs = int(args['--procs'])
 
-    with data.Timer() as t:
+    with Timer() as t:
         # If silent only print WARNINGS
         if args['--silent']:
-            data.logger.setLevel(logging.WARNING)
+            logger.setLevel(logging.WARNING)
 
         command = args['<command>']
 
         if command == 'harmonics':
-            from . import harmonics
-            harmonics.harmonics_main(argv, procs=procs)
+            from .harmonics import harmonics_main
+            harmonics_main(argv, procs=procs)
 
         elif command == 'hist':
-            from . import hist
-            hist.hist_main(argv, procs=procs)
+            from .hist import hist_main
+            hist_main(argv, procs=procs)
 
         elif command == 'surface':
-            from . import surface
-            surface.surface_main(argv, procs=procs)
+            from .surface import surface_main
+            surface_main(argv, procs=procs)
 
         elif command == 'clusters':
-            from . import clusters
-            clusters.clusters_main(argv, procs=procs)
+            from .clusters import clusters_main
+            clusters_main(argv, procs=procs)
+
         elif command == 'corr':
-            from . import corr
-            corr.main(argv, procs=procs)
+            from .corr import corr_main
+            corr_main(argv)
+
+        elif command == 'poly':
+            from .ply import ply_main
+            ply_main(argv)
 
         else:
             """ Not really necessary, but provided fuzzing
@@ -92,7 +102,7 @@ def main():
                 when used """
 
             from fuzzywuzzy import process
-            data.logger.error('{} is not a valid command.'
+            logger.error('{} is not a valid command.'
                               '\nSee {} --help for more.'.format(command,
                                                                  program_name))
             x = process.extract(command,
@@ -100,10 +110,10 @@ def main():
                                 limit=1)
             closest, ratio = x[0]
             if(ratio > 60):
-                data.log('did you mean?\n\t{}'.format(closest))
+                log('did you mean?\n\t{}'.format(closest))
             sys.exit(2)
 
-    data.log('Program complete in {:.2}s.'.format(t.elapsed()))
+    log('Program complete in {:.2}s.'.format(t.elapsed()))
     sys.exit(0)
 
 if __name__ == '__main__':

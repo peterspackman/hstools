@@ -1,10 +1,10 @@
 #!/usr/bin/python
+
 # Core imports
 from collections import defaultdict
-from functools import reduce
 from itertools import combinations
 import concurrent.futures
-import json
+
 # Library imports
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram as dend
@@ -14,15 +14,17 @@ import progressbar as pb
 import scipy.cluster.hierarchy
 import scipy.spatial.distance
 import scipy.stats
+from periodictable import elements
+
 # Local imports
-from . import data
-from .data import log, logger, Timer, elements
+from .data import log, logger, Timer, getWidgets
+
+plt.style.use('fivethirtyeight')
 
 
 def spearman_roc(histograms):
     """ Calculate the Spearman rank-order correlation coefficient from
     2 histograms.
-
     """
     H1, H2 = histograms
     hist1, _, _ = H1
@@ -30,7 +32,7 @@ def spearman_roc(histograms):
     x = hist1.flatten()
     y = hist2.flatten()
 
-    r, p = scipy.stats.spearmanr(x, y)
+    r, _ = scipy.stats.spearmanr(x, y)
     return r
 
 
@@ -42,7 +44,7 @@ def kendall_tau(histograms):
     hist2, _, _ = H2
     x = hist1.flatten()
     y = hist2.flatten()
-    r, p = scipy.stats.kendalltau(x, y)
+    r, _ = scipy.stats.kendalltau(x, y)
     return r
 
 
@@ -82,7 +84,7 @@ def insert_into_distance_mat(mat, vec):
 
 
 def write_dendrogram_file(fname, Z, names, no_labels=False,
-                          test_name='test', distance=0.4):
+                          metric_name='metric', distance=0.4):
     if not distance:
         distance = 0.4
     threshold = distance * np.max(Z[:, 2])
@@ -90,12 +92,12 @@ def write_dendrogram_file(fname, Z, names, no_labels=False,
     plt.xlabel('Compound')
     plt.ylabel('Dissimilarity')
     plt.style.use('ggplot')
-    dpi = 200
-    plt.suptitle("""Clustering dendrogram of {0}
-                compounds using {1}""".format(len(names), test_name))
+    dpi = 300
+    plt.suptitle("Dendrogram of {} "
+                 "compounds ({})".format(len(names), metric_name))
         # Create a dendrogram
     dend(Z, no_labels=no_labels, color_threshold=threshold, labels=names)
-    locs, labels = plt.xticks()
+    _, labels = plt.xticks()
     plt.setp(labels, rotation=90)
     if len(names) > 100:
         fig = plt.gcf()
@@ -104,17 +106,17 @@ def write_dendrogram_file(fname, Z, names, no_labels=False,
     plt.close()
 
 
-def get_dist_mat(values, test=spearman_roc, threads=8):
+def get_dist_mat(values, metric=spearman_roc, threads=8):
     """ Given a list of data, calculate the distances between them
         and return a NxN redundant array of these distances. """
     n = len(values)
     vals = []
     with Timer() as t:
 
-        widgets = data.getWidgets('Evaluating distances: ')
+        widgets = getWidgets('Evaluating distances: ')
 
-        log("Creating {0}x{0} matrix, test function: ({1})"
-            " {2} threads""".format(n, test.__name__, threads))
+        log("Creating {0}x{0} matrix, metric function: ({1})"
+            " {2} threads""".format(n, metric.__name__, threads))
 
         # Generating matrix will be O(exp(n)) time
         c = list(combinations(values, 2))
@@ -128,7 +130,7 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
         with concurrent.futures.ThreadPoolExecutor(8) as executor:
             batch = c[i:i+100]
             while batch:
-                for val in executor.map(test, batch, timeout=30):
+                for val in executor.map(metric, batch, timeout=30):
                     vals.append(val)
                     i += 1
                     pbar.update(i)
@@ -160,9 +162,9 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
         mat = (mat + mat.T) / 2
         np.fill_diagonal(mat, 0.0)
 
-        # Because these tests give correlations not distances,
+        # Because these metrics give correlations not distances,
         # we must modify the values to give a distance equivalent
-        if test is spearman_roc or test is kendall_tau:
+        if metric is spearman_roc or metric is kendall_tau:
             """ np.round() is used here because of floating point rounding
                 (getting 1.0 - 1.0 != 0.0). Must perform this step to convert
                 correlation data to distance """
@@ -180,7 +182,7 @@ def get_dist_mat(values, test=spearman_roc, threads=8):
     return mat
 
 
-def cluster(mat, names, dump=None,
+def cluster(mat, names,
             dendrogram=None, method=None,
             distance=None):
     """ Takes an NxN array of distances and an array of names with
