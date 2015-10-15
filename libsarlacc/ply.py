@@ -15,7 +15,6 @@ Usage:
 
 """
 
-from docopt import docopt
 from plyfile import PlyElement, PlyData
 from .fileio import readh5file
 from .cmap import viridis, rviridis

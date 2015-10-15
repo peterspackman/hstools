@@ -10,14 +10,14 @@ from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram as dend
 import fastcluster as fc
 import numpy as np
-import progressbar as pb
+from progressive.bar import Bar
 import scipy.cluster.hierarchy
 import scipy.spatial.distance
 import scipy.stats
 from periodictable import elements
 
 # Local imports
-from .data import log, logger, Timer, getWidgets
+from .config import log, Timer
 
 plt.style.use('fivethirtyeight')
 
@@ -106,36 +106,22 @@ def write_dendrogram_file(fname, Z, names, no_labels=False,
     plt.close()
 
 
-def get_dist_mat(values, metric=spearman_roc, threads=8):
+def get_dist_mat(values, metric=spearman_roc, procs=8):
     """ Given a list of data, calculate the distances between them
         and return a NxN redundant array of these distances. """
     n = len(values)
     vals = []
     with Timer() as t:
 
-        widgets = getWidgets('Evaluating distances: ')
-
-        log("Creating {0}x{0} matrix, metric function: ({1})"
-            " {2} threads""".format(n, metric.__name__, threads))
+        log("Creating {{{0},{0}}} matrix, metric: ({1})".format(n, metric.__name__))
 
         # Generating matrix will be O(exp(n)) time
         c = list(combinations(values, 2))
         numcalc = len(c)
-
-        pbar = pb.ProgressBar(widgets=widgets, maxval=numcalc)
-        pbar.start()
-
-        i = 0
         # Parallel code
-        with concurrent.futures.ThreadPoolExecutor(8) as executor:
-            batch = c[i:i+100]
-            while batch:
-                for val in executor.map(metric, batch, timeout=30):
-                    vals.append(val)
-                    i += 1
-                    pbar.update(i)
-                batch = c[i:i+100]
-        pbar.finish()
+        with concurrent.futures.ProcessPoolExecutor(procs) as executor:
+           for val in executor.map(metric, c, chunksize=(numcalc//4), timeout=30):
+               vals.append(val)
 
         vals = np.array(vals)
         mat = np.identity(n)
@@ -174,10 +160,10 @@ def get_dist_mat(values, metric=spearman_roc, threads=8):
         # Error checking for matrix to see if it is symmetric
         symmetry = np.allclose(mat.transpose(1, 0), mat)
         if not symmetry:
-            logger.error('Matrix not symmetric...')
+            log('Matrix not symmetric...', cat='error')
 
-    log("Matrix took {0:.2}s to create: "
-        "{1} pairwise calculations".format(t.elapsed(), numcalc))
+    log("Matrix took {0} to create; "
+        "{1} comparisons".format(t, numcalc))
 
     return mat
 
@@ -268,5 +254,3 @@ def bin_data(x, y, bins=10, bounds=False):
     return grid, np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)
 
 
-def bin_data_log(x, y, bins=10):
-    return bin_data(np.log(x), np.log(y), bins)

@@ -1,1 +1,2 @@
-__all__ = ["data", "fileio", "calc", "hist", "surface", "harmonics"]
+__all__ = ["config", "datafile", "calc", "fingerprint", "surface", "harmonics"]
+

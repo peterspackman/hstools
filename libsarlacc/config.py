@@ -3,20 +3,10 @@
     such as the Van Der Waal's radii for various
     elements etc.
 """
-import logging
-import progressbar as pb
+import click
 from timeit import default_timer
 
-FORMAT = "%(levelname)s%(message)s"
-logging.basicConfig(level=logging.INFO, format=FORMAT)
-logging.addLevelName(logging.ERROR, 'error: ')
-logging.addLevelName(logging.WARNING, 'warning: ')
-logging.addLevelName(logging.INFO, '')
-logging.addLevelName(logging.DEBUG, 'debug: ')
-logging.addLevelName(logging.CRITICAL, 'CRITICAL: ')
-
-logger = logging.getLogger("sarlacc")
-
+fg_colors = {'info':'white', 'error':'red', 'warning':'yellow'}
 
 class Timer(object):
     """ A context manager timer class, to measure wall clock time"""
@@ -33,10 +23,20 @@ class Timer(object):
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.end = self.timer()
         self.elapsed_s = self.elapsed()
-        self.elapsed_s = self.elapsed_s * 1000.0
+        self.elapsed_s = self.elapsed_s
 
     def elapsed(self):
         return self.timer() - self.start
+
+    def __str__(self):
+        if self.elapsed_s < 1.0:
+            return '{:5.2f} ms'.format(self.elapsed_s * 1000.0)
+        elif self.elapsed_s < 60.0:
+            return '{:5.3f} s'.format(self.elapsed_s)
+        else:
+            secs = self.elapsed_s % 60.0
+            mins = (self.elapsed_s - secs) // 60
+            return '{} mins {:6.3f} s'.format(mins, secs)
 
 
 def log_traceback(e):
@@ -63,15 +63,5 @@ def logFarthestPair(mat, names):
     log('Farthest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
 
 
-def getWidgets(msg):
-    return [msg, pb.Percentage(), ' ',
-            pb.Bar(marker='-', left='',
-            right=''), ' ', pb.ETA(), ' ']
-
-
-def log(s):
-    logger.info(s)
-
-
-def log_error(s):
-    logger.error(s)
+def log(s, cat='info'):
+    click.echo(click.style(s, fg=fg_colors[cat]))

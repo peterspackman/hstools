@@ -12,11 +12,10 @@ Usage:
 """
 import os
 # Library imports
-from docopt import docopt
 import numpy as np
 
-from .fileio import readh5file
-from .data import log, log_error
+from .datafile import readh5file
+from .config import log, log_error
 
 
 def print_correlation(filename):
@@ -42,7 +41,7 @@ def corr_main(argv):
             print_correlation(fname)
 
         elif os.path.isdir(file_pattern):
-            from .fileio import glob_directory
+            from .datafile import glob_directory
             with glob_directory(file_pattern, '*.h5') as files:
                 for f in files:
                     print_correlation(f)

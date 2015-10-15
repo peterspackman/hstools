@@ -25,7 +25,6 @@ import os
 import sys
 
 # Library imports
-from docopt import docopt
 
 # Local imports
 from .data import log, log_error
