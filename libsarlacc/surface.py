@@ -10,7 +10,7 @@ from .datafile import (
 )
 surface_keys = {'contributions':'surface_contribution', 'formula':'formula'}
 
-def proc_file_sa(fname, order=False, matrix=False):
+def old_(fname, order=False, matrix=False):
     """ Process an input file for use in calculating the
     contribution of element -> element interactions on the
     hirshfeld surface """
@@ -52,6 +52,6 @@ def process_files(files, output=None):
             if x.contributions is None:
                 log(' -- Nil--')
 
-            d = OrderedDict(sorted(x.contributions_dict.items(), key=lambda t: t[1]))
+            d = OrderedDict(sorted(x.contributions_dict.items(), key=lambda t: t[0]))
             for k, v in iter(d.items()):
                 log('{0}: {1:.2%}'.format(k, v))

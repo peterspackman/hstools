@@ -1,35 +1,31 @@
-"""
-Usage:
-    sarlacc poly [options] [<filepattern>...]
-
-    -h, --help
-    -n, --dry-run
-    -v, --verbose
-    -o=FILE, --output=FILE       Write the result to a given file.
-                                 [default: surface.ply]
-
-    -l=LEVEL, --lmax=LEVEL       Reconstruct the surface using coefficients
-                                 up to lmax=LEVEL.
-    -p=NAME, --property=NAME     Property to use to color the surface
-                                 [default: d_norm]
-
-"""
-
 from plyfile import PlyElement, PlyData
-from .fileio import readh5file
-from .cmap import viridis, rviridis
 from scipy.special import sph_harm
 from skimage import measure
 from collections import namedtuple
 import numpy as np
 import matplotlib as mpl
-import matplotlib.cm as cm
+from pathlib import Path
+
+from .datafile import DataFileReader
+from .cmap import viridis, rviridis
+
+hirshfeld_defaults = {'vertices':'vertices', 'indices':'indices', 'property':'d_norm'}
+coefficient_defaults = {'coefficients':'coefficients', 'property_coefficients':'dnorm_coefficients'}
 
 RGB = namedtuple('RGB', 'red green blue')
 
+HirshfeldData = namedtuple('SurfaceData', "name vertices indices property")
+CoefficientsData = namedtuple('CoefficientsData', "name coefficients property_coefficients")
+
+
 def construct_surface(coeff, vol, lmax, radius=1.0):
+    """
+    Construct the surface from the provided coefficients
+    
+    """
     r = bounds(coeff, lmax)
     M, N, P  = vol
+    # Separation in voxels
     sepx = r*2/M
     sepy = r*2/N
     sepz = r*2/P
@@ -41,21 +37,19 @@ def construct_surface(coeff, vol, lmax, radius=1.0):
     return verts, faces, center
 
 
-def get_reconstructed_surface(input_file, lmax, vol=(100,100,100)):
-    data = readh5file(input_file, ['coefficients', 'dnorm_coefficients'])
-    coeff = data['coefficients']
-    color_coeff = data['dnorm_coefficients']
-    print('Marching cubes on {}, using {} volume.'.format(input_file, vol))
-    verts, faces, center = construct_surface(coeff, vol, lmax)
+def get_reconstructed_surface(data, lmax, vol=(100,100,100)):
+    coeff = data.coefficients
+    color_coeff = data.property_coefficients
+    print('Marching cubes on {}, using {} volume.'.format(data.name, vol))
+    verts, faces, center = construct_surface(data.coefficients, vol, lmax)
     rtp = cartesianToSpherical(verts)
     color_vals = np.zeros(len(rtp))
     lm = 0
     for l in range(0,lmax+1):
         for m in range(-l,l+1):
-            color_vals[:] += (color_coeff[lm] \
-                     * sph_harm(m, l, rtp[:,2],
-                                rtp[:,1])).real
-            lm +=1
+            color_vals[:] += (data.property_coefficients[lm] * 
+                             sph_harm(m, l, rtp[:,2], rtp[:,1])).real
+            lm += 1
     color_vals *= 4*np.pi
     return verts, faces, vertex_colors(color_vals)
 
@@ -147,9 +141,11 @@ def color_function(val, min, max, property='d_norm'):
     else:
         return color
 
+
 def map_viridis(data, norm=None):
-    m = cm.ScalarMappable(norm=norm, cmap=rviridis)
+    m = mpl.cm.ScalarMappable(norm=norm, cmap=rviridis)
     return m.to_rgba(data)
+
 
 def vertex_colors(property_values):
     minima = np.min(property_values)
@@ -158,12 +154,10 @@ def vertex_colors(property_values):
     rgb = np.ndarray.astype(255*map_viridis(property_values, norm=norm), 'u1')
     return rgb
 
-def get_HS_data(fname, property='d_norm'):
-
-    data = readh5file(fname, ['vertices', 'indices', property])
-    verts = data['vertices']
-    colors = vertex_colors(data[property])
-    faces = data['indices'] - 1
+def get_HS_data(data, property='d_norm'):
+    verts = data.vertices
+    colors = vertex_colors(data.property)
+    faces = data.indices - 1
     return verts, faces, colors
 
 
@@ -198,15 +192,17 @@ def write_ply_file(verts, faces, colors, output_file='dump.ply'):
     surface_data.write(output_file)
 
 
-def ply_main(argv):
-    args = docopt(__doc__, argv=argv)
-    input_file = args['<filepattern>'][0]
-    output_file = args['--output']
-
-    if args['--lmax']:
-        lmax = int(args['--lmax'])
-        verts, faces, colors = get_reconstructed_surface(input_file, lmax)
-    else:
-        verts, faces, colors = get_HS_data(input_file, property=args['--property'])
-
-    write_ply_file(verts, faces, colors, output_file=output_file)
+def process_files(files, reconstruct=False, output=None):
+    lmax = 10
+    for f in files:
+        if reconstruct:
+            reader = DataFileReader(coefficient_defaults, CoefficientsData)
+            data = reader.read(f)
+            verts, faces, colors = get_reconstructed_surface(data, lmax)
+            output_file = f.stem + '-reconstructed.ply'
+        else:
+            reader = DataFileReader(hirshfeld_defaults, HirshfeldData)
+            data = reader.read(f)
+            verts, faces, colors = get_HS_data(data, property='d_norm')
+            output_file = f.stem + '-hirshfeld.ply'
+        write_ply_file(verts, faces, colors, output_file=output_file)

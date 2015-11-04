@@ -39,10 +39,6 @@ class Timer(object):
             return '{} mins {:6.3f} s'.format(mins, secs)
 
 
-def log_traceback(e):
-    logger.exception(e)
-
-
 def logClosestPair(mat, names):
     import numpy as np
     np.fill_diagonal(mat, np.inf)

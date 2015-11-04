@@ -38,6 +38,7 @@ HarmonicsData = namedtuple('HarmonicsData', 'coefficients invariants name')
 _SurfaceDataTuple = namedtuple('SurfaceData', 'contributions formula name')
 _FingerprintDataTuple = namedtuple('FingerprintData', 'd_e d_i name')
 
+
 class FingerprintData(_FingerprintDataTuple):
     """ Light wrapper around namedtuple for
         the one-time calculation of the histogram
@@ -76,10 +77,12 @@ class DataFileReader:
                         log("Couldn't find dset: {} in {}".format(v, f),
                             cat='error')
                     outputs[k] = np.array(f[v])
-            outputs['name'] = path.name
+            outputs['name'] = path.absolute()
 
             return self.object(**outputs)
 
+        except TypeError as e:
+            log(str(e))
         except Exception as e:
             log("Ignoring '{}'; Caught ({})".format(path.name, type(e).__name__),
                 cat='warning')
@@ -201,7 +204,7 @@ def write_sa_file(fname, surfaces):
 
 def write_mat_file(fname, mat, names, clusters):
     d = defaultdict()
-    log(str(fname), cat='warning')
+    log("Writing clustering data to  '{}'".format(str(fname)))
     d['matrix'] = mat
     d['names'] = names
     d['clusters'] = clusters
