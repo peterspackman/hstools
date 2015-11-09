@@ -3,7 +3,6 @@ import os.path
 from pathlib import Path
 
 from libsarlacc.harmonics import modes as harmonics_modes
-from libsarlacc.fingerprint import metrics as fingerprint_metrics
 from libsarlacc.config import Timer, log
 
 # Library imports
@@ -44,7 +43,7 @@ def cli():
 
 
 @cli.command()
-@click.option('--output', default='fingerprints.h5', is_flag=False,
+@click.option('--output', default=None, is_flag=False,
               help='write out clustering to given hdf5 file name')
 @click.option('--property', type=click.Choice(list(harmonics_modes.keys())),
               default='shape', help='property on which to base the clustering')
@@ -67,8 +66,6 @@ def harmonics(paths, output, property, suffix):
 @click.option('--png / -p', default=False,
               help='output all Hirshfeld fingerprints to PNG image files.')
 @click.option('--suffix', default='h5', help='suffix for hdf5 files to look for')
-@click.option('--metric', type=click.Choice(list(fingerprint_metrics.keys())),
-              default='sp', help='the metric for fingerprint comparison')
 @click.option('--output', default='fingerprints.h5', is_flag=False,
               help='write out clustering to given hdf5 file name')
 @click.argument('paths', nargs=-1)

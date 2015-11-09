@@ -1,6 +1,5 @@
 from plyfile import PlyElement, PlyData
 from scipy.special import sph_harm
-from skimage import measure
 from collections import namedtuple
 import numpy as np
 import matplotlib as mpl
@@ -31,10 +30,15 @@ def construct_surface(coeff, vol, lmax, radius=1.0):
     sepz = r*2/P
     sep = (sepx, sepy, sepz)
     center =  np.array([sepx * M/2, sepy *N/2, sepz *P/2])
-    levelset = inside(coeff, vol, sep, lmax)
-    verts, faces = measure.marching_cubes(levelset, 0.0, sep)
+    iso_level = 0.0
+    volume = inside(coeff, vol, sep, lmax)
+    print('Starting marching cubes')
+    verts, faces = measure.marching_cubes(volume, iso_level, sep)
+    print('Done\nStarting face correction')
+    corrected_faces = measure.correct_mesh_orientation(volume, verts, faces, sep)
+    print('Done, center: {}'.format(center))
     verts -= center
-    return verts, faces, center
+    return verts, corrected_faces, center
 
 
 def get_reconstructed_surface(data, lmax, vol=(100,100,100)):
@@ -42,6 +46,7 @@ def get_reconstructed_surface(data, lmax, vol=(100,100,100)):
     color_coeff = data.property_coefficients
     print('Marching cubes on {}, using {} volume.'.format(data.name, vol))
     verts, faces, center = construct_surface(data.coefficients, vol, lmax)
+    print('Done')
     rtp = cartesianToSpherical(verts)
     color_vals = np.zeros(len(rtp))
     lm = 0
@@ -96,12 +101,14 @@ def inside(coeff, vol, sep, lmax):
     constructed = np.zeros(r.shape)
 
     lm = 0
+    print('Heavy loop')
     for l in range(0,lmax+1):
         for m in range(-l,l+1):
             constructed[:,:,:] += (coeff[lm] \
                      * sph_harm(m, l, phi[:,:,:],
                                 theta[:,:,:])).real
             lm += 1
+    print('finished')
     constructed = r - constructed
     return constructed
 

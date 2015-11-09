@@ -205,9 +205,9 @@ def write_sa_file(fname, surfaces):
 def write_mat_file(fname, mat, names, clusters):
     d = defaultdict()
     log("Writing clustering data to  '{}'".format(str(fname)))
-    d['matrix'] = mat
-    d['names'] = names
-    d['clusters'] = clusters
+    d['matrix'] = np.array(mat)
+    d['names'] = np.array(names, dtype='<S8')
+    d['clusters'] = np.array(clusters)
     write_hdf5_file(fname, d)
 
 

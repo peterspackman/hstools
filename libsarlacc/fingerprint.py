@@ -7,10 +7,6 @@ import numpy as np
 
 # Local imports
 from .calc import (
-        spearman_roc,
-        kendall_tau,
-        absolute_distance,
-        get_dist_mat,
         cluster,
 )
 
@@ -27,9 +23,6 @@ from .datafile import (
         FingerprintData
 )
 
-metrics = {'sp': spearman_roc,
-           'kt': kendall_tau,
-           'hd': absolute_distance}
 
 def process_files(files, png=False, metric='sp', output=None):
     resolution = 100
