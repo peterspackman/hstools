@@ -25,7 +25,7 @@ from .datafile import (
 
 
 def process_files(files, png=False, metric='sp', output=None):
-    resolution = 100
+    resolution = 5
     reader = DataFileReader({'d_e':'d_e', 'd_i':'d_i'},
                             FingerprintData)
 
@@ -35,15 +35,12 @@ def process_files(files, png=False, metric='sp', output=None):
         log("Need at least 2 things to compare!", cat='error')
         return
 
-    histograms, names = zip(*[(x.histogram, x.name) for x in descriptors])
-    mat = get_dist_mat(histograms, metric=metrics[metric])
+    histograms, names = zip(*[(x.histogram, x.name.stem) for x in descriptors])
+    flatten_hist = lambda h: h[0].flatten()
+    mat = np.array(list((map(flatten_hist, histograms))))
+    print(mat)
 
-    clusters = cluster(mat, names,
-                            method='centroid',
-                            distance=0.4)
-    logClosestPair(mat, names)
-    logFarthestPair(mat, names)
-
+    clusters = cluster(mat) 
     if output:
         write_mat_file(output,
                        mat,

@@ -34,7 +34,7 @@ class lazy_property(object):
        setattr(obj,self.func_name,value)
        return value
 
-HarmonicsData = namedtuple('HarmonicsData', 'coefficients invariants name')
+HarmonicsData = namedtuple('HarmonicsData', 'radius coefficients invariants name')
 _SurfaceDataTuple = namedtuple('SurfaceData', 'contributions formula name')
 _FingerprintDataTuple = namedtuple('FingerprintData', 'd_e d_i name')
 
@@ -47,7 +47,7 @@ class FingerprintData(_FingerprintDataTuple):
     """
     @lazy_property
     def histogram(self):
-        h = bin_data(self.d_e, self.d_i)
+        h = bin_data(self.d_e, self.d_i, bins=6)
         return h
 
 class SurfaceData(_SurfaceDataTuple):

@@ -48,8 +48,9 @@ def cli():
 @click.option('--property', type=click.Choice(list(harmonics_modes.keys())),
               default='shape', help='property on which to base the clustering')
 @click.option('--suffix', default='h5', help='suffix for hdf5 files to look for')
+@click.option('--no-radius', default=False, help="don't use mean radius in the clustering")
 @click.argument('paths', type=click.Path(exists=True), nargs=-1)
-def harmonics(paths, output, property, suffix):
+def harmonics(paths, output, property, suffix, no_radius):
     """Cluster based on spherical harmonic descriptors.
 
     This looks for all hdf5 files in the paths given
@@ -58,7 +59,7 @@ def harmonics(paths, output, property, suffix):
     """
     from libsarlacc.harmonics import process_files
     with Timer() as t:
-        read_paths(paths, suffix, process_files, mode=property, output=output)
+        read_paths(paths, suffix, process_files, no_radius=no_radius, mode=property, output=output)
     log('Complete {}'.format(t))
 
 
@@ -69,7 +70,7 @@ def harmonics(paths, output, property, suffix):
 @click.option('--output', default='fingerprints.h5', is_flag=False,
               help='write out clustering to given hdf5 file name')
 @click.argument('paths', nargs=-1)
-def fingerprint(paths, png, suffix, metric, output):
+def fingerprint(paths, png, suffix, output):
     """ Cluster based on Hirshfeld fingerprints as descriptors.
 
     This will look for all hdf5 files in the paths given in order
@@ -80,7 +81,7 @@ def fingerprint(paths, png, suffix, metric, output):
     from libsarlacc.fingerprint import process_files
     with Timer() as t:
       read_paths(paths, suffix, process_files,
-                 png=png, metric=metric, output=output)
+                 png=png, output=output)
     log('Complete {}'.format(t))
 
 
