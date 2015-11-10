@@ -9,10 +9,6 @@ from libsarlacc.config import Timer, log
 # Library imports
 
 # Local imports
-
-program_name = "sarlacc"
-version = "2015.11.10"
-
 available_commands = ['harmonics', 'fingerprint',
                       'surface', 'mesh']
 
