@@ -3,6 +3,7 @@ from scipy.special import sph_harm
 from collections import namedtuple
 import numpy as np
 import matplotlib as mpl
+import skimage.measure as measure
 from pathlib import Path
 
 from .datafile import DataFileReader

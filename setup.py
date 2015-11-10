@@ -2,18 +2,21 @@ from setuptools import setup
 
 setup(
     name='sarlacc',
-    version='0.1',
+    version='2015.11.10',
     py_modules='libsarlacc',
     install_requires=[
-      'Click',
-      'numpy',
-      'scipy',
-      'matplotlib',
+      'click',
       'fastcluster',
       'h5py',
-      'progressive',
+      'hdbscan',
+      'matplotlib',
+      'numpy',
       'periodictable',
-
+      'plyfile',
+      'progressive',
+      'scikit-image',
+      'scikit-learn',
+      'scipy',
       ],
     entry_points='''
       [console_scripts]
