@@ -10,11 +10,10 @@ from libsarlacc.config import Timer, log
 # Local imports
 
 program_name = "sarlacc"
-version = "2015.02.24"
+version = "2015.11.10"
 
-available_commands = ['harmonics', 'hist',
-                      'surface', 'clusters',
-                      'corr', 'poly']
+available_commands = ['harmonics', 'fingerprint',
+                      'surface', 'mesh']
 
 def read_paths(patterns, suffix, process_files, **kwargs):
     files = []
@@ -50,6 +49,7 @@ def cli():
 @click.option('--suffix', default='h5', help='suffix for hdf5 files to look for')
 @click.option('--no-radius', default=False, help="don't use mean radius in the clustering")
 @click.argument('paths', type=click.Path(exists=True), nargs=-1)
+
 def harmonics(paths, output, property, suffix, no_radius):
     """Cluster based on spherical harmonic descriptors.
 
@@ -70,6 +70,7 @@ def harmonics(paths, output, property, suffix, no_radius):
 @click.option('--output', default='fingerprints.h5', is_flag=False,
               help='write out clustering to given hdf5 file name')
 @click.argument('paths', nargs=-1)
+
 def fingerprint(paths, png, suffix, output):
     """ Cluster based on Hirshfeld fingerprints as descriptors.
 
@@ -88,6 +89,7 @@ def fingerprint(paths, png, suffix, output):
 @cli.command()
 @click.option('--suffix', default='h5', help='suffix for hdf5 files to look for')
 @click.argument('paths', nargs=-1)
+
 def surface(paths, suffix):
     """ calculate surface composition descriptors """
     from libsarlacc.surface import process_files
@@ -99,6 +101,7 @@ def surface(paths, suffix):
 @click.option('--reconstruct / -', help='generate the surface from the coefficients')
 @click.option('--suffix', default='h5', help='suffix for hdf5 files to look for')
 @click.argument('paths', nargs=-1)
+
 def mesh(paths, suffix, reconstruct):
     """ export/generate .ply files from .h5 data """
     from libsarlacc.mesh import process_files

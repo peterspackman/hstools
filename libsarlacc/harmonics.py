@@ -8,7 +8,7 @@ from hdbscan import HDBSCAN
 
 # Local imports
 from .calc import cluster
-from .config import log, logClosestPair, logFarthestPair
+from .config import log
 from .datafile import (
         batch_process,
         write_mat_file,
@@ -16,13 +16,24 @@ from .datafile import (
         HarmonicsData
         )
 
-shape_keys = {'radius':'radius', 'coefficients':'coefficients', 'invariants':'invariants'}
-dnorm_keys = {'radius':'radius', 'coefficients':'dnorm_coefficients', 'invariants':'dnorm_invariants'}
-curvature_keys = {'radius':'radius', 'coefficients':'curvature_coefficients', 'invariants':'curvature_invariants'}
+shape_keys = {'radius': 'radius',
+              'coefficients': 'coefficients',
+              'invariants': 'invariants'}
 
-modes = {'shape':shape_keys, 'dnorm':dnorm_keys, 'curvature':curvature_keys}
+dnorm_keys = {'radius': 'radius',
+              'coefficients': 'dnorm_coefficients',
+              'invariants': 'dnorm_invariants'}
+
+modes = {'shape': shape_keys, 'dnorm': dnorm_keys}
+
 
 def process_files(files, no_radius=False, mode='shape', output=None, **kwargs):
+    """
+    Given a list of hdf5 files (Path objects), read the spherical harmonics
+    shape descriptors data, then perform a clustering on the results.
+
+    Returns df, a pandas.DataFrame object containing the data
+    """
     dendrogram = None
     method = HDBSCAN
     distance = 0.4
@@ -37,8 +48,11 @@ def process_files(files, no_radius=False, mode='shape', output=None, **kwargs):
         log("Need at least 2 things to compare!", cat='error')
         return
 
-    radius, invariants, names  = zip(*[(x.radius, x.invariants, x.name.stem) for x in descriptors])
-    columns = [x for x in range(0,len(invariants[0]))]
+    radius, invariants, names = zip(*[(x.radius,
+                                       x.invariants,
+                                       x.name.stem) for x in descriptors])
+
+    columns = [x for x in range(0, len(invariants[0]))]
     if not no_radius:
         columns = ['r'] + columns
         invariants = [np.append(r, x) for r, x in zip(radius, invariants)]
@@ -49,5 +63,4 @@ def process_files(files, no_radius=False, mode='shape', output=None, **kwargs):
     df['cluster'] = clusters
     if output:
         write_mat_file(output, mat, names, clusters)
-    #log('{}'.format(df[['name', 'cluster']]))
-
+    return df
