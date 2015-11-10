@@ -17,7 +17,7 @@ from .config import log, Timer
 def cluster(raw_data, method=HDBSCAN, **kwargs):
     """
     Takes a 2D array of raw data (observations)
-    and performs the desired clustering on the 
+    and performs the desired clustering on the
     data.
 
     By default will use HDBSCAN.
@@ -89,5 +89,3 @@ def bin_data(x, y, bins=10, bounds=False):
     grid = scipy.sparse.coo_matrix((weights, xyi), shape=(nx, ny)).toarray()
 
     return grid, np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)
-
-

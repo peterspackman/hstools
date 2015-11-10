@@ -6,7 +6,8 @@
 import click
 from timeit import default_timer
 
-fg_colors = {'info':'white', 'error':'red', 'warning':'yellow'}
+fg_colors = {'info': 'white', 'error': 'red', 'warning': 'yellow'}
+
 
 class Timer(object):
     """ A context manager timer class, to measure wall clock time"""

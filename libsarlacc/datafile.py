@@ -19,48 +19,57 @@ from .config import (
 
 from pathlib import Path
 
+
 class lazy_property(object):
-   """ Helper class to be used for lazy evaluation of an object attribute.
-       property should represent non-mutable data, as it replaces itself.
-   """
-   def __init__(self,fget):
-       self.fget = fget
-       self.func_name = fget.__name__
+    """
+    Helper class to be used for lazy evaluation of an object attribute.
+    property should represent non-mutable data, as it replaces itself.
+    """
+    def __init__(self, fget):
+        self.fget = fget
+        self.func_name = fget.__name__
 
-   def __get__(self,obj,cls):
-       if obj is None:
-           return None
-       value = self.fget(obj)
-       setattr(obj,self.func_name,value)
-       return value
+    def __get__(self, obj, cls):
+        if obj is None:
+            return None
+        value = self.fget(obj)
+        setattr(obj, self.func_name, value)
+        return value
 
-HarmonicsData = namedtuple('HarmonicsData', 'radius coefficients invariants name')
-_SurfaceDataTuple = namedtuple('SurfaceData', 'contributions formula name')
-_FingerprintDataTuple = namedtuple('FingerprintData', 'd_e d_i name')
+HarmonicsData = namedtuple('HarmonicsData',
+                           'radius coefficients invariants name')
+_SurfaceDataTuple = namedtuple('SurfaceData',
+                               'contributions formula name')
+_FingerprintDataTuple = namedtuple('FingerprintData',
+                                   'd_e d_i name')
 
 
 class FingerprintData(_FingerprintDataTuple):
-    """ Light wrapper around namedtuple for
-        the one-time calculation of the histogram
-        from given $d_e$ and $d_i$ values on
-        the Hirshfeld surface
+    """
+    Light wrapper around namedtuple for
+    the one-time calculation of the histogram
+    from given $d_e$ and $d_i$ values on
+    the Hirshfeld surface.
     """
     @lazy_property
     def histogram(self):
         h = bin_data(self.d_e, self.d_i, bins=6)
         return h
 
+
 class SurfaceData(_SurfaceDataTuple):
-    """ Light wrapper around namedtuple for
-        the one-time calculation of the surface area contributions 
-        from given $d_e$ and $d_i$ values on
-        the Hirshfeld surface
+    """
+    Light wrapper around namedtuple for
+    the one-time calculation of the surface area contributions
+    from given $d_e$ and $d_i$ values on
+    the Hirshfeld surface.
     """
 
     @lazy_property
     def contributions_dict(self):
         _, c = get_contrib(self.contributions)
         return c
+
 
 class DataFileReader:
     """ Read hdf5 data files, given a reader object"""
@@ -84,9 +93,10 @@ class DataFileReader:
         except TypeError as e:
             log(str(e))
         except Exception as e:
-            log("Ignoring '{}'; Caught ({})".format(path.name, type(e).__name__),
+            log("Ignoring '{}'; Caught ({})".format(path.name,
+                                                    type(e).__name__),
                 cat='warning')
-            print(e)
+            log(str(e))
             pass
 
 
@@ -145,7 +155,7 @@ def kde_plotfile(x, y, fname='outhex.png'):
 
 
 def hexbin_plotfile(x, y, fname='outhex.png', kind='log', nbins=10):
-    f, cmap, _ , extent = standard_figure()
+    f, cmap, _, extent = standard_figure()
 
     plt.hexbin(x, y, mincnt=1, gridsize=nbins,
                cmap=cmap, bins=kind,
@@ -196,9 +206,10 @@ def write_sa_file(fname, surfaces):
             if not contributions:
                 line = line + '--Nil--'
             else:
-                for key in sorted(contributions, key=lambda key: contributions[key]):
+                for key in sorted(contributions,
+                                  key=lambda key: contributions[key]):
                     line = line + ', '
-                    line = line + '{0} = {1:.2%}'.format(key, contributions[key])
+                    line = line + '{} = {:.2%}'.format(key, contributions[key])
             f.write(line + '\n')
 
 
@@ -212,8 +223,9 @@ def write_mat_file(fname, mat, names, clusters):
 
 
 def batch_process(files, reader, procs=4):
-    """ Takes a list of files and a reader class, and calls
-    constructs instances of the given class from data 
+    """
+    Takes a list of files and a reader class, and calls
+    constructs instances of the given class from data
     in the files
     """
     n = len(files)
@@ -234,13 +246,13 @@ def batch_process(files, reader, procs=4):
 
     log("Read {1} files in {0}".format(t, n))
 
-
     return sorted(vals, key=lambda x: x.name)
 
 
 def get_files_from_pattern(file_pattern):
     if isinstance(file_pattern, list):
-        return reduce(lambda x, y: x + y, [get_files_from_pattern(f) for f in file_pattern])
+        return reduce(lambda x, y: x + y,
+                      [get_files_from_pattern(f) for f in file_pattern])
     else:
         if os.path.isfile(file_pattern):
             return [file_pattern]

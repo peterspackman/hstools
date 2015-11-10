@@ -1,2 +1,9 @@
-__all__ = ["config", "datafile", "calc", "fingerprint", "surface", "harmonics"]
-
+__all__ = [
+    "calc",
+    "config",
+    "datafile",
+    "fingerprint",
+    "harmonics",
+    "mesh",
+    "surface",
+]

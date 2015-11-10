@@ -9,13 +9,18 @@ from .datafile import (
         write_sa_file
 )
 
-surface_keys = {'contributions':'surface_contribution', 'formula':'formula'}
+surface_keys = {'contributions': 'surface_contribution', 'formula': 'formula'}
 
 
 def process_files(files, output=None):
+    """
+    Given a list of hdf5 files (Path objects), read the atomic
+    contributions to the Hirshfeld surface area, and report the results.
+
+    Returns a list of SurfaceData objects
+    """
     reader = DataFileReader(surface_keys,
                             SurfaceData)
-
 
     surfaces = batch_process(files, reader)
 
@@ -30,6 +35,9 @@ def process_files(files, output=None):
             if x.contributions is None:
                 log(' -- Nil--')
 
-            d = OrderedDict(sorted(x.contributions_dict.items(), key=lambda t: t[0]))
+            d = OrderedDict(sorted(x.contributions_dict.items(),
+                                   key=lambda t: t[0]))
             for k, v in iter(d.items()):
                 log('{0}: {1:.2%}'.format(k, v))
+
+    return surfaces
