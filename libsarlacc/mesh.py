@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib as mpl
 import skimage.measure as measure
 from pathlib import Path
+from numba import jit
 
 from .datafile import DataFileReader
 from .config import log
@@ -91,7 +92,6 @@ def cartesian(arrays, out=None):
         for j in range(1, arrays[0].size):
             out[j*m:(j+1)*m, 1:] = out[0:m, 1:]
     return out
-
 
 def inside(coeff, vol, sep, lmax):
     r = 0
@@ -183,7 +183,7 @@ def vertex_colors(property_values, cmap='viridis_r'):
     return rgb
 
 
-def get_HS_data(data, property='d_norm', cmap='viridis_r'):
+def get_HS_data(data, cmap='viridis_r'):
     verts = data.vertices
     colors = vertex_colors(data.property, cmap=cmap)
     faces = data.indices - 1
@@ -221,7 +221,8 @@ def write_ply_file(verts, faces, colors, output_file='dump.ply'):
     surface_data.write(output_file)
 
 
-def process_files(files, reconstruct=False, output=None, cmap='viridis_r'):
+def process_files(files, reconstruct=False, output=None,
+                  property='d_norm', cmap='viridis_r'):
     """
     Given a list of HDF5 files, export/reconstruct their
     Hirshfeld surface (with colouring) to a .ply file.
@@ -234,10 +235,10 @@ def process_files(files, reconstruct=False, output=None, cmap='viridis_r'):
             verts, faces, colors = get_reconstructed_surface(data, lmax)
             output_file = f.stem + '-reconstructed.ply'
         else:
+            hirshfeld_defaults['property'] = property
             reader = DataFileReader(hirshfeld_defaults, HirshfeldData)
             data = reader.read(f)
             verts, faces, colors = get_HS_data(data,
-                                               property='d_norm',
                                                cmap=cmap)
             output_file = f.stem + '-hirshfeld.ply'
         write_ply_file(verts, faces, colors, output_file=output_file)

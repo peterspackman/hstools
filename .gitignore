@@ -52,5 +52,7 @@ out*
 *.hdf5
 *.h5
 *.ply
+*.x3d
 *.swp
+*.egg*
 venv

@@ -120,13 +120,16 @@ def surface(paths, suffix):
 @click.option('--colors', default='viridis_r',
               type=click.Choice(matplotlib.pyplot.colormaps()),
               help='colormap for property on the surface')
+@click.option('--property', default='d_norm',
+              type=click.Choice(['d_norm', 'd_i', 'd_e', 'curvature']))
 @click.argument('paths', nargs=-1)
-def mesh(paths, suffix, reconstruct, colors):
+def mesh(paths, suffix, reconstruct, colors, property):
     """
     Export/generate .ply files from HDF5 data
     """
     from libsarlacc.mesh import process_files
     with Timer() as t:
         read_paths(paths, suffix, process_files,
-                   reconstruct=reconstruct, cmap=colors)
+                   reconstruct=reconstruct, cmap=colors,
+                   property=property)
     log('Complete {}'.format(t))
