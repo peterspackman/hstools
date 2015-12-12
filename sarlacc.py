@@ -42,8 +42,11 @@ def read_paths(patterns, suffix, process_files, **kwargs):
 
 
 @click.group()
-def cli():
-    pass
+@click.option('--version/-v', default=False, is_flag=True)
+def cli(version):
+    if version:
+        log('VERSION INFO')
+        sys.exit(0)
 
 
 @cli.command()
