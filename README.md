@@ -20,8 +20,3 @@ Dependencies:
 * progressive,
 * scikit-learn
 * scipy
-
-### Utils
-
-This repository also contains various utility scripts in the `util` directory.
-
