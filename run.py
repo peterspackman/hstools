@@ -3,8 +3,8 @@ import os.path
 import matplotlib
 from pathlib import Path
 
-from libsarlacc.harmonics import modes as harmonics_modes
-from libsarlacc.config import Timer, log
+from hstools.harmonics import modes as harmonics_modes
+from hstools.config import Timer, log
 
 # Library imports
 
@@ -69,7 +69,7 @@ def harmonics(paths, output, property, suffix, no_radius):
     and will analyse the invariants, using them as a vector for comparison
     in a hierarchical clustering.
     """
-    from libsarlacc.harmonics import process_files
+    from hstools.harmonics import process_files
     with Timer() as t:
         read_paths(paths, suffix, process_files,
                    no_radius=no_radius, mode=property, output=output)
@@ -78,7 +78,7 @@ def harmonics(paths, output, property, suffix, no_radius):
 
 @cli.command()
 @click.option('--png / -p', default=False,
-              help='output all Hirshfeld fingerprints to PNG image files.')
+              help='output all hstools fingerprints to PNG image files.')
 @click.option('--suffix', default='h5',
               help='suffix for HDF5 files to look for')
 @click.option('--output', default='fingerprints.h5', is_flag=False,
@@ -89,11 +89,11 @@ def fingerprint(paths, png, suffix, output):
     Cluster based on Hirshfeld fingerprints as descriptors.
 
     This will look for all HDF5 files in the paths given in order
-    to construct Hirshfeld fingerprints. The histogram based on the
+    to construct hstools fingerprints. The histogram based on the
     d_e/d_i values in these data files will then be used as the vector
     for a hierarchical clustering.
     """
-    from libsarlacc.fingerprint import process_files
+    from hstools.fingerprint import process_files
     with Timer() as t:
         read_paths(paths, suffix, process_files,
                    png=png, output=output)
@@ -109,7 +109,7 @@ def surface(paths, suffix):
     Calculate Hirshfeld surface composition descriptors.
 
     """
-    from libsarlacc.surface import process_files
+    from hstools.surface import process_files
     with Timer() as t:
         read_paths(paths, suffix, process_files)
     log('Complete {}'.format(t))
@@ -132,7 +132,7 @@ def mesh(paths, suffix, reconstruct, colors, property, lmax, output):
     """
     Export/generate .ply files from HDF5 data
     """
-    from libsarlacc.mesh import process_files
+    from hstools.mesh import process_files
     with Timer() as t:
         read_paths(paths, suffix, process_files,
                    reconstruct=reconstruct, cmap=colors,

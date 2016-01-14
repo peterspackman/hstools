@@ -3,7 +3,6 @@ from scipy.special import sph_harm
 from collections import namedtuple
 import numpy as np
 import matplotlib as mpl
-import skimage.measure as measure
 from scipy.spatial import ConvexHull
 from pathlib import Path
 from numba import jit
