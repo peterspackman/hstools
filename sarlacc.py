@@ -116,7 +116,7 @@ def surface(paths, suffix):
 
 
 @cli.command()
-@click.option('--reconstruct / -',
+@click.option('--reconstruct/-r',
               help='generate the surface from the coefficients')
 @click.option('--suffix', default='h5',
               help='suffix for HDF5 files to look for')
@@ -125,8 +125,10 @@ def surface(paths, suffix):
               help='colormap for property on the surface')
 @click.option('--property', default='d_norm',
               type=click.Choice(['d_norm', 'd_i', 'd_e', 'curvature']))
+@click.option('--lmax', default=9)
+@click.option('--output', default=None)
 @click.argument('paths', nargs=-1)
-def mesh(paths, suffix, reconstruct, colors, property):
+def mesh(paths, suffix, reconstruct, colors, property, lmax, output):
     """
     Export/generate .ply files from HDF5 data
     """
@@ -134,5 +136,5 @@ def mesh(paths, suffix, reconstruct, colors, property):
     with Timer() as t:
         read_paths(paths, suffix, process_files,
                    reconstruct=reconstruct, cmap=colors,
-                   property=property)
+                   property=property, lmax=lmax, output=output)
     log('Complete {}'.format(t))

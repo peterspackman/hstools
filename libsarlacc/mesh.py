@@ -4,120 +4,28 @@ from collections import namedtuple
 import numpy as np
 import matplotlib as mpl
 import skimage.measure as measure
+from scipy.spatial import ConvexHull
 from pathlib import Path
 from numba import jit
 
 from .datafile import DataFileReader
 from .config import log
+from .lebedev import lebedev_grid
 
 hirshfeld_defaults = {'vertices': 'vertices',
                       'indices': 'indices',
                       'property': 'd_norm'}
 coefficient_defaults = {'coefficients': 'coefficients',
-                        'property_coefficients': 'dnorm_coefficients'}
+                        'property_coefficients': 'dnorm_coefficients',
+                        'radius': 'radius'}
 
 RGB = namedtuple('RGB', 'red green blue')
 
 HirshfeldData = namedtuple('SurfaceData',
                            'name vertices indices property')
 CoefficientsData = namedtuple('CoefficientsData',
-                              'name coefficients property_coefficients')
+                              'name coefficients property_coefficients radius')
 
-
-def construct_surface(coeff, vol, lmax, radius=1.0):
-    """
-    Construct the surface from the provided coefficients
-    """
-    r = bounds(coeff, lmax)
-    M, N, P = vol
-    # Separation in voxels
-    sepx = r * 2 / M
-    sepy = r * 2 / N
-    sepz = r * 2 / P
-    sep = (sepx, sepy, sepz)
-    center = np.array([sepx * M / 2, sepy * N / 2, sepz * P / 2])
-    iso_level = 0.0
-    volume = inside(coeff, vol, sep, lmax)
-    log('Starting marching cubes')
-    verts, faces = measure.marching_cubes(volume, iso_level, sep)
-    log('Done\nStarting face correction')
-    corrected_faces = measure.correct_mesh_orientation(volume,
-                                                       verts,
-                                                       faces,
-                                                       sep)
-    log('Done, center: {}'.format(center))
-    verts -= center
-    return verts, corrected_faces, center
-
-
-def get_reconstructed_surface(data, lmax, vol=(100, 100, 100)):
-    coeff = data.coefficients
-    color_coeff = data.property_coefficients
-    log('Marching cubes on {}, using {} volume.'.format(data.name, vol))
-    verts, faces, center = construct_surface(data.coefficients, vol, lmax)
-    log('Done')
-    rtp = cartesian_to_spherical(verts)
-    color_vals = np.zeros(len(rtp))
-    lm = 0
-    for l in range(0, lmax+1):
-        for m in range(-l, l+1):
-            ylm = sph_harm(m, l, rtp[:, 2], rtp[:, 1])
-            color_vals[:] += (data.property_coefficients[lm] * ylm).real
-            lm += 1
-    color_vals *= 4*np.pi
-    return verts, faces, vertex_colors(color_vals)
-
-
-def bounds(coeff, lmax):
-    t, p = np.linspace(0, 2*np.pi, 50), np.linspace(0, np.pi, 50)
-    tp = cartesian([t, p])
-    r = np.zeros(len(tp))
-    r[:] += coeff[0].real * sph_harm(0, 1, tp[:, 0], tp[:, 1]).real
-    val = np.max(r)
-    return val * 1.5 if val > 1.0 else 1.5
-
-
-def cartesian(arrays, out=None):
-    arrays = [np.asarray(x) for x in arrays]
-    dtype = arrays[0].dtype
-
-    n = np.prod([x.size for x in arrays])
-    if out is None:
-        out = np.zeros([n, len(arrays)], dtype=dtype)
-
-    m = n / arrays[0].size
-    out[:, 0] = np.repeat(arrays[0], m)
-    if arrays[1:]:
-        cartesian(arrays[1:], out=out[0:m, 1:])
-        for j in range(1, arrays[0].size):
-            out[j*m:(j+1)*m, 1:] = out[0:m, 1:]
-    return out
-
-def inside(coeff, vol, sep, lmax):
-    r = 0
-    x, y, z = np.indices(vol)
-    x = (x - vol[0]/2)*sep[0]
-    y = (y - vol[1]/2)*sep[1]
-    z = (z - vol[2]/2)*sep[2]
-
-    voxel_data = np.zeros(vol)
-    xy = x[:, :, :]**2 + y[:, :, :]**2
-
-    r = np.sqrt(xy + z[:, :, :]**2)
-    theta = np.arctan2(z[:, :, :], np.sqrt(xy)) + np.pi/2
-    phi = np.arctan2(y[:, :, :], x[:, :, :]) + np.pi
-    constructed = np.zeros(r.shape)
-
-    lm = 0
-    log('Heavy loop')
-    for l in range(0, lmax+1):
-        for m in range(-l, l+1):
-            ylm = sph_harm(m, l, phi[:, :, :], theta[:, :, :])
-            constructed[:, :, :] += (coeff[lm] * ylm).real
-            lm += 1
-    log('finished')
-    constructed = r - constructed
-    return constructed
 
 
 def cartesian_to_spherical(xyz):
@@ -221,24 +129,50 @@ def write_ply_file(verts, faces, colors, output_file='dump.ply'):
     surface_data.write(output_file)
 
 
+def get_delaunay_surface(data, lmax):
+    grid = lebedev_grid(degree=131)
+    sphere_rtp = np.zeros(grid.shape)
+    sphere_rtp[:, 0] = 1.0
+    sphere_rtp[:, 1] = grid[:, 1]
+    sphere_rtp[:, 2] = grid[:, 0]
+    verts = sphere_rtp.copy()
+    sphere = spherical_to_cartesian(sphere_rtp)
+    r = np.zeros(len(verts), dtype=np.complex)
+    colors = np.zeros(len(verts), dtype=np.complex)
+    lm = 0
+    for l in range(0, lmax+1):
+        for m in range(-l, l+1):
+            ylm = sph_harm(m, l, grid[:, 0], grid[:, 1])
+            r[:] += data.coefficients[lm] * ylm
+            colors[:] += data.property_coefficients[lm] * ylm
+            lm += 1
+    verts[:, 0] = r[:].real
+    verts = spherical_to_cartesian(verts) * data.radius
+    colors *= 4*np.pi
+    faces = ConvexHull(sphere).simplices
+    return verts, faces, vertex_colors(colors.real)
+
+
 def process_files(files, reconstruct=False, output=None,
-                  property='d_norm', cmap='viridis_r'):
+                  property='d_norm', cmap='viridis_r', lmax=9):
     """
     Given a list of HDF5 files, export/reconstruct their
     Hirshfeld surface (with colouring) to a .ply file.
     """
-    lmax = 10
+    output_file = output
     for f in files:
         if reconstruct:
             reader = DataFileReader(coefficient_defaults, CoefficientsData)
             data = reader.read(f)
-            verts, faces, colors = get_reconstructed_surface(data, lmax)
-            output_file = f.stem + '-reconstructed.ply'
+            verts, faces, colors = get_delaunay_surface(data, lmax)
+            if not output:
+                output_file = f.stem + '-reconstructed.ply'
         else:
             hirshfeld_defaults['property'] = property
             reader = DataFileReader(hirshfeld_defaults, HirshfeldData)
             data = reader.read(f)
             verts, faces, colors = get_HS_data(data,
                                                cmap=cmap)
-            output_file = f.stem + '-hirshfeld.ply'
+            if not output:
+                output_file = f.stem + '-hirshfeld.ply'
         write_ply_file(verts, faces, colors, output_file=output_file)

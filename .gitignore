@@ -40,6 +40,7 @@ sarlacc
 stdout
 stderr
 tmp
+models/
 *.foo
 out*
 # Log files
