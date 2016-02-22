@@ -3,7 +3,7 @@
 ##################################################
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.1)
-PROJECT(Tonto Fortran)
+PROJECT(hs Fortran)
 
 # Set the hs version
 SET(VERSION 0.10.0)
@@ -13,30 +13,25 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/" ${CMAKE_MODULE_PATH})
 # Set up defaults for this project
 include(ExternalProject)
 
-set(hs_INSTALL_PREFIX "${Tonto_BINARY_DIR}/prefix")
-set(hs_DEFAULT_ARGS
-    "-DBUILD_SHARED_LIBS:BOOL=${BUILD_SHARED_LIBS}"
-    "-DCMAKE_PREFIX_PATH:PATH=${Tonto_INSTALL_PREFIX};${CMAKE_PREFIX_PATH}"
-    "-DCMAKE_INSTALL_PREFIX:PATH=${Tonto_INSTALL_PREFIX}"
+set(SRC
+    src/hs.f90
+    src/h5file.f90
 )
 
 enable_testing()
 
 ###############################################
-################ Tonto library #################
+################ Tonto library ################
 ###############################################
+set(TONTO_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/tonto)
+add_subdirectory(${CMAKE_SOURCE_DIR}/externals/tonto
+    ${TONTO_BUILD_DIR})
 
-ExternalProject_Add(project_tonto
-    URL http://www.lrz.de/services/software/mathematik/gsl/fortran/fgsl-1.0.0.tar.gz
-    PREFIX ${FGSL_PREFIX}
-    CONFIGURE_COMMAND "<SOURCE_DIR>/configure"
-    BUILD_COMMAND make
-    INSTALL_COMMAND make install)
+find_package(LAPACK REQUIRED)
 
 ###############################################
 ################ FGSL library #################
 ###############################################
-
 find_package(FGSL REQUIRED)
 
 if(NOT ${FGSL_FOUND})
@@ -85,5 +80,8 @@ if(NOT ${HDF5_FOUND})
     )
 
 endif()
-
-add_subdirectory(test test)
+include_directories("${HDF5_INCLUDE_DIRS}")
+include_directories("${FGSL_INCLUDE_DIRS}")
+include_directories("${TONTO_BUILD_DIR}")
+add_executable(hs ${SRC})
+target_link_libraries(hs tonto ${HDF5_LIBRARIES} ${FGSL_LIBRARIES} ${LAPACK_LIBRARIES})
