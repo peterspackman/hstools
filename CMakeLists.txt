@@ -26,7 +26,8 @@ enable_testing()
 ###############################################
 set(TONTO_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/tonto)
 add_subdirectory(${CMAKE_SOURCE_DIR}/externals/tonto
-    ${TONTO_BUILD_DIR})
+    ${TONTO_BUILD_DIR}
+    EXCLUDE_FROM_ALL)
 
 find_package(LAPACK REQUIRED)
 
@@ -81,6 +82,7 @@ if(NOT ${HDF5_FOUND})
     )
 
 endif()
+
 include_directories("${HDF5_INCLUDE_DIRS}")
 include_directories("${FGSL_INCLUDE_DIRS}")
 include_directories("${TONTO_BUILD_DIR}")
