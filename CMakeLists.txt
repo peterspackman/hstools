@@ -9,6 +9,7 @@ PROJECT(hs Fortran)
 SET(VERSION 0.10.0)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/" ${CMAKE_MODULE_PATH})
+set(CMAKE_INSTALL_PREFIX CACHE PATH "/usr/local/")
 
 # Set up defaults for this project
 include(ExternalProject)
@@ -85,3 +86,4 @@ include_directories("${FGSL_INCLUDE_DIRS}")
 include_directories("${TONTO_BUILD_DIR}")
 add_executable(hs ${SRC})
 target_link_libraries(hs tonto ${HDF5_LIBRARIES} ${FGSL_LIBRARIES} ${LAPACK_LIBRARIES})
+install(TARGETS hs DESTINATION bin)
