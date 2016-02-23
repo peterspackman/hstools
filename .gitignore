@@ -56,4 +56,5 @@ out*
 *.x3d
 *.swp
 *.egg*
+*.mlx
 venv

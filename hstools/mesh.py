@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib as mpl
 from scipy.spatial import ConvexHull
 from pathlib import Path
-from numba import jit
 
 from .datafile import DataFileReader
 from .config import log

@@ -138,3 +138,19 @@ def mesh(paths, suffix, reconstruct, colors, property, lmax, output):
                    reconstruct=reconstruct, cmap=colors,
                    property=property, lmax=lmax, output=output)
     log('Complete {}'.format(t))
+
+@cli.command()
+@click.option('--suffix', default='cif',
+              help='suffix for CIF files to look for')
+@click.option('--property', default='d_norm', type=click.Choice(['d_norm', 'd_i', 'd_e', 'curvature']))
+@click.option('--lmax', default=9)
+@click.argument('paths', nargs=-1)
+def describe(paths, suffix, property, lmax):
+    """
+    process CIF files
+    """
+    from hstools.describe import process_files
+    with Timer() as t:
+        read_paths(paths, suffix, process_files, 
+                   property=property, lmax=lmax)
+    log('Complete {}'.format(t))
