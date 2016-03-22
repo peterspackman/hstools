@@ -8,7 +8,8 @@ module HS
     use CIF_MODULE, only: cif_create => create_
     use CLUSTER_MODULE, only: cluster_create => create_, cluster_put => put_, &
         make_info, set_generation_method, fragment_atom_indices, nonfragment_atom_indices
-    use MOLECULE_BASE_MODULE, only: create, set_slaterbasis_name, put_atoms_, unsave_
+    use MOLECULE_BASE_MODULE, only: create, set_slaterbasis_name, put_atoms_, unsave_, &
+        destroy_interpolators, copy_, molecule_destroy => destroy_
     use MOLECULE_CE_MODULE, only: find_CIF_crystal_data_block
     use MOLECULE_PLOT_MODULE
     use MOLECULE_XTAL_MODULE, only: read_CIF_atoms, read_CIF_crystal, create_cluster, &
@@ -83,28 +84,35 @@ module HS
 
     subroutine make_surfaces(m, res, l_max, hdf_file_name)
         type(MOLECULE_TYPE), intent(in), pointer :: m
+        type(MOLECULE_TYPE), pointer :: tmp
         real(8), intent(in) :: res
         integer(4), intent(in) :: l_max
         character(len=512) :: hdf_file_name
+        character(len=512) :: fname
         integer :: i
         type(H5file) :: dump_file
-        dump_file = H5file(hdf_file_name)
         ! Initialize cluster for HS
         call cluster_create(m%cluster,m%crystal)
-        call set_generation_method(m%cluster,"fragment")
+        call set_generation_method(m%cluster, "fragment")
         m%cluster%radius = 0.0d0
         m%cluster%defragment = .true.
         call make_info(m%cluster)
+
         do i = 1, m%cluster%n_molecules
-            call create_cluster_for_mol(m, i)
-            call atom_put(m%atom)
+            write (fname, "(I1,A1,A10)") i, "-", hdf_file_name
+            dump_file = H5file(trim(fname))
+            call create(tmp)
+            call copy_(tmp, m)
+
+            call create_cluster_for_mol(tmp, i)
+
             ! DO STUFF
-            call make_surface(m, res)
-            call describe_surface(m, l_max, dump_file)
+            call make_surface(tmp, res)
+
+            call describe_surface(tmp, l_max, dump_file)
             print *, "Surface DONE for molecule: ", i
-            call unsave_(m)
+            call dump_file%close
         end do
-        call dump_file%close
     end subroutine
 
 
@@ -273,12 +281,21 @@ module HS
         m%cluster%atom_density_cutoff = 1.0e-8
         m%cluster%defragment = .false.
         call make_info(m%cluster)
+        call cluster_put(m%cluster)
         call create_cluster(m)
+        print *, "NEW MOLECULE ATOMS"
+        call atom_put(m%atom)
+        print *, "MOLECULE SAVED ATOMS"
+        call atom_put(m%saved%atom)
+        print *, "DOUBLE SAVED ATOMS"
+        call atom_put(m%saved%saved%atom)
+
         call interpolator_create(m%interpolator)
         call set_interpolation_method(m%interpolator,"linear")
         call set_domain_mapping(m%interpolator,"sqrt")
         call set_table_eps(m%interpolator,1.0d-10)
         call set_table_spacing(m%interpolator,1.0d-1)
+        call destroy_interpolators(m)
 
         ! Create CX_isosurface
         call isosurface_create(m%isosurface, m%atom)
