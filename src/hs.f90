@@ -88,7 +88,7 @@ module HS
         real(8), intent(in) :: res
         integer(4), intent(in) :: l_max
         character(len=512) :: hdf_file_name
-        character(len=512) :: fname
+        character(len=512) :: formula
         integer :: i
         type(H5file) :: dump_file
         ! Initialize cluster for HS
@@ -97,22 +97,22 @@ module HS
         m%cluster%radius = 0.0d0
         m%cluster%defragment = .true.
         call make_info(m%cluster)
+        dump_file = H5file(trim(hdf_file_name))
 
         do i = 1, m%cluster%n_molecules
-            write (fname, "(I1,A1,A10)") i, "-", hdf_file_name
-            dump_file = H5file(trim(fname))
             call create(tmp)
             call copy_(tmp, m)
 
             call create_cluster_for_mol(tmp, i)
-
+            call dump_file%open_group(trim("/"//chemical_formula(tmp%atom, .false.)))
             ! DO STUFF
             call make_surface(tmp, res)
 
             call describe_surface(tmp, l_max, dump_file)
-            print *, "Surface DONE for molecule: ", i
-            call dump_file%close
+            write (*, "(A27, I1)") "Surface done for molecule ", i
+            call dump_file%close_group
         end do
+        call dump_file%close
     end subroutine
 
 
@@ -132,6 +132,7 @@ module HS
         real(8), dimension(:,:), pointer :: surface => NULL()
         complex(8), dimension(:), pointer :: dnorm_coefficients, coefficients => NULL()
         type(H5file) :: dump_file
+        integer(hid_t) :: root
 
         call vec_int_create(out, size(nonfragment_atom_indices(m%saved%cluster)))
         call vec_int_create(in, size(fragment_atom_indices(m%saved%cluster)))
@@ -227,8 +228,6 @@ module HS
         end do
 
 
-        call write_data_h5(dump_file, "formula", chemical_formula(m%atom, .false.))
-
         ! SURFACE
         call write_data_h5(dump_file, "vertices", m%isosurface%point)
         call write_data_h5(dump_file, "indices", m%isosurface%face)
@@ -281,14 +280,7 @@ module HS
         m%cluster%atom_density_cutoff = 1.0e-8
         m%cluster%defragment = .false.
         call make_info(m%cluster)
-        call cluster_put(m%cluster)
         call create_cluster(m)
-        print *, "NEW MOLECULE ATOMS"
-        call atom_put(m%atom)
-        print *, "MOLECULE SAVED ATOMS"
-        call atom_put(m%saved%atom)
-        print *, "DOUBLE SAVED ATOMS"
-        call atom_put(m%saved%saved%atom)
 
         call interpolator_create(m%interpolator)
         call set_interpolation_method(m%interpolator,"linear")
