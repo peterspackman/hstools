@@ -20,7 +20,6 @@ set(SRC
     src/main.f90
 )
 
-enable_testing()
 
 ###############################################
 ################ Tonto library ################
@@ -90,3 +89,6 @@ include_directories("${TONTO_BUILD_DIR}")
 add_executable(hs ${SRC})
 target_link_libraries(hs tonto ${HDF5_LIBRARIES} ${FGSL_LIBRARIES} ${LAPACK_LIBRARIES})
 install(TARGETS hs DESTINATION bin)
+
+enable_testing()
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/tests")

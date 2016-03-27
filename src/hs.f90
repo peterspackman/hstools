@@ -229,30 +229,30 @@ module HS
 
 
         ! SURFACE
-        call write_data_h5(dump_file, "vertices", m%isosurface%point)
-        call write_data_h5(dump_file, "indices", m%isosurface%face)
-        call write_data_h5(dump_file, "atoms_inside_surface", atoms_inside)
-        call write_data_h5(dump_file, "atoms_outside_surface", atoms_outside)
-        call write_data_h5(dump_file, "d_e_face_atoms", d_e_atoms)
-        call write_data_h5(dump_file, "d_i_face_atoms", d_i_atoms)
-        call write_data_h5(dump_file, "surface_contribution", surface_contribution)
+        call dump_file%write("vertices", m%isosurface%point)
+        call dump_file%write("indices", m%isosurface%face)
+        call dump_file%write("atoms_inside_surface", atoms_inside)
+        call dump_file%write("atoms_outside_surface", atoms_outside)
+        call dump_file%write("d_e_face_atoms", d_e_atoms)
+        call dump_file%write("d_i_face_atoms", d_i_atoms)
+        call dump_file%write("surface_contribution", surface_contribution)
 
         ! SURFACE PROPERTIES
-        call write_data_h5(dump_file, "radius", [radius])
-        call write_data_h5(dump_file, "d_e", d_e)
-        call write_data_h5(dump_file, "d_i", d_i)
-        call write_data_h5(dump_file, "d_norm", d_norm)
-        call write_data_h5(dump_file, "d_norm_i", d_norm_i)
-        call write_data_h5(dump_file, "d_norm_e", d_norm_e)
+        call dump_file%write("radius", [radius])
+        call dump_file%write("d_e", d_e)
+        call dump_file%write("d_i", d_i)
+        call dump_file%write("d_norm", d_norm)
+        call dump_file%write("d_norm_i", d_norm_i)
+        call dump_file%write("d_norm_e", d_norm_e)
 
         ! CIF INFO
-        call write_data_h5(dump_file, "unit_cell", unit_cell)
+        call dump_file%write("unit_cell", unit_cell)
 
         ! SPHERICAL HARMONICS STUFF
-        call write_data_h5(dump_file, "coefficients",coefficients)
-        call write_data_h5(dump_file, "dnorm_coefficients", dnorm_coefficients)
-        call write_data_h5(dump_file, "invariants", invariants)
-        call write_data_h5(dump_file, "dnorm_invariants", dnorm_invariants)
+        call dump_file%write("coefficients",coefficients)
+        call dump_file%write("dnorm_coefficients", dnorm_coefficients)
+        call dump_file%write("invariants", invariants)
+        call dump_file%write("dnorm_invariants", dnorm_invariants)
 
         ! CLEANUP ALL THE HEAP ALLOCATED ARRAYS
         call vec_cpx_destroy(coefficients)

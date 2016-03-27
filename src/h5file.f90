@@ -21,35 +21,28 @@ module class_H5file
         integer :: hdferr
         integer(hid_t) :: loc_id ! current location
         integer(hid_t) :: hdf_id ! file id
+        character(len=256) :: current_group = "/"
         character(len=256) :: filename
+
         logical :: is_open
+
     contains
         procedure :: print => h5file_printf
         procedure :: close => close_hdf
         procedure :: open_group 
         procedure :: close_group
-
+        generic, public :: write => write_str, write_str_1d, &
+            write_f32_1d, write_f64_1d, write_i32_1d, write_i64_1d, &
+            write_complex_f32_1d, write_complex_f64_1d, &
+            write_f32_2d, write_f64_2d, write_i32_2d, write_i64_2d, &
+            write_complex_f32_2d, write_complex_f64_2d
+        procedure, private :: write_str, write_str_1d, &
+            write_f32_1d, write_f64_1d, write_i32_1d, write_i64_1d, &
+            write_complex_f32_1d, write_complex_f64_1d, &
+            write_f32_2d, write_f64_2d, write_i32_2d, write_i64_2d, &
+            write_complex_f32_2d, write_complex_f64_2d
     end type
 
-    interface write_data_h5
-        ! 0-dimensional procedures
-        module procedure write_str
-        ! 1-dimensional procedures
-        module procedure write_f32_1d
-        module procedure write_f64_1d
-        module procedure write_i32_1d
-        module procedure write_i64_1d
-        module procedure write_str_1d
-        module procedure write_complex_f32_1d
-        module procedure write_complex_f64_1d
-        ! 2-dimensional procedures
-        module procedure write_f32_2d
-        module procedure write_f64_2d
-        module procedure write_i32_2d
-        module procedure write_i64_2d
-        module procedure write_complex_f32_2d
-        module procedure write_complex_f64_2d
-    end interface
 
     interface H5file
         module procedure new_H5file_0
@@ -103,9 +96,7 @@ contains
         if(.not. this%is_open) then
             return
         else
-            print *, this%loc_id
             call h5gcreate_f(this%hdf_id, group_name, this%loc_id, this%hdferr)
-            print *, this%loc_id
         endif
 
         if (.not. (this%hdferr .eq. 0)) then
