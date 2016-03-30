@@ -14,6 +14,7 @@ module HS
     use MOLECULE_PLOT_MODULE
     use MOLECULE_XTAL_MODULE, only: read_CIF_atoms, read_CIF_crystal, create_cluster, &
         create_cluster_for_mol
+    use INT_MODULE, only: to_str_
     use INTERPOLATOR_MODULE, only: interpolator_create => create_, &
         set_table_spacing, set_table_eps, &
         set_domain_mapping, set_interpolation_method
@@ -104,7 +105,7 @@ module HS
             call copy_(tmp, m)
 
             call create_cluster_for_mol(tmp, i)
-            call dump_file%open_group(trim("/"//chemical_formula(tmp%atom, .false.)))
+            call dump_file%open_group(trim("/"//to_str_(i)//"-"//chemical_formula(tmp%atom, .false.)))
             ! DO STUFF
             call make_surface(tmp, res)
 
@@ -162,21 +163,17 @@ module HS
 
         ! spherical harmonic decomposition
         call spherical_create(spherical)
-        call mat_real_create(surface,m%isosurface%n_pt, 3)
+        call mat_real_create(surface,3, m%isosurface%n_pt)
 
         if (.not. is_star_domain(m%isosurface%point, m%isosurface%point_gradient)) then
             print *, "WARNING: Surface is not a star domain, results might be useless..."
         end if
 
-        ! don't ask me why i transposed this, needs to be sorted out but it's minor
-        ! convert to angstroms???
-        surface = transpose(m%isosurface%point) * 0.5291772108d0
-        radius = get_surface_decomposition(coefficients,  &
-            dnorm_coefficients, &
-            l_max, 5810, &
-            surface, &
-            d_norm)
-
+        ! convert to angstroms? -- should be irrelevant
+        surface = m%isosurface%point
+                                  
+        call get_surface_decomposition(l_max, surface, d_norm, &
+                                       coefficients, dnorm_coefficients, radius)
 
         ! MAKE INVARIANTS (add radius to the end of call to factor in radius as an invariant)   
         call make_invariants(coefficients, l_max, invariants)
@@ -231,10 +228,6 @@ module HS
         ! SURFACE
         call dump_file%write("vertices", m%isosurface%point)
         call dump_file%write("indices", m%isosurface%face)
-        call dump_file%write("atoms_inside_surface", atoms_inside)
-        call dump_file%write("atoms_outside_surface", atoms_outside)
-        call dump_file%write("d_e_face_atoms", d_e_atoms)
-        call dump_file%write("d_i_face_atoms", d_i_atoms)
         call dump_file%write("surface_contribution", surface_contribution)
 
         ! SURFACE PROPERTIES
@@ -242,11 +235,6 @@ module HS
         call dump_file%write("d_e", d_e)
         call dump_file%write("d_i", d_i)
         call dump_file%write("d_norm", d_norm)
-        call dump_file%write("d_norm_i", d_norm_i)
-        call dump_file%write("d_norm_e", d_norm_e)
-
-        ! CIF INFO
-        call dump_file%write("unit_cell", unit_cell)
 
         ! SPHERICAL HARMONICS STUFF
         call dump_file%write("coefficients",coefficients)

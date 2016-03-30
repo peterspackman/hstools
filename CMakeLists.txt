@@ -15,7 +15,7 @@ set(CMAKE_INSTALL_PREFIX CACHE PATH "/usr/local/")
 include(ExternalProject)
 
 set(SRC
-    src/hs.f90
+    src/hs.F90
     src/h5file.f90
     src/main.f90
 )
