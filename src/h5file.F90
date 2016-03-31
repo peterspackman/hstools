@@ -14,6 +14,7 @@ module class_H5file
     integer, parameter :: f32 = selected_real_kind(real32)
     integer, parameter :: f64 = selected_real_kind(real64)
     integer, parameter :: f128 = selected_real_kind(real128)
+    integer, parameter :: diagnostic = 0
 
 
     type, public :: H5file
@@ -113,7 +114,7 @@ contains
     ! create file procedure
     subroutine init_hdf(this)
         class(H5file), intent(inout) :: this
-        integer, parameter :: diagnostic = 0, SUCCESS = 0
+        integer, parameter :: SUCCESS = 0
         call h5eset_auto_f(diagnostic, this%hdferr)
         if(.not. this%is_open) then
             call H5open_f(this%hdferr)
