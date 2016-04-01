@@ -6,14 +6,16 @@ module class_H5file
 
     implicit none
 
+    ! Kinds
     integer, parameter :: i8 = selected_int_kind(int8)
     integer, parameter :: i16 = selected_int_kind(int16)
     integer, parameter :: i32 = selected_int_kind(int32)
     integer, parameter :: i64 = selected_int_kind(int64)
-
     integer, parameter :: f32 = selected_real_kind(real32)
     integer, parameter :: f64 = selected_real_kind(real64)
     integer, parameter :: f128 = selected_real_kind(real128)
+
+    ! Constants for HDF5 parameters etc.
     integer, parameter :: diagnostic = 0
 
 
@@ -23,7 +25,6 @@ module class_H5file
         integer(hid_t) :: hdf_id ! file id
         character(len=256) :: current_group = "/"
         character(len=256) :: filename
-
         logical :: is_open
 
     contains
@@ -32,6 +33,9 @@ module class_H5file
         procedure :: open_group 
         procedure :: close_group
         procedure :: open_group_path
+        procedure :: valid_path
+
+
         generic, public :: write => write_str, write_str_1d, &
             write_f32_1d, write_f64_1d, write_i32_1d, write_i64_1d, &
             write_complex_f32_1d, write_complex_f64_1d, &
@@ -47,6 +51,10 @@ module class_H5file
             write_complex_f32_2d, write_complex_f64_2d, &
             write_f32_3d, write_f64_3d, write_i32_3d, write_i64_3d, &
             write_complex_f32_3d, write_complex_f64_3d
+
+ 
+        generic, public :: set_attr => set_attr_str, set_attr_i32_1d
+        procedure, private :: set_attr_str, set_attr_i32_1d
 
     end type
 
@@ -86,14 +94,15 @@ contains
         end select
     end subroutine 
 
+
     subroutine h5file_printf(this)
         class(H5file), intent(in) :: this
         print *, "--------------------------------------"
         print "(A11, A22)", "Filename", trim(this%filename)
-        print "(A11, I22)", "File id", this%hdf_id
+        print "(A11, I22)", "File ID", this%hdf_id
         print "(A11, L22)", "Open", this%is_open
         print "(A11, A22)", "Group", trim(this%current_group)
-        print "(A11, I22)", "Location id", this%loc_id 
+        print "(A11, I22)", "Location ID", this%loc_id 
         print *, "--------------------------------------"
     end subroutine
 
@@ -110,6 +119,7 @@ contains
         call init_hdf(new_H5file_1)
         new_H5file_1%loc_id = new_H5file_1%hdf_id
     end function
+
 
     ! create file procedure
     subroutine init_hdf(this)
@@ -162,6 +172,7 @@ contains
         endif
     end subroutine
 
+
     subroutine open_group_path(this, group_path)
         class(H5file), intent(inout) :: this
         character(len=*), intent(in) :: group_path
@@ -181,6 +192,7 @@ contains
         end do
     end subroutine
 
+
     subroutine close_group(this)
         class(H5file), intent(inout) :: this
         integer, parameter :: SUCCESS = 0
@@ -197,6 +209,11 @@ contains
         endif
     end subroutine
 
+    logical function valid_path(this, path)
+        class(H5file), intent(inout) :: this
+        character(len=*), intent(in):: path
+        call h5ltpath_valid_f(this%hdf_id, path, .true., valid_path, this%hdferr)
+    end function
 
     subroutine close_hdf(this)
         class(H5file), intent(inout) :: this
@@ -225,6 +242,7 @@ contains
         call h5ltmake_dataset_string_f(hdf_id, child, buffer, this%hdferr)
 
     end subroutine
+
 
     subroutine write_str_1d(this, dataset_name, buffer)
         class(H5file), intent(inout) :: this
@@ -267,6 +285,7 @@ contains
 
     end subroutine
 
+
     subroutine write_f32_1d(this, dataset_name, buffer)
         class(H5file), intent(inout):: this
         character(len=*), intent(in) :: dataset_name
@@ -302,6 +321,7 @@ contains
         call h5sclose_f(dspace_id,this%hdferr)
 
     end subroutine
+
 
     subroutine write_f64_1d(this, dataset_name, buffer)
         class(H5file), intent(inout):: this
@@ -339,7 +359,6 @@ contains
 
 
     end subroutine
-
 
 
     subroutine write_complex_f32_1d(this, dataset_name, buffer)
@@ -389,6 +408,7 @@ contains
         CALL h5sclose_f(dspace_id,this%hdferr)
 
     end subroutine
+
 
     subroutine write_complex_f64_1d(this, dataset_name, buffer)
         class(H5file), intent(inout) :: this
@@ -516,19 +536,18 @@ contains
 
     end subroutine
 
-    ! MATRIX METHODS
-
-    subroutine write_f32_2d(this, dataset_name, buffer)
+    ! BEGIN MATRIX METHODS
+    subroutine write_f32_2d(this, object_name, buffer)
         class(H5file), intent(inout):: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         real(kind=f32), dimension(:,:), target, intent(in) :: buffer
         integer(hsize_t), dimension(2) :: dims
         integer(hid_t) :: hdf_id, dset_id, dspace_id, type_id
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         hdf_id = this%loc_id
@@ -540,7 +559,7 @@ contains
         call h5screate_simple_f(2, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -554,17 +573,18 @@ contains
 
     end subroutine
 
-    subroutine write_f64_2d(this, dataset_name, buffer)
+
+    subroutine write_f64_2d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         real(kind=f64), dimension(:,:), target, intent(in) :: buffer
         integer(hsize_t), dimension(2) :: dims
         integer(hid_t) :: hdf_id, dset_id, dspace_id, type_id
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         hdf_id = this%loc_id
@@ -576,7 +596,7 @@ contains
         call h5screate_simple_f(2, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -587,20 +607,20 @@ contains
         ! close both the dataset and the dataspace
         call h5dclose_f(dset_id,this%hdferr)
         call h5sclose_f(dspace_id,this%hdferr)
-
     end subroutine
 
-    subroutine write_i32_2d(this, dataset_name, buffer)
+
+    subroutine write_i32_2d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         integer(kind=i32), dimension(:,:), target, intent(in) :: buffer
         integer(hsize_t), dimension(2) :: dims
         integer(hid_t) :: hdf_id, dset_id, dspace_id, type_id
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         hdf_id = this%loc_id
@@ -612,7 +632,7 @@ contains
         call h5screate_simple_f(2, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -623,21 +643,20 @@ contains
         ! close both the dataset and the dataspace
         call h5dclose_f(dset_id,this%hdferr)
         call h5sclose_f(dspace_id,this%hdferr)
-
-
     end subroutine
 
-    subroutine write_i64_2d(this, dataset_name, buffer)
+
+    subroutine write_i64_2d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         integer(kind=i64), dimension(:,:), target, intent(in) :: buffer
         integer(hid_t) :: hdf_id, dspace_id, kind_type, dset_id
         integer(hsize_t), dimension(2) :: dims
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         kind_type = h5kind_to_type(i64, H5_INTEGER_KIND)
@@ -651,7 +670,7 @@ contains
         call h5screate_simple_f(2, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, kind_type, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, kind_type, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -662,22 +681,21 @@ contains
         ! close both the dataset and the dataspace
         CALL h5dclose_f(dset_id,this%hdferr)
         CALL h5sclose_f(dspace_id,this%hdferr)
-
-
     end subroutine
 
-    subroutine write_complex_f32_2d(this, dataset_name, buffer)
+
+    subroutine write_complex_f32_2d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         complex(f32), dimension(:,:), target, intent(in) :: buffer
         integer(hid_t) :: hdf_id, type_id, dspace_id, kind_type, dset_id
         integer(hsize_t), dimension(2) :: dims
         integer(hsize_t) :: offset
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         kind_type = h5kind_to_type(f32, H5_REAL_KIND)
@@ -699,7 +717,7 @@ contains
         call h5tinsert_f(type_id, "i", offset, kind_type, this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer(1,1))
@@ -710,22 +728,21 @@ contains
         ! close both the dataset and the dataspace
         CALL h5dclose_f(dset_id,this%hdferr)
         CALL h5sclose_f(dspace_id,this%hdferr)
-
     end subroutine
 
 
-    subroutine write_complex_f64_2d(this, dataset_name, buffer)
+    subroutine write_complex_f64_2d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         complex(kind=f64), dimension(:,:), target, intent(in) :: buffer
         integer(hid_t) :: hdf_id, type_id, dspace_id, kind_type, dset_id
         integer(hsize_t), dimension(2) :: dims
         integer(hsize_t) :: offset
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         kind_type = h5kind_to_type(f64, H5_REAL_KIND)
@@ -748,7 +765,7 @@ contains
 
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer(1,1))
@@ -759,24 +776,22 @@ contains
         ! close both the dataset and the dataspace
         CALL h5dclose_f(dset_id,this%hdferr)
         CALL h5sclose_f(dspace_id,this%hdferr)
-
     end subroutine
 
     ! END OF MATRIX METHODS
+    ! BEGIN CUBE METHODS
 
-    ! CUBE METHODS
-
-    subroutine write_f32_3d(this, dataset_name, buffer)
+    subroutine write_f32_3d(this, object_name, buffer)
         class(H5file), intent(inout):: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         real(kind=f32), dimension(:,:,:), target, intent(in) :: buffer
         integer(hsize_t), dimension(3) :: dims
         integer(hid_t) :: hdf_id, dset_id, dspace_id, type_id
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         hdf_id = this%loc_id
@@ -788,7 +803,7 @@ contains
         call h5screate_simple_f(3, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -799,20 +814,20 @@ contains
         ! close both the dataset and the dataspace
         call h5dclose_f(dset_id,this%hdferr)
         call h5sclose_f(dspace_id,this%hdferr)
-
     end subroutine
 
-    subroutine write_f64_3d(this, dataset_name, buffer)
+
+    subroutine write_f64_3d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         real(kind=f64), dimension(:,:,:), target, intent(in) :: buffer
         integer(hsize_t), dimension(3) :: dims
         integer(hid_t) :: hdf_id, dset_id, dspace_id, type_id
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         hdf_id = this%loc_id
@@ -824,7 +839,7 @@ contains
         call h5screate_simple_f(3, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -835,20 +850,20 @@ contains
         ! close both the dataset and the dataspace
         call h5dclose_f(dset_id,this%hdferr)
         call h5sclose_f(dspace_id,this%hdferr)
-
     end subroutine
 
-    subroutine write_i32_3d(this, dataset_name, buffer)
+
+    subroutine write_i32_3d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         integer(kind=i32), dimension(:,:,:), target, intent(in) :: buffer
         integer(hsize_t), dimension(3) :: dims
         integer(hid_t) :: hdf_id, dset_id, dspace_id, type_id
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         hdf_id = this%loc_id
@@ -860,7 +875,7 @@ contains
         call h5screate_simple_f(3, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -871,21 +886,20 @@ contains
         ! close both the dataset and the dataspace
         call h5dclose_f(dset_id,this%hdferr)
         call h5sclose_f(dspace_id,this%hdferr)
-
-
     end subroutine
 
-    subroutine write_i64_3d(this, dataset_name, buffer)
+
+    subroutine write_i64_3d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         integer(kind=i64), dimension(:,:,:), target, intent(in) :: buffer
         integer(hid_t) :: hdf_id, dspace_id, kind_type, dset_id
         integer(hsize_t), dimension(3) :: dims
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         kind_type = h5kind_to_type(i64, H5_INTEGER_KIND)
@@ -899,7 +913,7 @@ contains
         call h5screate_simple_f(3, dims, dspace_id,this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, kind_type, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, kind_type, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer)
@@ -910,22 +924,21 @@ contains
         ! close both the dataset and the dataspace
         CALL h5dclose_f(dset_id,this%hdferr)
         CALL h5sclose_f(dspace_id,this%hdferr)
-
-
     end subroutine
 
-    subroutine write_complex_f32_3d(this, dataset_name, buffer)
+
+    subroutine write_complex_f32_3d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         complex(f32), dimension(:,:,:), target, intent(in) :: buffer
         integer(hid_t) :: hdf_id, type_id, dspace_id, kind_type, dset_id
         integer(hsize_t), dimension(3) :: dims
         integer(hsize_t) :: offset
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         kind_type = h5kind_to_type(f32, H5_REAL_KIND)
@@ -951,7 +964,7 @@ contains
         call h5tinsert_f(type_id, "i", offset, kind_type, this%hdferr)
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer(1,1,1))
@@ -962,22 +975,21 @@ contains
         ! close both the dataset and the dataspace
         CALL h5dclose_f(dset_id,this%hdferr)
         CALL h5sclose_f(dspace_id,this%hdferr)
-
     end subroutine
 
 
-    subroutine write_complex_f64_3d(this, dataset_name, buffer)
+    subroutine write_complex_f64_3d(this, object_name, buffer)
         class(H5file), intent(inout) :: this
-        character(len=*), intent(in) :: dataset_name
+        character(len=*), intent(in) :: object_name
         complex(kind=f64), dimension(:,:,:), target, intent(in) :: buffer
         integer(hid_t) :: hdf_id, type_id, dspace_id, kind_type, dset_id
         integer(hsize_t), dimension(3) :: dims
         integer(hsize_t) :: offset
         type(c_ptr) :: f_ptr
-        character(len=256) :: parent, child
+        character(len=256) :: group, dataset
 
-        call split(trim(dataset_name), "/", parent, child, .true.)
-        call open_group_path(this, parent)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
 
 
         kind_type = h5kind_to_type(f64, H5_REAL_KIND)
@@ -1000,7 +1012,7 @@ contains
 
 
         ! create a dataset in the file to write to
-        call h5dcreate_f(hdf_id, child, type_id, dspace_id, dset_id,this%hdferr)
+        call h5dcreate_f(hdf_id, dataset, type_id, dspace_id, dset_id,this%hdferr)
 
         ! this is dangerous(assumes array indexed from 1,1
         f_ptr = C_LOC(buffer(1,1,1))
@@ -1011,10 +1023,52 @@ contains
         ! close both the dataset and the dataspace
         CALL h5dclose_f(dset_id,this%hdferr)
         CALL h5sclose_f(dspace_id,this%hdferr)
+    end subroutine
+    ! END CUBE METHODS
 
+    ! Attribute methods
+    subroutine set_attr_str(this, object_name, attribute_name, buffer)
+        class(H5file), intent(inout) :: this
+        character(len=*), intent(in) :: object_name, attribute_name, buffer
+        character(len=256) :: group, dataset
+
+        if(.not. (this%valid_path(object_name))) then
+            print *, "Not a valid path"
+            return
+        endif
+
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
+        call h5ltset_attribute_string_f(this%loc_id, dataset, attribute_name, buffer, this%hdferr)
+
+        if(this%hdferr /= 0) then
+            print *, "Failed to set attribute?"
+        endif
     end subroutine
 
-    ! END OF CUBE METHODS
+
+    subroutine set_attr_i32_1d(this, object_name, attribute_name, buffer)
+        class(H5file), intent(inout) :: this
+        character(len=*), intent(in) :: object_name, attribute_name
+        integer, dimension(:), intent(in) :: buffer
+        integer(size_t) :: buffer_size
+        character(len=256) :: group, dataset
+
+        if(.not. (this%valid_path(object_name))) then
+            print *, "Not a valid path"
+            return
+        endif
+
+        buffer_size = c_sizeof(i32) * size(buffer)
+        call split(trim(object_name), "/", group, dataset, .true.)
+        call open_group_path(this, group)
+        call h5ltset_attribute_int_f(this%loc_id, dataset, attribute_name, buffer, buffer_size, this%hdferr)
+
+        if(this%hdferr /= 0) then
+            print *, "Failed to set attribute?"
+        endif
+    end subroutine
+
 
 
 end module

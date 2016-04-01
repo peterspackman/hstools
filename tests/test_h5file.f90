@@ -49,6 +49,8 @@ program test_h5file
     call test_file%write("/float/f64_3d", test_f64_3d)
     call test_file%write("/cpx/f32_3d", test_cf32_3d)
     call test_file%write("/cpx/f64_3d", test_cf64_3d)
+    print *, "/cpx/f64_3d is a valid path:", test_file%valid_path("/cpx/f64_3d")
+    print *, "/cpx/fblah_3d is a valid path:", test_file%valid_path("/cpx/fblah_3d")
 
     call test_file%print
     call test_file%close
