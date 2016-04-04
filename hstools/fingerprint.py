@@ -12,7 +12,8 @@ from .datafile import (
         batch_process,
         write_mat_file,
         DataFileReader,
-        FingerprintData
+        FingerprintData,
+        hexbin_plotfile
 )
 
 
@@ -44,17 +45,18 @@ def process_files(files, png=False, metric='sp', output=None):
         log("Need at least 2 things to compare!", cat='error')
         return
 
-    histograms, names = zip(*[(x.histogram, x.name.stem) for x in descriptors])
+    histograms, names = zip(*[(x.histogram, x.name) for x in descriptors])
     mat = np.array(list((map(flatten_hist, histograms))))
-    print(mat)
-
     clusters = cluster(mat)
     if output:
         write_mat_file(output,
                        mat,
                        np.array(names, dtype='S10'),
                        clusters)
+
     if png:
         prefix = os.path.curdir
         log('Writing files to {}'.format(prefix))
-        plot_file(x, y, fname=outfile, nbins=resolution)
+        for c in descriptors:
+            outfile = str(c.name.name) + '.png'
+            hexbin_plotfile(c.d_i, c.d_e, fname=outfile)

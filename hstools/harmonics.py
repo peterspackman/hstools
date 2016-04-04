@@ -50,7 +50,7 @@ def process_files(files, no_radius=False, mode='shape', output=None, **kwargs):
 
     radius, invariants, names = zip(*[(x.radius,
                                        x.invariants,
-                                       x.name.stem) for x in descriptors])
+                                       x.name) for x in descriptors])
 
     columns = [x for x in range(0, len(invariants[0]))]
     if not no_radius:

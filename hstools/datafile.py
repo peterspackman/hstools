@@ -9,6 +9,8 @@ from functools import reduce
 # Library imports
 import h5py
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 # Local imports
 from .calc import bin_data, get_contrib
@@ -78,17 +80,19 @@ class DataFileReader:
         self.object = obj
 
     def read(self, path):
-        outputs = {}
+        outputs = []
         try:
             with h5py.File(str(path), 'r') as f:
-                for k, v in self.attributes.items():
-                    if v not in f:
-                        log("Couldn't find dset: {} in {}".format(v, f),
-                            cat='error')
-                    outputs[k] = np.array(f[v])
-            outputs['name'] = path.absolute()
-
-            return self.object(**outputs)
+                for group in f:
+                    output = {}
+                    for k, v in self.attributes.items():
+                        if v not in f[group]:
+                            log("Couldn't find dataset: {} in group {}".format(v, g),
+                                cat='error')
+                        output[k] = np.array(f[group][v])
+                    output['name'] = path.stem + ('-' + group)
+                    outputs.append(output)
+            return [self.object(**output) for output in outputs]
 
         except TypeError as e:
             log(str(e))
@@ -118,15 +122,14 @@ def write_hdf5_file(fname, attributes):
             dset[...] = data[...]
 
 
-def standard_figure(figsize=(9, 9), dpi=400):
+def standard_figure(extent=[0.5, 2.5, 0.5, 2.5], figsize=(9, 9), dpi=400):
     import seaborn as sns
     f = plt.figure(figsize=figsize, dpi=dpi)
     sns.set(style='white')
-    cmap = mpl.cm.jet
-    extent = [0.5, 2.5, 0.5, 2.5]
+    cmap = mpl.cm.viridis
     ax = f.add_subplot(111, xlim=extent[0:2], ylim=extent[2:4])
-    plt.xticks(np.arange(0.5, 2.5, 0.2))
-    plt.yticks(np.arange(0.5, 2.5, 0.2))
+    plt.xticks(np.arange(extent[0], extent[1], 0.2))
+    plt.yticks(np.arange(extent[2], extent[3], 0.2))
     plt.grid(b=True, which='major', axis='both')
 
     ticklabelpad = mpl.rcParams['xtick.major.pad']
@@ -154,8 +157,10 @@ def kde_plotfile(x, y, fname='outhex.png'):
     plt.close()
 
 
-def hexbin_plotfile(x, y, fname='outhex.png', kind='log', nbins=10):
-    f, cmap, _, extent = standard_figure()
+def hexbin_plotfile(x, y, fname='outhex.png', kind='log', nbins=100):
+    extent = [min(0.5, np.min(x)), max(2.5, np.max(x)*1.2),
+              min(0.5, np.min(y)), max(2.5, np.max(y)*1.2)]
+    f, cmap, _, extent = standard_figure(extent=extent)
 
     plt.hexbin(x, y, mincnt=1, gridsize=nbins,
                cmap=cmap, bins=kind,
@@ -167,7 +172,7 @@ def hexbin_plotfile(x, y, fname='outhex.png', kind='log', nbins=10):
 
 
 # FILE FUNCTIONS
-def plotfile(x, y, fname='out.png', kind='linear', nbins=10):
+def plotfile(x, y, fname='out.png', kind='linear', nbins=100):
     """ Construct a histogram, plot it, then write the image as a png
     to a given filename."""
 
@@ -179,7 +184,7 @@ def plotfile(x, y, fname='out.png', kind='linear', nbins=10):
     H = np.rot90(H)
     H = np.flipud(H)
 
-    f, cmap, _, _ = standard_figure()
+    f, cmap, ax, _ = standard_figure()
 
     # this is the key step, the rest is formatting
     plt.pcolormesh(xedges, yedges, H,
@@ -217,7 +222,7 @@ def write_mat_file(fname, mat, names, clusters):
     d = defaultdict()
     log("Writing clustering data to  '{}'".format(str(fname)))
     d['matrix'] = np.array(mat)
-    d['names'] = np.array(names, dtype='<S8')
+    d['names'] = np.array(names, dtype='<S64')
     d['clusters'] = np.array(clusters)
     write_hdf5_file(fname, d)
 
@@ -237,7 +242,7 @@ def batch_process(files, reader, procs=4):
             for i, f in enumerate(concurrent.futures.as_completed(fs)):
                 vals.append(f.result())
 
-        vals = [x for x in vals if x is not None]
+        vals = [x for sublist in vals for x in sublist if sublist is not None]
 
         n_success = len(vals)
         if n_success < n:

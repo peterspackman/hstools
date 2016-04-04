@@ -1,4 +1,5 @@
 from plyfile import PlyElement, PlyData
+from tqdm import tqdm
 from scipy.special import sph_harm
 from collections import namedtuple
 import numpy as np
@@ -93,11 +94,10 @@ def get_HS_data(data, cmap='viridis_r'):
     verts = data.vertices
     colors = vertex_colors(data.property, cmap=cmap)
     faces = data.indices - 1
-    return verts, faces, colors
+    return data.name, verts, faces, colors
 
 
 def write_ply_file(verts, faces, colors, output_file='dump.ply'):
-    log("Writing file to {}".format(output_file))
     vertices = np.zeros(len(verts),
                         dtype=([('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
                                 ('red', 'u1'), ('green', 'u1'),
@@ -158,19 +158,21 @@ def process_files(files, reconstruct=False, output=None,
     Hirshfeld surface (with colouring) to a .ply file.
     """
     output_file = output
-    for f in files:
+    for f in tqdm(files, unit='file', leave=True):
         if reconstruct:
             reader = DataFileReader(coefficient_defaults, CoefficientsData)
             data = reader.read(f)
-            verts, faces, colors = get_delaunay_surface(data, lmax)
-            if not output:
-                output_file = f.stem + '-reconstructed.ply'
+            for group in tqdm(data, unit='HS', leave=True, nested=True):
+                verts, faces, colors = get_delaunay_surface(group, lmax)
+                if not output:
+                    output_file = group.name + '-reconstructed.ply'
+                write_ply_file(verts, faces, colors, output_file=output_file)
         else:
             hirshfeld_defaults['property'] = property
             reader = DataFileReader(hirshfeld_defaults, HirshfeldData)
             data = reader.read(f)
-            verts, faces, colors = get_HS_data(data,
-                                               cmap=cmap)
-            if not output:
-                output_file = f.stem + '-hirshfeld.ply'
-        write_ply_file(verts, faces, colors, output_file=output_file)
+            for group in tqdm(data, unit='HS', nested=True):
+                name, verts, faces, colors = get_HS_data(group, cmap=cmap)
+                if not output:
+                    output_file = name + '-hirshfeld.ply'
+                write_ply_file(verts, faces, colors, output_file=output_file)

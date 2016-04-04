@@ -1,16 +1,8 @@
-import click
-import os.path
 import matplotlib
 from pathlib import Path
-
+import argparse
 from hstools.harmonics import modes as harmonics_modes
 from hstools.config import Timer, log
-
-# Library imports
-
-# Local imports
-available_commands = ['harmonics', 'fingerprint',
-                      'surface', 'mesh']
 
 
 def read_paths(patterns, suffix, process_files, **kwargs):
@@ -21,46 +13,28 @@ def read_paths(patterns, suffix, process_files, **kwargs):
     kwargs as the arguments.
 
     """
-    files = []
-
-    match = '*.{}'.format(suffix)
+    files = set()
+    needle = '*.{}'.format(suffix)
     for pattern in patterns:
-        p = Path(pattern)
+        p = Path(pattern).resolve()
         if p.is_dir():
-            matches = list(p.glob(match))
+            matches = list(p.glob(needle))
             if len(matches) <= 0:
-                log("No HDF5 files in '{}'".format(p.absolute()),
+                log("No files in '{}' matching '{}'".format(
+                        p.absolute(),
+                        needle),
                     cat='warning')
-            files += matches
+            files = files.union(matches)
         elif p.is_file():
-            files.append(p)
+            files.add(p)
 
     if len(files) > 0:
         process_files(files, **kwargs)
     else:
-        log('No files to process.', cat='error')
+        log('No files to process.', cat='warning')
 
 
-@click.group()
-@click.option('--version/-v', default=False, is_flag=True)
-def cli(version):
-    if version:
-        log('VERSION INFO')
-        sys.exit(0)
-
-
-@cli.command()
-@click.option('--output', default=None, is_flag=False,
-              help='write out clustering to given HDF5 file name')
-@click.option('--property', type=click.Choice(list(harmonics_modes.keys())),
-              default='shape',
-              help='property on which to base the clustering')
-@click.option('--suffix', default='h5',
-              help='suffix for HDF5 files to look for')
-@click.option('--no-radius', default=False,
-              help="don't use mean radius in the clustering")
-@click.argument('paths', type=click.Path(exists=True), nargs=-1)
-def harmonics(paths, output, property, suffix, no_radius):
+def harmonics(args):
     """
     Cluster based on rotationally invariant spherical harmonic shape
     descriptors.
@@ -70,21 +44,12 @@ def harmonics(paths, output, property, suffix, no_radius):
     in a hierarchical clustering.
     """
     from hstools.harmonics import process_files
-    with Timer() as t:
-        read_paths(paths, suffix, process_files,
-                   no_radius=no_radius, mode=property, output=output)
-    log('Complete {}'.format(t))
+    read_paths(args.paths, args.suffix, process_files,
+               no_radius=args.no_radius,
+               output=args.output)
 
 
-@cli.command()
-@click.option('--png / -p', default=False,
-              help='output all hstools fingerprints to PNG image files.')
-@click.option('--suffix', default='h5',
-              help='suffix for HDF5 files to look for')
-@click.option('--output', default='fingerprints.h5', is_flag=False,
-              help='write out clustering to given HDF5 file name')
-@click.argument('paths', nargs=-1)
-def fingerprint(paths, png, suffix, output):
+def fingerprint(args):
     """
     Cluster based on Hirshfeld fingerprints as descriptors.
 
@@ -94,63 +59,87 @@ def fingerprint(paths, png, suffix, output):
     for a hierarchical clustering.
     """
     from hstools.fingerprint import process_files
-    with Timer() as t:
-        read_paths(paths, suffix, process_files,
-                   png=png, output=output)
-        log('Complete {}'.format(t))
+    read_paths(args.paths, args.suffix, process_files,
+               png=args.make_figures, output=args.output)
 
 
-@cli.command()
-@click.option('--suffix', default='h5',
-              help='suffix for HDF5 files to look for')
-@click.argument('paths', nargs=-1)
-def surface(paths, suffix):
+def surface(args):
     """
     Calculate Hirshfeld surface composition descriptors.
 
     """
     from hstools.surface import process_files
-    with Timer() as t:
-        read_paths(paths, suffix, process_files)
-    log('Complete {}'.format(t))
+    read_paths(args.paths, args.suffix, process_files)
 
 
-@cli.command()
-@click.option('--reconstruct/-r',
-              help='generate the surface from the coefficients')
-@click.option('--suffix', default='h5',
-              help='suffix for HDF5 files to look for')
-@click.option('--colors', default='viridis_r',
-              type=click.Choice(matplotlib.pyplot.colormaps()),
-              help='colormap for property on the surface')
-@click.option('--property', default='d_norm',
-              type=click.Choice(['d_norm', 'd_i', 'd_e', 'curvature']))
-@click.option('--lmax', default=9)
-@click.option('--output', default=None)
-@click.argument('paths', nargs=-1)
-def mesh(paths, suffix, reconstruct, colors, property, lmax, output):
+def mesh(args):
     """
     Export/generate .ply files from HDF5 data
     """
     from hstools.mesh import process_files
-    with Timer() as t:
-        read_paths(paths, suffix, process_files,
-                   reconstruct=reconstruct, cmap=colors,
-                   property=property, lmax=lmax, output=output)
-    log('Complete {}'.format(t))
+    read_paths(args.paths, args.suffix, process_files,
+               reconstruct=args.reconstruct, cmap=args.colormap,
+               property=args.property, lmax=args.lmax, output=args.output)
 
-@cli.command()
-@click.option('--suffix', default='cif',
-              help='suffix for CIF files to look for')
-@click.option('--property', default='d_norm', type=click.Choice(['d_norm', 'd_i', 'd_e', 'curvature']))
-@click.option('--lmax', default=9)
-@click.argument('paths', nargs=-1)
+
 def describe(paths, suffix, property, lmax):
     """
     process CIF files
     """
     from hstools.describe import process_files
     with Timer() as t:
-        read_paths(paths, suffix, process_files, 
+        read_paths(paths, suffix, process_files,
                    property=property, lmax=lmax)
+    log('Complete {}'.format(t))
+
+
+def cli():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    # HARMONICS
+    harmonics_p = subparsers.add_parser('harmonics')
+    harmonics_p.add_argument('paths', nargs='*')
+    harmonics_p.add_argument('--suffix', default='h5',
+                             help='suffix for HDF5 files to look for')
+    harmonics_p.add_argument('--output', default=None)
+    harmonics_p.add_argument('--no-radius', action='store_true')
+    harmonics_p.set_defaults(func=harmonics)
+
+    # FINGERPRINT
+    fingerprint_p = subparsers.add_parser('fingerprint')
+    fingerprint_p.add_argument('paths', nargs='*')
+    fingerprint_p.add_argument('--suffix', default='h5',
+                               help='suffix for HDF5 files to look for')
+    fingerprint_p.add_argument('--make-figures', action='store_true')
+    fingerprint_p.add_argument('--output', default=None)
+    fingerprint_p.set_defaults(func=fingerprint)
+
+    # SURFACE
+    surface_p = subparsers.add_parser('surface')
+    surface_p.add_argument('paths', nargs='*')
+    surface_p.add_argument('--suffix', default='h5',
+                           help='suffix for HDF5 files to look for')
+    surface_p.set_defaults(func=surface)
+
+    # MESH
+    mesh_p = subparsers.add_parser('mesh')
+    mesh_p.add_argument('paths', nargs='*')
+    mesh_p.add_argument('--suffix', default='h5',
+                        help='suffix for HDF5 files to look for')
+    mesh_p.add_argument('--property', default='d_norm',
+                        choices={'d_norm', 'd_i', 'd_e', 'curvature'},
+                        help='property to decorate HS')
+    mesh_p.add_argument('--reconstruct', action='store_true',
+                        help='generate HS from coefficients')
+    mesh_p.add_argument('--colormap',
+                        help='map to color the surface based on property')
+    mesh_p.add_argument('--lmax', default=9,
+                        help='maximum l-value to use for reconstruction')
+    mesh_p.add_argument('--output', default=None)
+    mesh_p.set_defaults(func=mesh)
+
+    with Timer() as t:
+        args = parser.parse_args()
+        args.func(args)
     log('Complete {}'.format(t))

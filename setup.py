@@ -2,10 +2,9 @@ from setuptools import setup
 
 setup(
     name='hstools',
-    version='2016.14.01',
+    version='2016.04.04',
     py_modules='hstools',
     install_requires=[
-      'click',
       'fastcluster',
       'h5py',
       'hdbscan',
