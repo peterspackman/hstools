@@ -30,7 +30,7 @@ def cluster(raw_data, method=HDBSCAN, **kwargs):
     return clusterer.fit_predict(raw_data)
 
 
-def key_from_indices(i, j, order=False):
+def interaction(i, j, order=False):
     symbols = (str(elements[i+1]), str(elements[j+1]))
     if order:
         return "{0} -> {1}".format(*symbols)
@@ -51,7 +51,7 @@ def get_contrib(sa, order=False):
 
     for i, j in np.transpose(np.nonzero(sa)):
         # Key in the form "internal -> external" e.g. "F -> H"
-        key = key_from_indices(i, j, order=order)
+        key = interaction(i, j, order=order)
         contrib[key] += sa[i, j]
 
     for x in contrib:

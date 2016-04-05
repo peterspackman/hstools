@@ -84,7 +84,8 @@ def mesh(args):
 
 def describe(paths, suffix, property, lmax):
     """
-    process CIF files
+    TODO
+    process CIF files, describing the hirshfeld surface
     """
     from hstools.describe import process_files
     with Timer() as t:
@@ -94,6 +95,9 @@ def describe(paths, suffix, property, lmax):
 
 
 def cli():
+    """
+    Entry point for the program
+    """
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 

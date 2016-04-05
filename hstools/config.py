@@ -1,12 +1,10 @@
 """
     A module to store any global information
-    such as the Van Der Waal's radii for various
-    elements etc.
+    or configuration
 """
-import click
 from timeit import default_timer
 
-fg_colors = {'info': 'white', 'error': 'red', 'warning': 'yellow'}
+_prefix = {'info': '', 'error': 'ERR: ', 'warning': 'warning: '}
 
 
 class Timer(object):
@@ -39,26 +37,5 @@ class Timer(object):
             mins = (self.elapsed_s - secs) // 60
             return '{} mins {:6.3f} s'.format(mins, secs)
 
-
-def logClosestPair(mat, names):
-    import numpy as np
-    np.fill_diagonal(mat, np.inf)
-    x = np.nanargmin(mat)
-    ind = (x//len(names), x % len(names))
-    a = str(names[ind[0]])
-    b = str(names[ind[1]])
-    log('Closest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
-    np.fill_diagonal(mat, 0.0)
-
-
-def logFarthestPair(mat, names):
-    import numpy as np
-    x = np.nanargmax(mat)
-    ind = (x//len(names), x % len(names))
-    a = str(names[ind[0]])
-    b = str(names[ind[1]])
-    log('Farthest pair: {0}, d= {1:.5f}'.format((a, b), mat[ind]))
-
-
 def log(s, cat='info'):
-    click.echo(click.style(s, fg=fg_colors[cat]))
+    print(_prefix[cat] + s)
