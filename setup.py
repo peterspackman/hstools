@@ -17,8 +17,7 @@ setup(
       'scipy',
       'tqdm',
       ],
-    entry_points='''
-      [console_scripts]
-      hstools=run:cli
-    ''',
-    )
+    entry_points= {
+      'console_scripts': ['hstools=hstools.command_line:main'],
+    }
+)

@@ -93,7 +93,7 @@ def describe(args):
                surface_property=args.property, lmax=args.lmax)
 
 
-def cli():
+def main():
     """
     Entry point for the program
     """
