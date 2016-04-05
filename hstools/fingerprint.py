@@ -4,6 +4,7 @@ import sys
 
 # Library imports
 import numpy as np
+from tqdm import tqdm
 
 # Local imports
 from .calc import cluster
@@ -56,7 +57,7 @@ def process_files(files, png=False, metric='sp', output=None):
 
     if png:
         prefix = os.path.curdir
-        log('Writing files to {}'.format(prefix))
-        for c in descriptors:
-            outfile = str(c.name.name) + '.png'
+        log('Writing fingerprint plot files to {}'.format(prefix))
+        for c in tqdm(descriptors, unit='figure'):
+            outfile = str(c.name) + '.png'
             hexbin_plotfile(c.d_i, c.d_e, fname=outfile)

@@ -94,7 +94,7 @@ def get_HS_data(data, cmap='viridis_r'):
     verts = data.vertices
     colors = vertex_colors(data.property, cmap=cmap)
     faces = data.indices - 1
-    return data.name, verts, faces, colors
+    return verts, faces, colors
 
 
 def write_ply_file(verts, faces, colors, output_file='dump.ply'):
@@ -158,21 +158,19 @@ def process_files(files, reconstruct=False, output=None,
     Hirshfeld surface (with colouring) to a .ply file.
     """
     output_file = output
+    if reconstruct:
+        reader = DataFileReader(coefficient_defaults, CoefficientsData)
+        suffix = '-reconstructed-HS.ply'
+        get_surface = lambda g: get_delaunay_surface(g, lmax)
+    else:
+        hirshfeld_defaults['property'] = property
+        reader = DataFileReader(hirshfeld_defaults, HirshfeldData)
+        suffix = '-HS.ply'
+        get_surface = lambda g: get_HS_data(g, cmap=cmap)
+
     for f in tqdm(files, unit='file', leave=True):
-        if reconstruct:
-            reader = DataFileReader(coefficient_defaults, CoefficientsData)
-            data = reader.read(f)
-            for group in tqdm(data, unit='HS', leave=True, nested=True):
-                verts, faces, colors = get_delaunay_surface(group, lmax)
-                if not output:
-                    output_file = group.name + '-reconstructed.ply'
-                write_ply_file(verts, faces, colors, output_file=output_file)
-        else:
-            hirshfeld_defaults['property'] = property
-            reader = DataFileReader(hirshfeld_defaults, HirshfeldData)
-            data = reader.read(f)
-            for group in tqdm(data, unit='HS', nested=True):
-                name, verts, faces, colors = get_HS_data(group, cmap=cmap)
-                if not output:
-                    output_file = name + '-hirshfeld.ply'
-                write_ply_file(verts, faces, colors, output_file=output_file)
+        data = reader.read(f)
+        for group in tqdm(data, unit='HS', leave=True, nested=True):
+            verts, faces, colors = get_surface(group)
+            output_file = group.name + suffix
+            write_ply_file(verts, faces, colors, output_file=output_file)

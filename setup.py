@@ -15,6 +15,7 @@ setup(
       'progressive',
       'scikit-learn',
       'scipy',
+      'tqdm',
       ],
     entry_points='''
       [console_scripts]

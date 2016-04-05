@@ -132,7 +132,7 @@ def cli():
                         help='property to decorate HS')
     mesh_p.add_argument('--reconstruct', action='store_true',
                         help='generate HS from coefficients')
-    mesh_p.add_argument('--colormap',
+    mesh_p.add_argument('--colormap', default='viridis_r',
                         help='map to color the surface based on property')
     mesh_p.add_argument('--lmax', default=9,
                         help='maximum l-value to use for reconstruction')

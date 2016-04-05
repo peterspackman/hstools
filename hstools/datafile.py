@@ -122,23 +122,22 @@ def write_hdf5_file(fname, attributes):
             dset[...] = data[...]
 
 
-def standard_figure(extent=[0.5, 2.5, 0.5, 2.5], figsize=(9, 9), dpi=400):
-    import seaborn as sns
+def standard_figure(extent=[0.5, 2.5, 0.5, 2.5], figsize=(4, 4), dpi=300):
+    plt.style.use('seaborn-white')
     f = plt.figure(figsize=figsize, dpi=dpi)
-    sns.set(style='white')
     cmap = mpl.cm.viridis
     ax = f.add_subplot(111, xlim=extent[0:2], ylim=extent[2:4])
-    plt.xticks(np.arange(extent[0], extent[1], 0.2))
-    plt.yticks(np.arange(extent[2], extent[3], 0.2))
+    plt.xticks(np.arange(extent[0], extent[1], (extent[1] - extent[0])/5))
+    plt.yticks(np.arange(extent[2], extent[3], (extent[3] - extent[2])/5))
     plt.grid(b=True, which='major', axis='both')
 
     ticklabelpad = mpl.rcParams['xtick.major.pad']
 
     # Label our graph axes in nice places!
-    plt.annotate(r'$d_i$', fontsize=20, xy=(1, 0), xytext=(5, - ticklabelpad),
+    plt.annotate(r'$d_i$', fontsize=14, xy=(1, 0), xytext=(5, - ticklabelpad),
                  ha='left', va='top', xycoords='axes fraction',
                  textcoords='offset points')
-    plt.annotate(r'$d_e$', fontsize=20, xy=(0, 1.02),
+    plt.annotate(r'$d_e$', fontsize=14, xy=(0, 1.02),
                  xytext=(5, - ticklabelpad), ha='right',
                  va='bottom', xycoords='axes fraction',
                  textcoords='offset points')
@@ -229,9 +228,9 @@ def write_mat_file(fname, mat, names, clusters):
 
 def batch_process(files, reader, procs=4):
     """
-    Takes a list of files and a reader class, and calls
+    Takes a list of files and a reader class, and
     constructs instances of the given class from data
-    in the files
+    in the files using ProcessPoolExecutor
     """
     n = len(files)
     with Timer() as t:
@@ -252,16 +251,3 @@ def batch_process(files, reader, procs=4):
     log("Read {1} files in {0}".format(t, n))
 
     return sorted(vals, key=lambda x: x.name)
-
-
-def get_files_from_pattern(file_pattern):
-    if isinstance(file_pattern, list):
-        return reduce(lambda x, y: x + y,
-                      [get_files_from_pattern(f) for f in file_pattern])
-    else:
-        if os.path.isfile(file_pattern):
-            return [file_pattern]
-        elif os.path.isdir(file_pattern):
-            return sorted(glob.glob(os.path.join(file_pattern, '*.h5')))
-        else:
-            return sorted(glob.glob(file_pattern))
