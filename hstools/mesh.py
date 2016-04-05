@@ -1,20 +1,22 @@
+"""
+Command line functionality for export/reconstructing HS
+from HDF5 files
+"""
+from collections import namedtuple
 from plyfile import PlyElement, PlyData
 from tqdm import tqdm
 from scipy.special import sph_harm
-from collections import namedtuple
+from scipy.spatial import ConvexHull
 import numpy as np
 import matplotlib as mpl
-from scipy.spatial import ConvexHull
-from pathlib import Path
 
 from .datafile import DataFileReader
-from .config import log
 from .lebedev import lebedev_grid
 
-hirshfeld_defaults = {'vertices': 'vertices',
+HIRSHFELD_DEFAULTS = {'vertices': 'vertices',
                       'indices': 'indices',
                       'property': 'd_norm'}
-coefficient_defaults = {'coefficients': 'coefficients',
+COEFFICIENT_DEFAULTS = {'coefficients': 'coefficients',
                         'property_coefficients': 'dnorm_coefficients',
                         'radius': 'radius'}
 
@@ -33,9 +35,9 @@ def cartesian_to_spherical(xyz):
     return an N by 3 array of Cartesian(x, y, z) coordinates.
     """
     rtp = np.zeros(xyz.shape)
-    xy = xyz[:, 0]**2 + xyz[:, 1]**2
-    rtp[:, 0] = np.sqrt(xy + xyz[:, 2]**2)
-    rtp[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(xy)) + np.pi/2
+    x_y = xyz[:, 0]**2 + xyz[:, 1]**2
+    rtp[:, 0] = np.sqrt(x_y + xyz[:, 2]**2)
+    rtp[:, 1] = np.arctan2(xyz[:, 2], np.sqrt(x_y)) + np.pi/2
     rtp[:, 2] = np.arctan2(xyz[:, 1], xyz[:, 0]) + np.pi
     return rtp
 
@@ -54,33 +56,34 @@ def spherical_to_cartesian(rtp):
     return xyz
 
 
-def color_function(val, min_value, max_value, surface_property='d_norm'):
-    startColor = RGB(255, 0, 0)
-    midColor = RGB(255, 255, 255)
-    endColor = RGB(0, 0, 255)
-    LIMIT = 0.0001
+def color_function(val, min_value, max_value):
+    """Assign colors as floats based on min/max value and an data"""
+    start_color = RGB(255, 0, 0)
+    mid_color = RGB(255, 255, 255)
+    end_color = RGB(0, 0, 255)
     val = (val)/(max_value - min_value)
     if val < 0.0:
         factor = 1.0 - val / min_value
-        color = startColor
+        color = start_color
     else:
         factor = 1.0 - val / max_value
-        color = endColor
+        color = end_color
 
     if factor > 0.0:
-        return RGB(int(color.red + (midColor.red - color.red) * factor),
-                   int(color.green + (midColor.green - color.green) * factor),
-                   int(color.blue + (midColor.blue - color.blue) * factor))
+        return RGB(int(color.red + (mid_color.red - color.red) * factor),
+                   int(color.green + (mid_color.green - color.green) * factor),
+                   int(color.blue + (mid_color.blue - color.blue) * factor))
     else:
         return color
 
 
 def map_viridis(data, norm=None, cmap='viridis_r'):
-    m = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
-    return m.to_rgba(data)
+    """Map the viridis colormap to an array of data"""
+    return mpl.cm.ScalarMappable(norm=norm, cmap=cmap).to_rgba(data)
 
 
 def vertex_colors(property_values, cmap='viridis_r'):
+    """Given an array of property values, return an array of colors"""
     minima = np.min(property_values)
     maxima = np.max(property_values)
     norm = mpl.colors.Normalize(vmin=minima, vmax=maxima)
@@ -90,7 +93,8 @@ def vertex_colors(property_values, cmap='viridis_r'):
     return rgb
 
 
-def get_HS_data(data, cmap='viridis_r'):
+def get_hs_data(data, cmap='viridis_r'):
+    """Get the HS data out of a DataReader object"""
     verts = data.vertices
     colors = vertex_colors(data.property, cmap=cmap)
     faces = data.indices - 1
@@ -98,6 +102,7 @@ def get_HS_data(data, cmap='viridis_r'):
 
 
 def write_ply_file(verts, faces, colors, output_file='dump.ply'):
+    """Write a set of vertices, faces and colors to a .ply file"""
     vertices = np.zeros(len(verts),
                         dtype=([('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
                                 ('red', 'u1'), ('green', 'u1'),
@@ -128,6 +133,7 @@ def write_ply_file(verts, faces, colors, output_file='dump.ply'):
 
 
 def get_delaunay_surface(data, lmax):
+    """Reconstruct the HS by distorting a sphere"""
     grid = lebedev_grid(degree=131)
     sphere_rtp = np.zeros(grid.shape)
     sphere_rtp[:, 0] = 1.0
@@ -135,41 +141,40 @@ def get_delaunay_surface(data, lmax):
     sphere_rtp[:, 2] = grid[:, 0]
     verts = sphere_rtp.copy()
     sphere = spherical_to_cartesian(sphere_rtp)
-    r = np.zeros(len(verts), dtype=np.complex)
+    radius = np.zeros(len(verts), dtype=np.complex)
     colors = np.zeros(len(verts), dtype=np.complex)
-    lm = 0
-    for l in range(0, lmax+1):
-        for m in range(-l, l+1):
+    l_m = 0
+    for l in range(0, lmax + 1):
+        for m in range(-l, l + 1):
             ylm = sph_harm(m, l, grid[:, 0], grid[:, 1])
-            r[:] += data.coefficients[lm] * ylm
-            colors[:] += data.property_coefficients[lm] * ylm
-            lm += 1
-    verts[:, 0] = r[:].real
+            radius[:] += data.coefficients[l_m] * ylm
+            colors[:] += data.property_coefficients[l_m] * ylm
+            l_m += 1
+    verts[:, 0] = radius[:].real
     verts = spherical_to_cartesian(verts) * data.radius
-    colors *= 4*np.pi
+    colors *= 4 * np.pi
     faces = ConvexHull(sphere).simplices
     return verts, faces, vertex_colors(colors.real)
 
 
-def process_files(files, reconstruct=False, output=None,
-                  property='d_norm', cmap='viridis_r', lmax=9):
+def process_files(files, reconstruct=False, lmax=9, **kwargs):
     """
     Given a list of HDF5 files, export/reconstruct their
     Hirshfeld surface (with colouring) to a .ply file.
     """
-    output_file = output
+    cmap = kwargs.get('cmap', 'viridis_r')
     if reconstruct:
-        reader = DataFileReader(coefficient_defaults, CoefficientsData)
+        reader = DataFileReader(COEFFICIENT_DEFAULTS, CoefficientsData)
         suffix = '-reconstructed-HS.ply'
         get_surface = lambda g: get_delaunay_surface(g, lmax)
     else:
-        hirshfeld_defaults['property'] = property
-        reader = DataFileReader(hirshfeld_defaults, HirshfeldData)
+        HIRSHFELD_DEFAULTS['property'] = kwargs.get('property', 'd_norm')
+        reader = DataFileReader(HIRSHFELD_DEFAULTS, HirshfeldData)
         suffix = '-HS.ply'
-        get_surface = lambda g: get_HS_data(g, cmap=cmap)
+        get_surface = lambda g: get_hs_data(g, cmap=cmap)
 
-    for f in tqdm(files, unit='file', leave=True):
-        data = reader.read(f)
+    for path in tqdm(files, unit='file', leave=True):
+        data = reader.read(path)
         for group in tqdm(data, unit='HS', leave=True, nested=True):
             verts, faces, colors = get_surface(group)
             output_file = group.name + suffix

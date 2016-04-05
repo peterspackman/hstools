@@ -1,7 +1,8 @@
-import matplotlib
-from pathlib import Path
+"""
+Entry point for hstools script
+"""
 import argparse
-from hstools.harmonics import modes as harmonics_modes
+from pathlib import Path
 from hstools.config import Timer, log
 
 
@@ -16,17 +17,17 @@ def read_paths(patterns, suffix, process_files, **kwargs):
     files = set()
     needle = '*.{}'.format(suffix)
     for pattern in patterns:
-        p = Path(pattern).resolve()
-        if p.is_dir():
-            matches = list(p.glob(needle))
-            if len(matches) <= 0:
+        path = Path(pattern).resolve()
+        if path.is_dir():
+            matches = list(path.glob(needle))
+            if len(matches) < 1:
                 log("No files in '{}' matching '{}'".format(
-                        p.absolute(),
-                        needle),
+                    path.absolute(),
+                    needle),
                     cat='warning')
             files = files.union(matches)
-        elif p.is_file():
-            files.add(p)
+        elif path.is_file():
+            files.add(path)
 
     if len(files) > 0:
         process_files(files, **kwargs)
@@ -79,19 +80,17 @@ def mesh(args):
     from hstools.mesh import process_files
     read_paths(args.paths, args.suffix, process_files,
                reconstruct=args.reconstruct, cmap=args.colormap,
-               property=args.property, lmax=args.lmax, output=args.output)
+               surface_property=args.property, lmax=args.lmax, output=args.output)
 
 
-def describe(paths, suffix, property, lmax):
+def describe(args):
     """
     TODO
     process CIF files, describing the hirshfeld surface
     """
     from hstools.describe import process_files
-    with Timer() as t:
-        read_paths(paths, suffix, process_files,
-                   property=property, lmax=lmax)
-    log('Complete {}'.format(t))
+    read_paths(args.paths, args.suffix, process_files,
+               surface_property=args.property, lmax=args.lmax)
 
 
 def cli():
@@ -143,7 +142,7 @@ def cli():
     mesh_p.add_argument('--output', default=None)
     mesh_p.set_defaults(func=mesh)
 
-    with Timer() as t:
+    with Timer() as time:
         args = parser.parse_args()
         args.func(args)
-    log('Complete {}'.format(t))
+    log('Complete {}'.format(time))

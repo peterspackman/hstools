@@ -1,15 +1,15 @@
-import os
-from collections import OrderedDict
-
+"""
+Command line interface for writing information about SA contribution
+based on interatomic interactions on the surface
+"""
 from .config import log
 from .datafile import (
-        DataFileReader,
-        SurfaceData,
-        batch_process,
-        write_sa_file
+    DataFileReader,
+    SurfaceData,
+    batch_process,
 )
 
-surface_keys = {'contributions': 'surface_contribution', 'formula': 'formula'}
+SURFACE_KEYS = {'contributions': 'surface_contribution'} 
 
 
 def process_files(files, output=None):
@@ -19,25 +19,21 @@ def process_files(files, output=None):
 
     Returns a list of SurfaceData objects
     """
-    reader = DataFileReader(surface_keys,
+    reader = DataFileReader(SURFACE_KEYS,
                             SurfaceData)
 
     surfaces = batch_process(files, reader)
 
-    # If we are writing to file
+    # TODO
     if output:
-        write_sa_file(fname, surfaces)
+        pass
 
-    # Otherwise we are printing to stdout
-    else:
-        for x in surfaces:
-            log('Molecular Formula: {0}'.format(str(x.formula, 'utf-8')))
-            if x.contributions is None:
-                log(' -- Nil--')
-
-            d = OrderedDict(sorted(x.contributions_dict.items(),
-                                   key=lambda t: t[0]))
-            for k, v in iter(d.items()):
-                log('{0}: {1:.2%}'.format(k, v))
+    for surface in surfaces:
+        log('Molecular Formula: {0}'.format(surface.name.split('-')[-1]))
+        if surface.contributions is None:
+            log(' -- Nil--')
+        else:
+            for key, value in surface.contributions_dict.items():
+                log('{0}: {1:.2%}'.format(key, value))
 
     return surfaces

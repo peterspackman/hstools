@@ -1,4 +1,6 @@
-from .lebedev import lebedev_grid
+"""
+Command line interface for describing HS with spherical harmonics
+"""
 
 def process_files(files, **kwargs):
     """
@@ -6,5 +8,3 @@ def process_files(files, **kwargs):
     shape descriptors 
     """
     print("NOT IMPLEMENTED")
-    for f in files:
-        pass

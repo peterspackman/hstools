@@ -4,7 +4,7 @@
 """
 from timeit import default_timer
 
-_prefix = {'info': '', 'error': 'ERR: ', 'warning': 'warning: '}
+PREFIX = {'info': '', 'error': 'ERR: ', 'warning': 'warning: '}
 
 
 class Timer(object):
@@ -37,5 +37,6 @@ class Timer(object):
             mins = (self.elapsed_s - secs) // 60
             return '{} mins {:6.3f} s'.format(mins, secs)
 
-def log(s, cat='info'):
-    print(_prefix[cat] + s)
+def log(string, cat='info'):
+    """Write s to stdout, with prefix based on category"""
+    print(PREFIX[cat] + string)

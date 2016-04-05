@@ -1,6 +1,7 @@
-# Core imports
-import os
-
+"""
+Command line functionality for clustering HS based on
+spherical harmonic shape descriptors
+"""
 # Library imports
 import numpy as np
 import pandas as pd
@@ -10,37 +11,41 @@ from hdbscan import HDBSCAN
 from .calc import cluster
 from .config import log
 from .datafile import (
-        batch_process,
-        write_mat_file,
-        DataFileReader,
-        HarmonicsData
-        )
+    batch_process,
+    DataFileReader,
+    HarmonicsData
+)
 
-shape_keys = {'radius': 'radius',
+SHAPE_KEYS = {'radius': 'radius',
               'coefficients': 'coefficients',
               'invariants': 'invariants'}
 
-dnorm_keys = {'radius': 'radius',
+DNORM_KEYS = {'radius': 'radius',
               'coefficients': 'dnorm_coefficients',
               'invariants': 'dnorm_invariants'}
 
-modes = {'shape': shape_keys, 'dnorm': dnorm_keys}
+MODES = {'shape': SHAPE_KEYS, 'dnorm': DNORM_KEYS}
 
+def make_dataframe(invariants, names, clusters, columns):
+    """ Construct a dataframe for the invariants, names, clusters """
+    output_data = pd.DataFrame(invariants, columns=columns)
+    output_data['name'] = names
+    output_data['cluster'] = clusters
 
-def process_files(files, no_radius=False, mode='shape', output=None, **kwargs):
+def process_files(files, no_radius=False, mode='shape', **kwargs):
     """
     Given a list of hdf5 files (Path objects), read the spherical harmonics
     shape descriptors data, then perform a clustering on the results.
 
-    Returns df, a pandas.DataFrame object containing the data
+    Returns output_data, a pandas.DataFrame object containing the data
     """
-    dendrogram = None
-    method = HDBSCAN
-    distance = 0.4
-    use_radius = True
+    #dendrogram = kwargs.get('dendrogram', None)
+    method = kwargs.get('method', HDBSCAN)
+    #distance = kwargs.get('distance', 0.4)
+
     log('Reading {} files...'.format(len(files)))
 
-    reader = DataFileReader(modes[mode], HarmonicsData)
+    reader = DataFileReader(MODES[mode], HarmonicsData)
 
     descriptors = batch_process(files, reader, procs=1)
 
@@ -56,11 +61,6 @@ def process_files(files, no_radius=False, mode='shape', output=None, **kwargs):
     if not no_radius:
         columns = ['r'] + columns
         invariants = [np.append(r, x) for r, x in zip(radius, invariants)]
-    mat = np.array(invariants)
-    df = pd.DataFrame(mat, columns=columns)
-    clusters = cluster(mat, method=method, min_cluster_size=5)
-    df['name'] = names
-    df['cluster'] = clusters
-    if output:
-        write_mat_file(output, mat, names, clusters)
-    return df
+    invariants = np.array(invariants)
+    clusters = cluster(invariants, method=method, min_cluster_size=5)
+    return make_dataframe(invariants, names, clusters, columns)

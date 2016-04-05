@@ -1,6 +1,9 @@
+"""
+Command line functionality for clustering HS based on
+HS fingerprints
+"""
 # Core imports
 import os
-import sys
 
 # Library imports
 import numpy as np
@@ -10,23 +13,23 @@ from tqdm import tqdm
 from .calc import cluster
 from .config import log
 from .datafile import (
-        batch_process,
-        write_mat_file,
-        DataFileReader,
-        FingerprintData,
-        hexbin_plotfile
+    batch_process,
+    write_mat_file,
+    DataFileReader,
+    FingerprintData,
+    hexbin_plotfile
 )
 
 
-def flatten_hist(h):
+def flatten_hist(hist):
     """
     Helper method for extracting the flattened
     array of a 2D histogram
     """
-    return h[0].flatten()
+    return hist[0].flatten()
 
 
-def process_files(files, png=False, metric='sp', output=None):
+def process_files(files, png=False, **kwargs):
     """
     Given a list of hdf5 files (Path objects), create the Hirshfeld
     fingerprint from the data, then perform a clustering on the results.
@@ -36,7 +39,9 @@ def process_files(files, png=False, metric='sp', output=None):
     Returns df, a pandas.DataFrame object containing the data
     """
 
-    resolution = 5
+    resolution = kwargs.get('resolution', 5)
+    output = kwargs.get('output', None)
+    metric = kwargs.get('metric', 'sp')
     reader = DataFileReader({'d_e': 'd_e', 'd_i': 'd_i'},
                             FingerprintData)
 
@@ -47,7 +52,7 @@ def process_files(files, png=False, metric='sp', output=None):
         return
 
     histograms, names = zip(*[(x.histogram, x.name) for x in descriptors])
-    mat = np.array(list((map(flatten_hist, histograms))))
+    mat = np.array([flatten_hist(hist) for hist in histograms])
     clusters = cluster(mat)
     if output:
         write_mat_file(output,
@@ -58,6 +63,6 @@ def process_files(files, png=False, metric='sp', output=None):
     if png:
         prefix = os.path.curdir
         log('Writing fingerprint plot files to {}'.format(prefix))
-        for c in tqdm(descriptors, unit='figure'):
-            outfile = str(c.name) + '.png'
-            hexbin_plotfile(c.d_i, c.d_e, fname=outfile)
+        for group in tqdm(descriptors, unit='figure'):
+            outfile = str(group.name) + '.png'
+            hexbin_plotfile(group.d_i, group.d_e, fname=outfile)

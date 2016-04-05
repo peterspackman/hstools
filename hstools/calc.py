@@ -1,17 +1,18 @@
-#!/usr/bin/python
+"""
+Collection of calculations based on HS data
+"""
 
 # Core imports
-from collections import defaultdict
+from collections import OrderedDict
 
 # Library imports
-from matplotlib import pyplot as plt
 import numpy as np
 import scipy.stats
 from hdbscan import HDBSCAN
 from periodictable import elements
 
 # Local imports
-from .config import log, Timer
+from .config import log
 
 
 def cluster(raw_data, method=HDBSCAN, **kwargs):
@@ -31,6 +32,8 @@ def cluster(raw_data, method=HDBSCAN, **kwargs):
 
 
 def interaction(i, j, order=False):
+    """Return the interaction at [i,j] as a string e.g. C->H
+    """
     symbols = (str(elements[i+1]), str(elements[j+1]))
     if order:
         return "{0} -> {1}".format(*symbols)
@@ -38,54 +41,54 @@ def interaction(i, j, order=False):
         return "{0} -> {1}".format(*sorted(symbols))
 
 
-def get_contrib(sa, order=False):
+def get_contrib(surface_area, order=False):
     """ Given a the triangles that make up a hirshfeld surface,
     and lists of the closest internal and external atoms along
     with their respective distances from the surface,
     calculate the makeup of the hirshfeld surface in terms of
     which element->element interactions are responsible for that
     area """
-    contrib = defaultdict(float)
-    contrib_p = defaultdict(float)
+    contributions = OrderedDict()
+    contributions_percent = OrderedDict()
     # setting defaults for these
 
-    for i, j in np.transpose(np.nonzero(sa)):
+    for i, j in np.transpose(np.nonzero(surface_area)):
         # Key in the form "internal -> external" e.g. "F -> H"
         key = interaction(i, j, order=order)
-        contrib[key] += sa[i, j]
+        if key not in contributions:
+            contributions[key] = 0.0
+        contributions[key] += surface_area[i, j]
 
-    for x in contrib:
-        p = np.round(contrib[x] / sum(contrib.values()), decimals=8)
-        contrib_p[x] = p
+    for contrib in contributions:
+        contributions_percent[contrib] = \
+                np.round(contributions[contrib] / sum(contributions.values()),
+                         decimals=8)
+    return contributions, contributions_percent
 
-    return contrib, contrib_p
 
-
-def bin_data(x, y, bins=10, bounds=False):
+def bin_data(xvals, yvals, bins=10, bounds=False):
     """ Puts the data x & y into a given number of bins.
         Currently, bounds simply tells the program to use
         set bins."""
 
-    nx = ny = bins
-
     if not bounds:
-        xmin, xmax = min(x), max(x)
-        ymin, ymax = min(y), max(y)
+        xmin, xmax = np.min(xvals), np.max(xvals)
+        ymin, ymax = np.min(yvals), np.max(yvals)
     else:
         xmin, ymin = 0.5, 0.5
         xmax, ymax = 2.5, 2.5
 
-    dx = (xmax - xmin) / (nx - 1.0)
-    dy = (ymax - ymin) / (ny - 1.0)
+    diffx = (xmax - xmin) / (bins - 1.0)
+    diffy = (ymax - ymin) / (bins - 1.0)
 
-    weights = np.ones(len(x))
+    weights = np.ones(len(xvals))
 
     # this is a slightly modified version of np.digitize()
-    xyi = np.vstack((x, y)).T
+    xyi = np.vstack((xvals, yvals)).T
     xyi -= [xmin, ymin]
-    xyi /= [dx, dy]
+    xyi /= [diffx, diffy]
     xyi = np.floor(xyi, xyi).T
 
-    grid = scipy.sparse.coo_matrix((weights, xyi), shape=(nx, ny)).toarray()
+    grid = scipy.sparse.coo_matrix((weights, xyi), shape=(bins, bins)).toarray()
 
-    return grid, np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)
+    return grid, np.linspace(xmin, xmax, bins), np.linspace(ymin, ymax, bins)

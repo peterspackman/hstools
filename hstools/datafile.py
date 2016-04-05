@@ -1,47 +1,40 @@
+"""
+    Collection of classes and methods related to reading HS
+    data from HDF5 files
+"""
 # Core imports
 from collections import defaultdict, namedtuple
 import concurrent.futures
-import glob
-import os
-import sys
-from functools import reduce
 
 # Library imports
 import h5py
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.cm import viridis
 
 # Local imports
 from .calc import bin_data, get_contrib
-from .config import (
-        Timer,
-        log,
-)
-
-from pathlib import Path
+from .config import Timer, log
 
 
-class lazy_property(object):
+
+def lazy_property(func):
     """
-    Helper class to be used for lazy evaluation of an object attribute.
-    property should represent non-mutable data, as it replaces itself.
+    Helper method to be used for lazy evaluation of an object attribute.
     """
-    def __init__(self, fget):
-        self.fget = fget
-        self.func_name = fget.__name__
-
-    def __get__(self, obj, cls):
-        if obj is None:
-            return None
-        value = self.fget(obj)
-        setattr(obj, self.func_name, value)
-        return value
+    attr_name = '_lazy_' + func.__name__
+    @property
+    def _lazy_property(self):
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, func(self))
+        return getattr(self, attr_name)
+    return _lazy_property
 
 HarmonicsData = namedtuple('HarmonicsData',
                            'radius coefficients invariants name')
 _SurfaceDataTuple = namedtuple('SurfaceData',
-                               'contributions formula name')
+                               'contributions name')
 _FingerprintDataTuple = namedtuple('FingerprintData',
                                    'd_e d_i name')
 
@@ -55,8 +48,8 @@ class FingerprintData(_FingerprintDataTuple):
     """
     @lazy_property
     def histogram(self):
-        h = bin_data(self.d_e, self.d_i, bins=6)
-        return h
+        """ Calculate the histogram from raw d_e/d_i values"""
+        return bin_data(self.d_e, self.d_i, bins=6)
 
 
 class SurfaceData(_SurfaceDataTuple):
@@ -69,8 +62,9 @@ class SurfaceData(_SurfaceDataTuple):
 
     @lazy_property
     def contributions_dict(self):
-        _, c = get_contrib(self.contributions)
-        return c
+        """Retrieve a dictionary of surface area contributions"""
+        _, contribution_percentage = get_contrib(self.contributions)
+        return contribution_percentage
 
 
 class DataFileReader:
@@ -80,53 +74,51 @@ class DataFileReader:
         self.object = obj
 
     def read(self, path):
+        """Given a HDF5 file, reads relevant data from each group and returns a
+            list of objects of kind self.obj"""
         outputs = []
         try:
-            with h5py.File(str(path), 'r') as f:
-                for group in f:
+            with h5py.File(str(path), 'r') as root:
+                for group in root:
                     output = {}
-                    for k, v in self.attributes.items():
-                        if v not in f[group]:
-                            log("Couldn't find dataset: {} in group {}".format(v, g),
+                    for key, dataset_name in self.attributes.items():
+                        if dataset_name not in root[group]:
+                            log("Couldn't find dataset:"
+                                " {} in group {}".format(key, dataset_name),
                                 cat='error')
-                        output[k] = np.array(f[group][v])
+                        output[key] = np.array(root[group][dataset_name])
                     output['name'] = path.stem + ('-' + group)
                     outputs.append(output)
             return [self.object(**output) for output in outputs]
 
-        except TypeError as e:
-            log(str(e))
-        except Exception as e:
-            log("Ignoring '{}'; Caught ({})".format(path.name,
-                                                    type(e).__name__),
+        except TypeError as err:
+            log(str(err))
+
+        except Exception as err:
+            log("Ignoring '{}'"
+                " Caught ({})".format(path.name, type(err).__name__),
                 cat='warning')
-            log(str(e))
-            pass
+            log(str(err))
 
 
-def load_saved_data(fname):
-    attributes = ['matrix', 'names']
-    data = readh5file(fname, attributes)
-    return data['matrix'], data['names']
-
-
-# Takes a dictionary of dataset_name
 def write_hdf5_file(fname, attributes):
-    with h5py.File(fname, 'w') as f:
-        for k in attributes.keys():
-            data = attributes[k]
-            dset = f.create_dataset(k,
-                                    data.shape,
-                                    data.dtype,
-                                    compression='gzip')
+    """Writes matrix data to hdf5 file"""
+    with h5py.File(fname, 'w') as root:
+        for key in attributes.keys():
+            data = attributes[key]
+            dset = root.create_dataset(key,
+                                       data.shape,
+                                       data.dtype,
+                                       compression='gzip')
             dset[...] = data[...]
 
 
-def standard_figure(extent=[0.5, 2.5, 0.5, 2.5], figsize=(4, 4), dpi=300):
+def standard_figure(extent=(0.5, 2.5, 0.5, 2.5), figsize=(4, 4), dpi=300):
+    """Standard initialization for HS fingerprint figures"""
     plt.style.use('seaborn-white')
-    f = plt.figure(figsize=figsize, dpi=dpi)
-    cmap = mpl.cm.viridis
-    ax = f.add_subplot(111, xlim=extent[0:2], ylim=extent[2:4])
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    cmap = viridis
+    axes = fig.add_subplot(111, xlim=extent[0:2], ylim=extent[2:4])
     plt.xticks(np.arange(extent[0], extent[1], (extent[1] - extent[0])/5))
     plt.yticks(np.arange(extent[2], extent[3], (extent[3] - extent[2])/5))
     plt.grid(b=True, which='major', axis='both')
@@ -141,59 +133,49 @@ def standard_figure(extent=[0.5, 2.5, 0.5, 2.5], figsize=(4, 4), dpi=300):
                  xytext=(5, - ticklabelpad), ha='right',
                  va='bottom', xycoords='axes fraction',
                  textcoords='offset points')
-    return f, cmap, ax, extent
+    return fig, cmap, axes, extent
 
 
-def kde_plotfile(x, y, fname='outhex.png'):
-    import seaborn as sns
-    f, cmap, ax, _ = standard_figure()
+def hexbin_plotfile(xvals, yvals, fname='outhex.png',
+                    kind='log', nbins=100):
+    """Create a hexagonally binned HS fingerprint"""
+    extent = [min(0.5, np.min(xvals)), max(2.5, np.max(xvals)*1.2),
+              min(0.5, np.min(yvals)), max(2.5, np.max(yvals)*1.2)]
+    fig, cmap, _, extent = standard_figure(extent=extent)
 
-    sns.kdeplot(x, y, cmap=cmap, shade=True, ax=ax)
-    ax.collections[0].set_alpha(0)
-
-    f.savefig(fname, bbox_inches='tight')
-    plt.clf()
-    plt.close()
-
-
-def hexbin_plotfile(x, y, fname='outhex.png', kind='log', nbins=100):
-    extent = [min(0.5, np.min(x)), max(2.5, np.max(x)*1.2),
-              min(0.5, np.min(y)), max(2.5, np.max(y)*1.2)]
-    f, cmap, _, extent = standard_figure(extent=extent)
-
-    plt.hexbin(x, y, mincnt=1, gridsize=nbins,
+    plt.hexbin(xvals, yvals, mincnt=1, gridsize=nbins,
                cmap=cmap, bins=kind,
                extent=extent)
 
-    f.savefig(fname, bbox_inches='tight')
+    fig.savefig(fname, bbox_inches='tight')
     plt.clf()
     plt.close()
 
 
 # FILE FUNCTIONS
-def plotfile(x, y, fname='out.png', kind='linear', nbins=100):
+def plotfile(xvals, yvals, fname='out.png', kind='linear', nbins=100):
     """ Construct a histogram, plot it, then write the image as a png
     to a given filename."""
 
     # Not sure why but we have linear and log as options
-    if(kind == 'linear'):
-        H, xedges, yedges = bin_data(x, y, bins=nbins)
+    if kind == 'linear':
+        hist, xedges, yedges = bin_data(xvals, yvals, bins=nbins)
 
     # NEED TO ROTATE AXES
-    H = np.rot90(H)
-    H = np.flipud(H)
+    hist = np.rot90(hist)
+    hist = np.flipud(hist)
 
-    f, cmap, ax, _ = standard_figure()
+    fig, cmap, _, _ = standard_figure()
 
     # this is the key step, the rest is formatting
-    plt.pcolormesh(xedges, yedges, H,
+    plt.pcolormesh(xedges, yedges, hist,
                    cmap=cmap,
                    norm=mpl.colors.LogNorm())
 
     plt.grid(b=True, which='major', axis='both')
 
     # SAVE TO PNG WITH LITTLE TO NO BORDER
-    f.savefig(fname, bbox_inches='tight')
+    fig.savefig(fname, bbox_inches='tight')
 
     # CLOSE UP
     plt.clf()
@@ -203,27 +185,27 @@ def plotfile(x, y, fname='out.png', kind='linear', nbins=100):
 def write_sa_file(fname, surfaces):
     """ Write out the surface area contribution info to a given
     file."""
-    with open(fname, 'w') as f:
-        for x in surfaces:
-            contributions = x.contributions
-            line = '{0}, {1}'.format(x.name, x.formula)
-            if not contributions:
+    with open(fname, 'w') as surface_file:
+        for surface in surfaces:
+            line = '{0}, {1}'.format(surface.name, surface.formula)
+            if not surface.contributions:
                 line = line + '--Nil--'
             else:
-                for key in sorted(contributions,
-                                  key=lambda key: contributions[key]):
+                for interaction, percent in surface.contributions.items():
                     line = line + ', '
-                    line = line + '{} = {:.2%}'.format(key, contributions[key])
-            f.write(line + '\n')
+                    line = line + '{} = {:.2%}'.format(interaction,
+                                                       percent)
+            surface_file.write(line + '\n')
 
 
 def write_mat_file(fname, mat, names, clusters):
-    d = defaultdict()
+    """ Writes clustering info to file """
+    matrix_dict = defaultdict()
     log("Writing clustering data to  '{}'".format(str(fname)))
-    d['matrix'] = np.array(mat)
-    d['names'] = np.array(names, dtype='<S64')
-    d['clusters'] = np.array(clusters)
-    write_hdf5_file(fname, d)
+    matrix_dict['matrix'] = np.array(mat)
+    matrix_dict['names'] = np.array(names, dtype='<S64')
+    matrix_dict['clusters'] = np.array(clusters)
+    write_hdf5_file(fname, matrix_dict)
 
 
 def batch_process(files, reader, procs=4):
@@ -232,22 +214,22 @@ def batch_process(files, reader, procs=4):
     constructs instances of the given class from data
     in the files using ProcessPoolExecutor
     """
-    n = len(files)
-    with Timer() as t:
+    nfiles = len(files)
+    with Timer() as time:
         vals = []
 
         with concurrent.futures.ProcessPoolExecutor(procs) as executor:
-            fs = [executor.submit(reader.read, f) for f in files]
-            for i, f in enumerate(concurrent.futures.as_completed(fs)):
-                vals.append(f.result())
+            return_values = [executor.submit(reader.read, file) for file in files]
+            for value in concurrent.futures.as_completed(return_values):
+                vals.append(value.result())
 
         vals = [x for sublist in vals for x in sublist if sublist is not None]
 
         n_success = len(vals)
-        if n_success < n:
-            err = 'Skipped {0} files due to errors'.format(n - n_success)
+        if n_success < nfiles:
+            err = 'Skipped {0} files due to errors'.format(nfiles - n_success)
             log(err, cat='error')
 
-    log("Read {1} files in {0}".format(t, n))
+    log("Read {} files in {}".format(nfiles, time))
 
     return sorted(vals, key=lambda x: x.name)
