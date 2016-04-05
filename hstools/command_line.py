@@ -6,6 +6,11 @@ import sys
 from pathlib import Path
 from hstools.config import Timer, log
 
+class CLIParser(argparse.ArgumentParser):
+    def error(self, message):
+        sys.stderr.write('error: {}\n'.format(message))
+        self.print_help()
+        sys.exit(2)
 
 def read_paths(patterns, suffix, process_files, **kwargs):
     """
@@ -98,7 +103,7 @@ def main():
     """
     Entry point for the program
     """
-    parser = argparse.ArgumentParser()
+    parser = CLIParser()
     subparsers = parser.add_subparsers()
 
     # HARMONICS
@@ -145,9 +150,5 @@ def main():
 
     with Timer() as time:
         args = parser.parse_args()
-        if args.func:
-            args.func(args)
-        else:
-            parser.print_help()
-            sys.exit(1)
+        args.func(args)
     log('Complete {}'.format(time))
