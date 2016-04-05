@@ -2,8 +2,9 @@ from setuptools import setup
 
 setup(
     name='hstools',
-    version='2016.04.04',
-    py_modules='hstools',
+    description=("Module and CLI for processing HDF5 HS files"),
+    version='2016.04.04-2',
+    packages=find_packages(),
     install_requires=[
       'fastcluster',
       'h5py',
