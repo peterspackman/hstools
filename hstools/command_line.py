@@ -2,6 +2,7 @@
 Entry point for hstools script
 """
 import argparse
+import sys
 from pathlib import Path
 from hstools.config import Timer, log
 
@@ -144,5 +145,9 @@ def main():
 
     with Timer() as time:
         args = parser.parse_args()
-        args.func(args)
+        if args.func:
+            args.func(args)
+        else:
+            parser.print_help()
+            sys.exit(1)
     log('Complete {}'.format(time))
