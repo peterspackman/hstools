@@ -12,7 +12,6 @@ setup(
       'numpy',
       'periodictable',
       'plyfile',
-      'progressive',
       'scikit-learn',
       'scipy',
       'tqdm',

@@ -1,22 +1,30 @@
 ### HSTools
 
 The aim of this project is to provide a simple interface
-for a variety of computational techniques associated
-with hirshfeld surface calculations and spherical harmonic
-shape descriptors.
+for processing data from Hirshfeld surface calculations
+and their associated spherical harmonic shape descriptors.
 
 This project is written for Python 3.
 
-Dependencies:
+# Installation
+Installing should be as follows:
+```
+pip3 install git+git://github.com/peterspackman/hstools
+```
 
-* click
+If you're using conda you may need to install the dependencies
+before trying to install this software
+
+# Dependencies
 * fastcluster
-* h5py
 * hdbscan
-* matplotlib
-* numpy
-* periodictable
-* plyfile
-* progressive,
+* h5py
+
 * scikit-learn
 * scipy
+* matplotlib
+* numpy
+
+* periodictable
+* plyfile
+* tqdm
