@@ -104,7 +104,8 @@ def main():
     Entry point for the program
     """
     parser = CLIParser()
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest='command')
+    subparsers.required = True
 
     # HARMONICS
     harmonics_p = subparsers.add_parser('harmonics')
