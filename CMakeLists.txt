@@ -16,7 +16,7 @@ include(ExternalProject)
 
 set(SRC
     src/hs.F90
-    src/h5file.f90
+    src/h5file.F90
     src/main.f90
 )
 
