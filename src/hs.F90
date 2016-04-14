@@ -101,15 +101,18 @@ module HS
         dump_file = H5file(trim(hdf_file_name))
 
         do i = 1, m%cluster%n_molecules
-
-            call create_cluster_mol_(m, i)
-            !call dump_file%open_group(trim("/"//to_str_(i)//"-"//chemical_formula(m%saved%atom, .false.)))
+            call create_(tmp)
+            call copy_(tmp, m)
+            call create_cluster_mol_(tmp, i)
+            if (i == 1) call atom_put(tmp%atom)
+            call atom_put(tmp%saved%atom)
+            call dump_file%open_group(trim("/"//to_str_(i)//"-"//chemical_formula(tmp%saved%atom, .false.)))
             ! DO STUFF
-            !call make_surface(m%saved, res)
+            call make_surface(tmp%saved, res)
 
-            !call describe_surface(m%saved, l_max, dump_file)
+            call describe_surface(tmp%saved, l_max, dump_file)
             !write (*, "(A27, I1)") "Surface done for molecule ", i
-            !call dump_file%close_group
+            call dump_file%close_group
         end do
         call dump_file%close
     end subroutine
@@ -188,45 +191,10 @@ module HS
             unit_cell_numbers(u) = m%saved%cluster%asymmetric_unit_atom(a)%atomic_number
         end do
 
-        ! ATOMS INSIDE AND OUTSIDE SURFACE
-        ! inside
-        call vec_int_create(atoms_inside,m%saved%cluster%n_fragment_atoms)
-        do a = 1, m%saved%cluster%n_fragment_atoms
-            code = m%saved%cluster%occupation_list(a)
-            atoms_inside(a) = ibits(code,4*3,19)
-        end do
-
-        ! outside
-        call vec_int_create(atoms_outside,m%saved%cluster%n_atoms - m%saved%cluster%n_fragment_atoms)
-        do a = m%saved%cluster%n_fragment_atoms+1, m%saved%cluster%n_atoms
-            code = m%saved%cluster%occupation_list(a)
-            atoms_outside(a - m%saved%cluster%n_fragment_atoms) = ibits(code,4*3,19)
-        end do
-
-        ! all the surface contribution code
-        call mat_real_create(surface_contribution, max_atomic_number, max_atomic_number)
-        surface_contribution = 0.0
-
-        ! Make atom SA contribution matrix
-        do a = 1, size(d_i_atoms)
-            i = unit_cell_numbers(atoms_inside(d_i_atoms(a)))
-            o = unit_cell_numbers(atoms_outside(d_e_atoms(a)))
-
-            ! if < dnorm, then add to contribution
-            v1 = m%isosurface%point(:, m%isosurface%face(1, a))
-            v2 = m%isosurface%point(:, m%isosurface%face(2, a))
-            v3 = m%isosurface%point(:, m%isosurface%face(3, a))
-
-            area = norm_(cross_(v1 - v3, v2 - v3)) / 2.0
-
-            surface_contribution(i, o) = surface_contribution(i, o) + area
-        end do
-
 
         ! SURFACE
         call dump_file%write("vertices", m%isosurface%point)
         call dump_file%write("indices", m%isosurface%face)
-        call dump_file%write("surface_contribution", surface_contribution)
 
         ! SURFACE PROPERTIES
         call dump_file%write("radius", [radius])
