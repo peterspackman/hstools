@@ -17,7 +17,7 @@ subroutine process_command_line(command_line, cif, hdf, res, l_max, basis)
     ! Get the command line
     call process_options_(command_line)
     call die_if_(tonto, has_arguments_(command_line), &
-        "error: illegal arguments; use options only")
+        "command line: illegal arguments, use short options only")
 
     ! Default options
     cif = "input.cif"
