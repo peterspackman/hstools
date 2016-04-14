@@ -7,23 +7,23 @@ module HS
     use GAUSSIAN_DATA_MODULE, only: set_indices
     use CIF_MODULE, only: cif_create => create_
     use CLUSTER_MODULE, only: cluster_create => create_, cluster_put => put_, &
-        make_info, set_generation_method, fragment_atom_indices, nonfragment_atom_indices
-    use MOLECULE_BASE_MODULE, only: create, set_slaterbasis_name, put_atoms_, unsave_, &
-        destroy_interpolators, copy_, molecule_destroy => destroy_
+        make_info_, set_generation_method, fragment_atom_indices, nonfragment_atom_indices
+    use MOLECULE_BASE_MODULE, only: create_, set_slaterbasis_name_, put_atoms_, unsave_, &
+        destroy_interpolators_, copy_, molecule_destroy => destroy_
     use MOLECULE_CE_MODULE, only: find_CIF_crystal_data_block
     use MOLECULE_PLOT_MODULE
     use MOLECULE_XTAL_MODULE, only: read_CIF_atoms, read_CIF_crystal, create_cluster, &
-        create_cluster_for_mol
+        create_cluster_mol_
     use INT_MODULE, only: to_str_
     use INTERPOLATOR_MODULE, only: interpolator_create => create_, &
-        set_table_spacing, set_table_eps, &
-        set_domain_mapping, set_interpolation_method
+        set_table_spacing_, set_table_eps_, &
+        set_domain_mapping_, set_interpolation_method_
     use ISOSURFACE_MODULE, only: isosurface_create => create_, &
-        make_fingerprint_distances, make_fingerprint_face_atoms
+        make_fingerprint_distances_, make_fingerprint_face_atoms_
     use MAT_REAL_MODULE, only: mat_real_create => create_, mat_real_destroy => destroy_
     use PLOT_GRID_MODULE, only: reset_defaults_, set_defaults_, &
-        set_points_widths_origin, use_bcube_with_shape_axes, set_cube_scale_factor
-    use REAL_MODULE, only: convert_from
+        set_points_widths_origin_, use_bcube_with_shape_axes_, set_cube_scale_factor_
+    use REAL_MODULE, only: convert_from_
     use SPHERICAL_MODULE, only: spherical_create => create, &
         get_surface_decomposition, is_star_domain, make_invariants
     use VEC_ATOM_MODULE, only: atom_put => put_, vec_atom_create => create_, &
@@ -34,10 +34,10 @@ module HS
     use VEC_SLATERBASIS_MODULE, only: vec_sb_create => create_, vec_sb_destroy => destroy_
     use VEC_STR_MODULE, only: vec_str_create => create_, vec_str_destroy => destroy_
 
-    use VEC_BASIS_MODULE, only: set_basis_dir => set_library_directory
-    use VEC_COPPENSBASIS_MODULE, only: set_coppensbasis_dir => set_library_directory
-    use VEC_REAL_MODULE, only: norm, cross
-    use VEC_SLATERBASIS_MODULE, only: set_slaterbasis_dir => set_library_directory
+    use VEC_BASIS_MODULE, only: set_basis_dir => set_library_directory_
+    use VEC_COPPENSBASIS_MODULE, only: set_coppensbasis_dir => set_library_directory_
+    use VEC_REAL_MODULE, only: norm_, cross_
+    use VEC_SLATERBASIS_MODULE, only: set_slaterbasis_dir => set_library_directory_
 
 
     implicit none
@@ -49,7 +49,7 @@ module HS
         logical(4) :: found
 
         ! Initialize molecule
-        call create(m)
+        call create_(m)
         call set_indices(4)
         m%spin_multiplicity = 1
         m%charge = 0
@@ -60,7 +60,7 @@ module HS
         call set_coppensbasis_dir(m%coppensbasis,directory)
 
         ! Set Thakkar basis set
-        call set_slaterbasis_name(m,"Thakkar")
+        call set_slaterbasis_name_(m,"Thakkar")
         ! Create CIF object
         call cif_create(m%cif, cif)
 
@@ -69,10 +69,10 @@ module HS
         m%cif%NH_bond_length = 1.009
         m%cif%OH_bond_length = 0.983
         m%cif%BH_bond_length = 1.180
-        call convert_from(m%cif%CH_bond_length,"angstrom")
-        call convert_from(m%cif%NH_bond_length,"angstrom")
-        call convert_from(m%cif%OH_bond_length,"angstrom")
-        call convert_from(m%cif%BH_bond_length,"angstrom")
+        call convert_from_(m%cif%CH_bond_length,"angstrom")
+        call convert_from_(m%cif%NH_bond_length,"angstrom")
+        call convert_from_(m%cif%OH_bond_length,"angstrom")
+        call convert_from_(m%cif%BH_bond_length,"angstrom")
 
         ! Find CIF data block
         call find_CIF_crystal_data_block(m,m%cif,found)
@@ -97,21 +97,19 @@ module HS
         call set_generation_method(m%cluster, "fragment")
         m%cluster%radius = 0.0d0
         m%cluster%defragment = .true.
-        call make_info(m%cluster)
+        call make_info_(m%cluster)
         dump_file = H5file(trim(hdf_file_name))
 
         do i = 1, m%cluster%n_molecules
-            call create(tmp)
-            call copy_(tmp, m)
 
-            call create_cluster_for_mol(tmp, i)
-            call dump_file%open_group(trim("/"//to_str_(i)//"-"//chemical_formula(tmp%atom, .false.)))
+            call create_cluster_mol_(m, i)
+            !call dump_file%open_group(trim("/"//to_str_(i)//"-"//chemical_formula(m%saved%atom, .false.)))
             ! DO STUFF
-            call make_surface(tmp, res)
+            !call make_surface(m%saved, res)
 
-            call describe_surface(tmp, l_max, dump_file)
-            write (*, "(A27, I1)") "Surface done for molecule ", i
-            call dump_file%close_group
+            !call describe_surface(m%saved, l_max, dump_file)
+            !write (*, "(A27, I1)") "Surface done for molecule ", i
+            !call dump_file%close_group
         end do
         call dump_file%close
     end subroutine
@@ -149,7 +147,7 @@ module HS
         call vec_real_create(d_norm, m%isosurface%n_pt)
 
         ! all the d_i etc.
-        call make_fingerprint_distances(m%isosurface, &
+        call make_fingerprint_distances_(m%isosurface, &
             d_e, d_i, d_norm_e, &
             d_norm_i, d_norm, &
             in, out, &
@@ -159,7 +157,7 @@ module HS
         ! DE .and. DI FACE ATOMS
         call vec_int_create(d_e_atoms,m%isosurface%n_face)
         call vec_int_create(d_i_atoms,m%isosurface%n_face)
-        call make_fingerprint_face_atoms(m%isosurface,d_e_atoms,d_i_atoms,in,out)
+        call make_fingerprint_face_atoms_(m%isosurface,d_e_atoms,d_i_atoms,in,out)
 
         ! spherical harmonic decomposition
         call spherical_create(spherical)
@@ -219,7 +217,7 @@ module HS
             v2 = m%isosurface%point(:, m%isosurface%face(2, a))
             v3 = m%isosurface%point(:, m%isosurface%face(3, a))
 
-            area = norm(cross(v1 - v3, v2 - v3)) / 2.0
+            area = norm_(cross_(v1 - v3, v2 - v3)) / 2.0
 
             surface_contribution(i, o) = surface_contribution(i, o) + area
         end do
@@ -267,21 +265,21 @@ module HS
         call set_generation_method(m%cluster, "for_hirshfeld_surface")
         m%cluster%atom_density_cutoff = 1.0e-8
         m%cluster%defragment = .false.
-        call make_info(m%cluster)
+        call make_info_(m%cluster)
         call create_cluster(m)
 
         call interpolator_create(m%interpolator)
-        call set_interpolation_method(m%interpolator,"linear")
-        call set_domain_mapping(m%interpolator,"sqrt")
-        call set_table_eps(m%interpolator,1.0d-10)
-        call set_table_spacing(m%interpolator,1.0d-1)
-        call destroy_interpolators(m)
+        call set_interpolation_method_(m%interpolator,"linear")
+        call set_domain_mapping_(m%interpolator,"sqrt")
+        call set_table_eps_(m%interpolator,1.0d-10)
+        call set_table_spacing_(m%interpolator,1.0d-1)
+        call destroy_interpolators_(m)
 
         ! Create CX_isosurface
         call isosurface_create(m%isosurface, m%atom)
         call set_defaults_(m%isosurface%plot_grid,m%saved%atom)
         m%isosurface%plot_grid%n_x = 3
-        call set_points_widths_origin(m%isosurface%plot_grid)
+        call set_points_widths_origin_(m%isosurface%plot_grid)
 
         ! Initialize CX_isosurface
         m%isosurface%property = "stockholder_weight"
@@ -297,8 +295,8 @@ module HS
 
         ! Initialize CX_isosurface.plot_grid
         call reset_defaults_(m%isosurface%plot_grid) ! don't reset bounding box or axes
-        call use_bcube_with_shape_axes(m%isosurface%plot_grid)
-        call set_cube_scale_factor(m%isosurface%plot_grid, 1.0d0)
+        call use_bcube_with_shape_axes_(m%isosurface%plot_grid)
+        call set_cube_scale_factor_(m%isosurface%plot_grid, 1.0d0)
 
 
         ! Desired separation is essentially the resolution of the calculated surface

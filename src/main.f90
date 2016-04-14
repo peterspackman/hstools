@@ -1,7 +1,7 @@
 subroutine process_command_line(command_line, cif, hdf, res, l_max, basis)
     use TYPES_MODULE, only: COMMAND_LINE_TYPE
-    use COMMAND_LINE_MODULE, only: process_options, has_arguments, destroy_ptr_part_
-    use SYSTEM_MODULE, only: die_if, tonto
+    use COMMAND_LINE_MODULE, only: process_options_, has_arguments_, destroy_ptr_part_
+    use SYSTEM_MODULE, only: die_if_, tonto
     use STR_MODULE, only: to_real, to_int
 
     implicit none
@@ -15,8 +15,8 @@ subroutine process_command_line(command_line, cif, hdf, res, l_max, basis)
     character(len=512) :: val, option
 
     ! Get the command line
-    call process_options(command_line)
-    call die_if(tonto, has_arguments(command_line), &
+    call process_options_(command_line)
+    call die_if_(tonto, has_arguments_(command_line), &
         "error: illegal arguments; use options only")
 
     ! Default options
@@ -52,19 +52,18 @@ program hirshfeld_surface
     use TYPES_MODULE, only: COMMAND_LINE_TYPE, MOLECULE_TYPE, SPHERICAL_TYPE
     use SYSTEM_MODULE, only: system_create => create_, system_destroy => destroy_, &
         tonto
-    use CIF_MODULE, cif_create => create_, cif_destroy_ => destroy
+    use CIF_MODULE, cif_create => create_, cif_destroy_ => destroy_
       use INTERPOLATOR_MODULE, only: interpolator_create => create_, &
         interpolator_destroy => destroy_
     use MOLECULE_BASE_MODULE, only: create_, destroy_
     use MOLECULE_CE_MODULE
-    use MOLECULE_MAIN_MODULE, only: cleanup
+    use MOLECULE_MAIN_MODULE, only: cleanup_
     use MOLECULE_PLOT_MODULE
     use MOLECULE_XTAL_MODULE
-    use PLOT_GRID_MODULE, only: plot_gridcreate => create_
     use REAL_MODULE
     use STR_MODULE
-    use TEXTFILE_MODULE, only: stdout, stdin, stderr, create_stdin, create_stdout
-    use TEXTFILE_MODULE, only: textfile_destroy => destroy
+    use TEXTFILE_MODULE, only: stdout, stdin, stderr, create_stdin_, create_stdout_
+    use TEXTFILE_MODULE, only: textfile_destroy => destroy_
     use TIME_MODULE
     use VEC_BASIS_MODULE, only: vec_b_create => create_
     use VEC_COPPENSBASIS_MODULE, only: vec_cb_create => create_
@@ -92,21 +91,19 @@ program hirshfeld_surface
     ! Always have this.
     call start_timing_(std_time)
 
-    call create_stdin(stdin) 
-    call create_stdout(stdout)
+    call create_stdin_(stdin) 
+    call create_stdout_(stdout)
 
     ! command line
     call process_command_line(command_line, cif, hdf, res, l_max, basis_dir)
     call init_molecule(m, cif, basis_dir)
     call make_surfaces(m, res, l_max, hdf)
 
-    call cleanup(m)
+    call cleanup_(m)
     ! Clean-up files
     call textfile_destroy(stdout)
     call textfile_destroy(stderr)
     call textfile_destroy(stdin)
-
-    ! Memory report
 
     ! Clean-up tonto system
     call system_destroy(tonto)
