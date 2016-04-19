@@ -18,7 +18,7 @@ module HS
     use INTERPOLATOR_MODULE, only: interpolator_create => create_, &
         set_table_spacing_, set_table_eps_, &
         set_domain_mapping_, set_interpolation_method_
-    use ISOSURFACE_MODULE, only: isosurface_create => create_, &
+    use ISOSURFACE_MODULE, only: isosurface_create => create_, isosurface_destroy => destroy_, &
         make_fingerprint_distances_, make_fingerprint_face_atoms_
     use MAT_REAL_MODULE, only: mat_real_create => create_, mat_real_destroy => destroy_
     use PLOT_GRID_MODULE, only: reset_defaults_, set_defaults_, &
@@ -85,7 +85,7 @@ module HS
 
     subroutine make_surfaces(m, res, l_max, hdf_file_name)
         type(MOLECULE_TYPE), intent(in), pointer :: m
-        type(MOLECULE_TYPE), pointer :: tmp
+        type(MOLECULE_TYPE), pointer :: mol
         real(8), intent(in) :: res
         integer(4), intent(in) :: l_max
         character(len=512) :: hdf_file_name
@@ -101,17 +101,15 @@ module HS
         dump_file = H5file(trim(hdf_file_name))
 
         do i = 1, m%cluster%n_molecules
-            call create_(tmp)
-            call copy_(tmp, m)
-            call create_cluster_mol_(tmp, i)
-            if (i == 1) call atom_put(tmp%atom)
-            call atom_put(tmp%saved%atom)
-            call dump_file%open_group(trim("/"//to_str_(i)//"-"//chemical_formula(tmp%saved%atom, .false.)))
+            call create_(mol)
+            call create_cluster_mol_(m, i, mol)
+            formula = chemical_formula(mol%atom, .false.)
+            write (*, "(A30, I2, A1)") "Creating surface for molecule ", i, ":"
+            call dump_file%open_group(trim("/"//to_str_(i)//'-'//formula))
             ! DO STUFF
-            call make_surface(tmp%saved, res)
-
-            call describe_surface(tmp%saved, l_max, dump_file)
-            !write (*, "(A27, I1)") "Surface done for molecule ", i
+            call make_surface(mol, res)
+            call describe_surface(mol, l_max, dump_file)
+            write (*, "(A27, I2)") "Surface done for molecule ", i
             call dump_file%close_group
         end do
         call dump_file%close
@@ -119,7 +117,7 @@ module HS
 
 
     subroutine describe_surface(m, l_max, dump_file)
-        type(MOLECULE_TYPE), intent(in), pointer :: m
+        type(MOLECULE_TYPE), intent(inout), pointer :: m
         integer(4) :: l_max, a, u, code, i, o
         real(8), dimension(3) :: v1, v2, v3
         integer(4), dimension(:), pointer :: d_e_atoms, d_i_atoms, atoms_inside, atoms_outside, in, out => NULL()
@@ -257,7 +255,7 @@ module HS
     end subroutine
 
     subroutine make_surface(m, res)
-        type(MOLECULE_TYPE), intent(in), pointer :: m
+        type(MOLECULE_TYPE), intent(inout), pointer :: m
         real(8), intent(in) :: res
 
         ! Initialize interpolator for HS
@@ -277,7 +275,7 @@ module HS
 
         ! Create CX_isosurface
         call isosurface_create(m%isosurface, m%atom)
-        call set_defaults_(m%isosurface%plot_grid,m%saved%atom)
+        call set_defaults_(m%isosurface%plot_grid, m%saved%atom)
         m%isosurface%plot_grid%n_x = 3
         call set_points_widths_origin_(m%isosurface%plot_grid)
 
@@ -298,12 +296,12 @@ module HS
         call use_bcube_with_shape_axes_(m%isosurface%plot_grid)
         call set_cube_scale_factor_(m%isosurface%plot_grid, 1.0d0)
 
-
         ! Desired separation is essentially the resolution of the calculated surface
         m%isosurface%plot_grid%desired_separation = res
 
         ! Make isosurface
         call isosurface_plot_(m)
+
 
     end subroutine
 
