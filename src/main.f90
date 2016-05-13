@@ -49,6 +49,8 @@ subroutine process_command_line(command_line, cif, hdf, res, l_max, basis)
 end subroutine
 
 program hirshfeld_surface
+    use class_H5file
+
     use TYPES_MODULE, only: COMMAND_LINE_TYPE, MOLECULE_TYPE, SPHERICAL_TYPE
     use SYSTEM_MODULE, only: system_create => create_, system_destroy => destroy_, &
         tonto
@@ -68,15 +70,16 @@ program hirshfeld_surface
     use VEC_BASIS_MODULE, only: vec_b_create => create_
     use VEC_COPPENSBASIS_MODULE, only: vec_cb_create => create_
         
-    use HS, only: init_molecule, make_surfaces
+    use HS, only: init_molecule, make_hirshfeld_surfaces, make_promolecule_surfaces
 
     use iso_c_binding
 
     implicit none
 
     type(COMMAND_LINE_TYPE) :: command_line
+    type(H5file) :: dump_file
     character(len=512) ::  cif, hdf, basis_dir
-    real(8) :: res
+    real(8) :: res, iso
     type(MOLECULE_TYPE), pointer :: m => NULL()
 
     ! Moment generating variables
@@ -97,7 +100,11 @@ program hirshfeld_surface
     ! command line
     call process_command_line(command_line, cif, hdf, res, l_max, basis_dir)
     call init_molecule(m, cif, basis_dir)
-    call make_surfaces(m, res, l_max, hdf)
+    
+    dump_file = H5file(trim(hdf))
+    call make_hirshfeld_surfaces(m, res, l_max, dump_file)
+    call make_promolecule_surfaces(m, res, l_max, dump_file)
+    call dump_file%close
 
     call cleanup_(m)
     ! Clean-up files

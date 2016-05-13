@@ -9,7 +9,7 @@ module HS
     use CLUSTER_MODULE, only: cluster_create => create_, cluster_put => put_, &
         make_info_, set_generation_method, fragment_atom_indices, nonfragment_atom_indices
     use MOLECULE_BASE_MODULE, only: create_, set_slaterbasis_name_, put_atoms_, unsave_, &
-        destroy_interpolators_, copy_, molecule_destroy => destroy_
+        destroy_interpolators_, copy_, molecule_destroy => destroy_, put_molecule => put_
     use MOLECULE_CE_MODULE, only: find_CIF_crystal_data_block
     use MOLECULE_PLOT_MODULE
     use MOLECULE_XTAL_MODULE, only: read_CIF_atoms, read_CIF_crystal, create_cluster, &
@@ -83,12 +83,11 @@ module HS
         call read_CIF_crystal(m,m%cif)
     end subroutine
 
-    subroutine make_surfaces(m, res, l_max, hdf_file_name)
+    subroutine make_hirshfeld_surfaces(m, res, l_max, dump_file)
         type(MOLECULE_TYPE), intent(in), pointer :: m
         type(MOLECULE_TYPE), pointer :: mol
         real(8), intent(in) :: res
         integer(4), intent(in) :: l_max
-        character(len=512) :: hdf_file_name
         character(len=512) :: formula
         integer :: i
         type(H5file) :: dump_file
@@ -98,21 +97,48 @@ module HS
         m%cluster%radius = 0.0d0
         m%cluster%defragment = .true.
         call make_info_(m%cluster)
-        dump_file = H5file(trim(hdf_file_name))
 
         do i = 1, m%cluster%n_molecules
             call create_(mol)
             call create_cluster_mol_(m, i, mol)
             formula = chemical_formula(mol%atom, .false.)
-            write (*, "(A30, I2, A1)") "Creating surface for molecule ", i, ":"
-            call dump_file%open_group(trim("/"//to_str_(i)//'-'//formula))
+            write (*, "(A30, I2)") "Creating Hirshfeld surface m =", i
+            call dump_file%open_group(trim("/"//to_str_(i)//'-'//trim(formula)//"-HS"))
             ! DO STUFF
-            call make_surface(mol, res)
+            call make_hirshfeld_surface(mol, res)
             call describe_surface(mol, l_max, dump_file)
-            write (*, "(A27, I2)") "Surface done for molecule ", i
+            write (*, "(A24)") "Hirshfeld surface done."
             call dump_file%close_group
         end do
-        call dump_file%close
+
+    end subroutine
+
+    subroutine make_promolecule_surfaces(m, res, l_max, dump_file)
+        type(MOLECULE_TYPE), intent(in), pointer :: m
+        type(MOLECULE_TYPE), pointer :: mol
+        real(8), intent(in) :: res
+        integer(4), intent(in) :: l_max
+        type(H5file) :: dump_file
+        character(len=512) :: formula
+        integer :: i
+        ! Initialize cluster for HS
+        call cluster_create(m%cluster,m%crystal)
+        call set_generation_method(m%cluster, "fragment")
+        m%cluster%radius = 0.0d0
+        m%cluster%defragment = .true.
+        call make_info_(m%cluster)
+        do i = 1, m%cluster%n_molecules
+            call create_(mol)
+            call create_cluster_mol_(m, i, mol)
+            formula = chemical_formula(mol%atom, .false.)
+            write (*, "(A28, I2, A1)") "Creating promolecule surface ", i, ":"
+            call dump_file%open_group(trim("/"//to_str_(i)//'-'//trim(formula)//"-PRO"))
+            ! DO STUFF
+            call make_promolecule_surface(mol, res)
+            call describe_surface(mol, l_max, dump_file)
+            write (*, "(A25)") "Promolecule surface done."
+            call dump_file%close_group
+        end do
     end subroutine
 
 
@@ -254,7 +280,52 @@ module HS
 
     end subroutine
 
-    subroutine make_surface(m, res)
+    subroutine make_promolecule_surface(m, res)
+        type(MOLECULE_TYPE), intent(inout), pointer :: m
+        real(8), intent(in) :: res
+
+        ! Initialize interpolator for HS
+        call cluster_create(m%cluster, m%crystal)
+        call set_generation_method(m%cluster, "within_radius")
+        m%cluster%radius = 6.0 * (1.0d0/0.5291772108d0)
+        m%cluster%defragment = .false.
+        call make_info_(m%cluster)
+        call create_cluster(m)
+
+        call interpolator_create(m%interpolator)
+        call set_interpolation_method_(m%interpolator,"linear")
+        call set_domain_mapping_(m%interpolator,"sqrt")
+        call set_table_eps_(m%interpolator,1.0d-10)
+        call set_table_spacing_(m%interpolator,1.0d-1)
+        call destroy_interpolators_(m)
+
+        ! Create CX_isosurface
+        call isosurface_create(m%isosurface, m%atom)
+
+        ! Initialize CX_isosurface
+        m%isosurface%property = "promolecule_density"
+        m%isosurface%triangulation_method = "recursive_marching_cube"
+        m%isosurface%iso_value = 0.002
+        m%isosurface%surface_property = "none"
+        m%isosurface%minimum_scan_division = 1
+        m%isosurface%voxel_proximity_factor = 5
+        m%isosurface%CX_output_distance_properties = .true.
+        m%isosurface%CX_output_shape_properties = .true.
+
+        ! Initialize CX_isosurface.plot_grid
+        call use_bcube_with_shape_axes_(m%isosurface%plot_grid)
+        call set_cube_scale_factor_(m%isosurface%plot_grid, 1.0d0)
+        ! Desired separation is essentially the resolution of the calculated surface
+        m%isosurface%plot_grid%desired_separation = res
+
+        ! Make isosurface
+        call saved_isosurface_plot_(m)
+
+    end subroutine
+
+
+
+    subroutine make_hirshfeld_surface(m, res)
         type(MOLECULE_TYPE), intent(inout), pointer :: m
         real(8), intent(in) :: res
 
@@ -275,9 +346,6 @@ module HS
 
         ! Create CX_isosurface
         call isosurface_create(m%isosurface, m%atom)
-        call set_defaults_(m%isosurface%plot_grid, m%saved%atom)
-        m%isosurface%plot_grid%n_x = 3
-        call set_points_widths_origin_(m%isosurface%plot_grid)
 
         ! Initialize CX_isosurface
         m%isosurface%property = "stockholder_weight"
@@ -292,7 +360,6 @@ module HS
         m%isosurface%CX_output_shape_properties = .true.
 
         ! Initialize CX_isosurface.plot_grid
-        call reset_defaults_(m%isosurface%plot_grid) ! don't reset bounding box or axes
         call use_bcube_with_shape_axes_(m%isosurface%plot_grid)
         call set_cube_scale_factor_(m%isosurface%plot_grid, 1.0d0)
 
