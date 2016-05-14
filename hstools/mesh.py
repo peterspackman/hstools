@@ -175,7 +175,7 @@ def process_files(files, reconstruct=False, lmax=9, **kwargs):
 
     for path in tqdm(files, unit='file', leave=True):
         data = reader.read(path)
-        for group in tqdm(data, unit='HS', leave=True, nested=True):
+        for group in tqdm(data, unit='HS', leave=True):
             verts, faces, colors = get_surface(group)
             output_file = group.name + suffix
             write_ply_file(verts, faces, colors, output_file=output_file)
