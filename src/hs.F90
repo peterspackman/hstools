@@ -75,7 +75,7 @@ module HS
         call convert_from_(m%cif%BH_bond_length,"angstrom")
 
         ! Find CIF data block
-        call find_CIF_crystal_data_block(m,m%cif,found)
+        call find_CIF_crystal_data_block(m, m%cif, found)
         call die_if(tonto,.not. found,"Error: no data block found in the CIF file!")
 
         ! Read/process CIF

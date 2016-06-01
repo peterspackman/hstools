@@ -18,6 +18,7 @@ set(SRC
     src/hs.F90
     src/h5file.F90
     src/main.f90
+    src/api.F90
 )
 
 
@@ -36,6 +37,7 @@ include_directories("${HDF5_INCLUDE_DIRS}")
 include_directories("${TONTO_BUILD_DIR}")
 add_executable(hs ${SRC})
 target_link_libraries(hs tonto ${HDF5_LIBRARIES} ${FGSL_LIBRARIES} ${LAPACK_LIBRARIES})
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src")
 install(TARGETS hs DESTINATION bin)
 
 enable_testing()
