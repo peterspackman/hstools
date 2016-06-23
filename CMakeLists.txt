@@ -24,7 +24,7 @@ set(SRC
 
 ################ Tonto library ################
 set(TONTO_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/tonto)
-add_subdirectory(${CMAKE_SOURCE_DIR}/externals/tonto
+add_subdirectory(${CMAKE_SOURCE_DIR}/tonto
     ${TONTO_BUILD_DIR}
     EXCLUDE_FROM_ALL)
 

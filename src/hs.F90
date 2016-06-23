@@ -83,6 +83,36 @@ module HS
         call read_CIF_crystal(m,m%cif)
     end subroutine
 
+    function setup_for_hs(m) result(n_molecules)
+        type(MOLECULE_TYPE), intent(in), pointer :: m
+        integer ::  n_molecules
+        ! Initialize cluster for HS
+        call cluster_create(m%cluster,m%crystal)
+        call set_generation_method(m%cluster, "fragment")
+        m%cluster%radius = 0.0d0
+        m%cluster%defragment = .true.
+        call make_info_(m%cluster)
+        n_molecules = m%cluster%n_molecules
+    end function
+
+    subroutine make_hs(m, n, res, l_max, mol)
+        type(MOLECULE_TYPE), intent(in), pointer :: m
+        type(MOLECULE_TYPE), pointer, intent(out) :: mol
+        real(8), intent(in) :: res
+        integer(4), intent(in) :: l_max, n
+        character(len=512) :: formula
+        integer :: i
+        ! Initialize cluster for HS
+
+        call create_(mol)
+        call create_cluster_mol_(m, n, mol)
+
+        formula = chemical_formula(mol%atom, .false.)
+        call make_hirshfeld_surface(mol, res)
+
+    end subroutine
+
+
     subroutine make_hirshfeld_surfaces(m, res, l_max, dump_file)
         type(MOLECULE_TYPE), intent(in), pointer :: m
         type(MOLECULE_TYPE), pointer :: mol
