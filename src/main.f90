@@ -82,6 +82,7 @@ program hirshfeld_surface
     real(8) :: res, iso
     type(MOLECULE_TYPE), pointer :: m => NULL()
 
+    logical :: success
     ! Moment generating variables
     integer(4) :: l_max
     ! contributions of column -> row, inefficiently stored for easiness
@@ -99,14 +100,18 @@ program hirshfeld_surface
 
     ! command line
     call process_command_line(command_line, cif, hdf, res, l_max, basis_dir)
-    call init_molecule(m, cif, basis_dir)
+    call init_molecule(m, cif, basis_dir, success)
+    if (success) then
     
-    dump_file = H5file(trim(hdf))
-    call make_hirshfeld_surfaces(m, res, l_max, dump_file)
-    call make_promolecule_surfaces(m, res, l_max, dump_file)
-    call dump_file%close
+       dump_file = H5file(trim(hdf))
+       call make_hirshfeld_surfaces(m, res, l_max, dump_file)
+       call make_promolecule_surfaces(m, res, l_max, dump_file)
+       call dump_file%close
 
-    call cleanup_(m)
+       call cleanup_(m)
+    else
+       print *, "Error opening cif file!"
+    endif
     ! Clean-up files
     call textfile_destroy(stdout)
     call textfile_destroy(stderr)

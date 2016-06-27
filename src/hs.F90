@@ -43,7 +43,7 @@ module HS
     implicit none
     contains
 
-    subroutine init_molecule(m, cif, directory)
+    subroutine init_molecule(m, cif, directory, found)
         type(MOLECULE_TYPE), intent(inout), pointer :: m
         character(len=512), intent(in) :: cif, directory
         logical(4) :: found
@@ -76,8 +76,10 @@ module HS
 
         ! Find CIF data block
         call find_CIF_crystal_data_block(m, m%cif, found)
-        call die_if(tonto,.not. found,"Error: no data block found in the CIF file!")
-
+        if (.not. found) then
+           call molecule_destroy(m)
+           return
+        endif
         ! Read/process CIF
         call read_CIF_atoms(m,m%cif)
         call read_CIF_crystal(m,m%cif)
