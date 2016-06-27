@@ -18,7 +18,6 @@ from .calc import bin_data, get_contrib
 from .config import Timer, log
 
 
-
 def lazy_property(func):
     """
     Helper method to be used for lazy evaluation of an object attribute.

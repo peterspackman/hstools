@@ -6,11 +6,14 @@ import sys
 from pathlib import Path
 from hstools.config import Timer, log
 
+
 class CLIParser(argparse.ArgumentParser):
+
     def error(self, message):
         sys.stderr.write('error: {}\n'.format(message))
         self.print_help()
         sys.exit(2)
+
 
 def read_paths(patterns, suffix, process_files, **kwargs):
     """
@@ -21,7 +24,7 @@ def read_paths(patterns, suffix, process_files, **kwargs):
 
     """
     files = set()
-    needle = '*.{}'.format(suffix)
+    needle = "*.{}".format(suffix)
     for pattern in patterns:
         path = Path(pattern).resolve()
         if path.is_dir():

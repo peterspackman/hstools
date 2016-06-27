@@ -11,12 +11,12 @@ class Timer(object):
     """ A context manager timer class, to measure wall clock time"""
     def __init__(self):
         self.timer = default_timer
-        self.start = 0
+        self.begin = 0
         self.end = 0
         self.elapsed_s = 0
 
     def __enter__(self):
-        self.start = self.timer()
+        self.begin = self.timer()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -24,8 +24,14 @@ class Timer(object):
         self.elapsed_s = self.elapsed()
         self.elapsed_s = self.elapsed_s
 
+    def start(self):
+        """ Start timing! """
+        self.begin = self.timer()
+
     def elapsed(self):
-        return self.timer() - self.start
+        """ Return the time difference between now and when
+        the object was entered"""
+        return self.timer() - self.begin
 
     def __str__(self):
         if self.elapsed_s < 1.0:

@@ -2,16 +2,13 @@
 Collection of calculations based on HS data
 """
 
-# Core imports
 from collections import OrderedDict
 
-# Library imports
 import numpy as np
 import scipy.stats
 from hdbscan import HDBSCAN
 from periodictable import elements
 
-# Local imports
 from .config import log
 
 
@@ -36,9 +33,8 @@ def interaction(i, j, order=False):
     """
     symbols = (str(elements[i+1]), str(elements[j+1]))
     if order:
-        return "{0} -> {1}".format(*symbols)
-    else:
-        return "{0} -> {1}".format(*sorted(symbols))
+        symbols = sorted(symbols)
+    return "{0} -> {1}".format(*symbols)
 
 
 def get_contrib(surface_area, order=False):
