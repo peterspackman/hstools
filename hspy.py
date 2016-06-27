@@ -50,7 +50,9 @@ def cleanup():
 def get_surface(mol_index):
     n_faces_p = ffi.new("int *")
     n_vertices_p = ffi.new("int *")
-    # Calculate the HS
+
+    # This actually calculates the HS, after which we can extract
+    # the number of vertices/number of faces in the mesh
     tonto.tonto_hs_info(mol_index, n_faces_p, n_vertices_p)
     n_vertices, n_faces = n_vertices_p[0], n_faces_p[0]
 

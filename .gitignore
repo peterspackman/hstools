@@ -1,1 +1,61 @@
 build
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+# Libraries
+*.lib
+*.a
+# Shared Objects
+*.dll
+*.so
+*.so.*
+*.dylib
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+# comp.chem files
+*.cxs
+*.cif
+# Python stuff
+*.pyc
+# MacOS stuff
+*.DS_Store
+# JSON
+*.json
+# Database stuff
+*.db
+# pics
+*.png
+# Specific files
+cif
+tonto
+shlk
+basis_sets
+sarlacc
+stdout
+stderr
+tmp
+models/
+*.foo
+out*
+# Log files
+*.log
+# Python mode stuff
+.ropeproject/
+# Other
+*.asc
+*.txt
+*.hdf5
+*.h5
+*.ply
+*.x3d
+*.swp
+*.egg*
+*.mlx
+venv
