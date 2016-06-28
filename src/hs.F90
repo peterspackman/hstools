@@ -130,6 +130,20 @@ module HS
         m%cluster%defragment = .true.
         call make_info_(m%cluster)
 
+        if (m%cluster%n_molecules == 1) then
+            call create_(mol)
+            call copy_(mol, m)
+            formula = chemical_formula(mol%atom, .false.)
+            write (*, "(A26)") "Creating Hirshfeld surface"
+            call dump_file%open_group(trim("/"//trim(formula)//"-HS"))
+            ! DO STUFF
+            call make_hirshfeld_surface(mol, res)
+            call describe_surface(mol, l_max, dump_file)
+            write (*, "(A24)") "Hirshfeld surface done."
+            call dump_file%close_group
+            return 
+        endif
+
         do i = 1, m%cluster%n_molecules
             call create_(mol)
             call create_cluster_mol_(m, i, mol)
@@ -159,6 +173,21 @@ module HS
         m%cluster%radius = 0.0d0
         m%cluster%defragment = .true.
         call make_info_(m%cluster)
+
+        if (m%cluster%n_molecules == 1) then
+            call create_(mol)
+            call copy_(mol, m)
+            formula = chemical_formula(mol%atom, .false.)
+            write (*, "(A28)") "Creating promolecule surface"
+            call dump_file%open_group(trim("/"//trim(formula)//"-PRO"))
+            ! DO STUFF
+            call make_promolecule_surface(mol, res)
+            call describe_surface(mol, l_max, dump_file)
+            write (*, "(A25)") "Promolecule surface done."
+            call dump_file%close_group
+            return 
+        endif
+
         do i = 1, m%cluster%n_molecules
             call create_(mol)
             call create_cluster_mol_(m, i, mol)
