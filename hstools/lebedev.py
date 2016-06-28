@@ -5,12 +5,12 @@ Contains wrapper methods to extract saved grids
 from the h5file
 
 """
-from os import path
+from os.path import dirname, abspath, join
 import h5py as h5
 import numpy as np
 
-DATA_DIR = path.dirname(path.dirname(__file__))
-LEBEDEV_GRID_FILE = path.join(DATA_DIR, 'data/lebedev.h5')
+DIR = dirname(abspath(__file__))
+LEBEDEV_GRID_FILE = join(DIR, 'lebedev.h5')
 
 AVAILABLE_GRIDS = [i for i in range(3, 32, 2)] + [i for i in range(35, 132, 6)]
 MAX_DEGREE = max(AVAILABLE_GRIDS)

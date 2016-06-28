@@ -6,4 +6,5 @@ __all__ = [
     "harmonics",
     "mesh",
     "surface",
+    "hs",
 ]

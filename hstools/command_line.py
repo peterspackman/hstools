@@ -94,12 +94,10 @@ def mesh(args):
 
 def describe(args):
     """
-    TODO
     process CIF files, describing the hirshfeld surface
     """
     from hstools.describe import process_files
-    read_paths(args.paths, args.suffix, process_files,
-               surface_property=args.property, lmax=args.lmax)
+    process_files(args)
 
 
 def main():
@@ -109,6 +107,17 @@ def main():
     parser = CLIParser()
     subparsers = parser.add_subparsers(dest='command')
     subparsers.required = True
+
+    # describe
+    describe_p = subparsers.add_parser('describe')
+    describe_p.add_argument('paths', nargs='*')
+    parser.add_argument('-l', '--lmax', default=20, type=int,
+                        help='Maximum angular momentum')
+    parser.add_argument('-r', '--resolution', default=0.2, type=float,
+                        help='Resolution of HS (0.2 = High, 0.5 = Low)')
+    parser.add_argument('-b', '--basis', default='/Users/prs/basis_sets',
+                        help='Basis set directory to pass to HS program')
+    describe_p.set_defaults(func=describe)
 
     # HARMONICS
     harmonics_p = subparsers.add_parser('harmonics')
@@ -155,4 +164,5 @@ def main():
     with Timer() as time:
         args = parser.parse_args()
         args.func(args)
+
     log('Complete {}'.format(time))
