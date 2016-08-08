@@ -9,6 +9,7 @@ PROJECT(hstools LANGUAGES Fortran C VERSION 0.10.0)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/" ${CMAKE_MODULE_PATH})
 set(CMAKE_INSTALL_PREFIX CACHE PATH "/usr/local/")
+set(HDF5_USER_STATIC_LIBRARIES TRUE)
 
 # Set up defaults for this project
 include(ExternalProject)
@@ -34,7 +35,8 @@ find_package(HDF5 COMPONENTS Fortran_HL Fortran C HL)
 include_directories("${HDF5_INCLUDE_DIRS}")
 include_directories("${TONTO_BUILD_DIR}")
 add_executable(hs ${SRC})
-target_link_libraries(hs tonto ${HDF5_LIBRARIES} ${FGSL_LIBRARIES} ${LAPACK_LIBRARIES})
+target_link_libraries(hs tonto ${HDF5_Fortran_LIBRARIES}
+    ${HDF5_Fortran_HL_LIBRARIES} ${LAPACK_LIBRARIES})
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src")
 install(TARGETS hs DESTINATION bin)
 

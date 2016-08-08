@@ -4,8 +4,10 @@ Entry point for hstools script
 import argparse
 import sys
 from pathlib import Path
-from hstools.config import Timer, log
+from hstools.config import Timer
 
+logging.basicConfig()
+log = logging.getLogger(__name__)
 
 class CLIParser(argparse.ArgumentParser):
 
@@ -30,10 +32,9 @@ def read_paths(patterns, suffix, process_files, **kwargs):
         if path.is_dir():
             matches = list(path.glob(needle))
             if len(matches) < 1:
-                log("No files in '{}' matching '{}'".format(
+                log.warning("No files in '{}' matching '{}'".format(
                     path.absolute(),
-                    needle),
-                    cat='warning')
+                    needle)
             files = files.union(matches)
         elif path.is_file():
             files.add(path)
@@ -41,7 +42,7 @@ def read_paths(patterns, suffix, process_files, **kwargs):
     if len(files) > 0:
         process_files(files, **kwargs)
     else:
-        log('No files to process.', cat='warning')
+        log.warning('No files to process.')
 
 
 def harmonics(args):
@@ -165,4 +166,4 @@ def main():
         args = parser.parse_args()
         args.func(args)
 
-    log('Complete {}'.format(time))
+    log.info('Complete {}'.format(time))

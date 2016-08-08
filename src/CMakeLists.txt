@@ -4,4 +4,4 @@ set(API_SRC
     h5file.F90
 )
 add_library(tontoapi SHARED ${API_SRC})
-target_link_libraries(tontoapi tonto ${HDF5_LIBRARIES} ${FGSL_LIBRARIES} ${LAPACK_LIBRARIES})
+target_link_libraries(tontoapi tonto ${HDF5_Fortran_LIBRARIES} ${HDF5_Fortran_HL_LIBRARIES} ${LAPACK_LIBRARIES})
