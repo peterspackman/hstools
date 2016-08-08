@@ -3,7 +3,7 @@
 ##################################################
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.0.0)
-PROJECT(hs LANGUAGES Fortran VERSION 0.10.0)
+PROJECT(hstools LANGUAGES Fortran C VERSION 0.10.0)
 
 # Set the hs version
 
