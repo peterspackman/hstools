@@ -10,6 +10,7 @@ PROJECT(hstools LANGUAGES Fortran C VERSION 0.10.0)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/" ${CMAKE_MODULE_PATH})
 set(CMAKE_INSTALL_PREFIX CACHE PATH "/usr/local/")
 set(HDF5_USER_STATIC_LIBRARIES TRUE)
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fPIC")
 
 # Set up defaults for this project
 include(ExternalProject)
@@ -24,8 +25,7 @@ set(SRC
 ################ Tonto library ################
 set(TONTO_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/tonto)
 add_subdirectory(${CMAKE_SOURCE_DIR}/tonto
-    ${TONTO_BUILD_DIR}
-    EXCLUDE_FROM_ALL)
+    ${TONTO_BUILD_DIR})
 
 find_package(LAPACK REQUIRED)
 
