@@ -1,0 +1,14 @@
+# Optional: Install a C compiler, cmake and git into the container.
+# You will often need this when you (or any of your dependencies) depends on C code.
+before_script:
+- apt-get update -yqq
+- apt-get install -yqq --no-install-recommends build-essential gfortran libhdf5-serial-dev
+- mkdir build && cd build
+
+# Use cargo to test the project
+test:
+  script:
+  - cmake --version
+  - cmake ..
+  - cmake --build
+  - ctest
