@@ -9,5 +9,5 @@ test:
   script:
   - cmake --version
   - cmake ..
-  - cmake --build . -j2
+  - cmake --build . -- -j2
   - ctest -L "short|cx" -j2
