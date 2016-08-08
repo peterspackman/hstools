@@ -11,5 +11,5 @@ test:
   script:
   - cmake --version
   - cmake ..
-  - cmake --build
+  - cmake --build .
   - ctest
