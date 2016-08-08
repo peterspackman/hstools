@@ -2,7 +2,7 @@
 # You will often need this when you (or any of your dependencies) depends on C code.
 before_script:
 - apt-get update -yqq
-- apt-get install -yqq --no-install-recommends build-essential cmake gfortran libhdf5-serial-dev
+- apt-get install -yqq --no-install-recommends build-essential perl cmake gfortran liblapack-dev libhdf5-serial-dev
 - mkdir build && cd build
 
 # Use cargo to test the project
