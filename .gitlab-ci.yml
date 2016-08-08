@@ -4,10 +4,10 @@ before_script:
 - git submodule update --init --recursive
 - mkdir build && cd build
 
-# Use cargo to test the project
+# We are only really interested in the Crystal Explorer tests
 test:
   script:
   - cmake --version
   - cmake ..
   - cmake --build . -- -j2
-  - ctest -L "short|cx" -j2
+  - ctest -L cx -j2 
