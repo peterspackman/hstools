@@ -6,7 +6,6 @@ import sbf
 from .lebedev import lebedev_grid, integrate_values
 import logging
 from pathlib import Path
-from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 log = logging.getLogger('decompose')
@@ -103,7 +102,7 @@ def export_mesh(verts, faces, filename='output.ply'):
     mesh = trimesh.Trimesh(vertices=verts, faces=faces)
     trimesh.io.export.export_mesh(mesh, filename)
 
-if __name__ == '__main__':
+def main():
     import argparse
     import os
     parser = argparse.ArgumentParser()
@@ -127,7 +126,11 @@ if __name__ == '__main__':
     paths = list(Path(args.directory).glob('*.sbf'))
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
         futures = [executor.submit(describe_surface, path) for path in paths]
-        for f in tqdm(as_completed(futures), unit='file', total=len(futures)):
+        for f in as_completed(futures):
             name, coeffs = f.result()
             np.save(os.path.join(args.output_directory, name), coeffs)
-            log.debug(name, coeffs)
+            log.info('%s done', name)
+
+if __name__ == '__main__':
+    main()
+    

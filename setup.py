@@ -22,6 +22,11 @@ setup(name='hstools',
          'hstools': ['*.h5']  # include all templates
       },
       install_requires=['numpy', 'h5py', 'sbf', 'scipy', 'trimesh'],
+      entry_points={
+          'console_scripts': [
+              'hsdecompose = hstools.decompose:main',
+          ]
+      },
       zip_safe=False,
       test_suite='nose.collector',
       tests_require=['nose']
