@@ -1,3 +1,0 @@
-[submodule "externals/tonto"]
-	path = tonto
-	url = git://github.com/dylan-jayatilaka/tonto.git
