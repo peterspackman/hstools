@@ -132,7 +132,9 @@ def main():
         futures = [executor.submit(describe_surface, path) for path in paths]
         for f in as_completed(futures):
             name, coeffs = f.result()
-            np.save(path.join(args.output_directory, name), coeffs)
+            array_file = os.path.join(args.output_directory, name)
+            log.info('Saving array to %s', array_file)
+            np.save(array_file, coeffs)
     log.info('Finished %s', args.directory)
 
 if __name__ == '__main__':
