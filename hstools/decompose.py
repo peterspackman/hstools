@@ -113,23 +113,27 @@ def main():
                         help='Log to file instead of stdout')
     parser.add_argument('--log-level', default='INFO',
                         help='Log level')
-    parser.add_argument('--jobs', '-j', default=4,
+    parser.add_argument('--jobs', '-j', default=4, type=int,
                         help='Number of parallel jobs to run')
     parser.add_argument('--output-directory', '-o', default='.',
                         help='Directory to store output numpy arrays')
     args = parser.parse_args()
-    logging.basicConfig(level=args.log_level)
-    out = Path(args.output_directory)
-    if not out.exists():
-        out.mkdir()
+    if args.log_file:
+        logging.basicConfig(filename=args.log_file, level=args.log_level)
+    else:
+        logging.basicConfig(level=args.log_level)
+    log.info('Starting %s, output: %s', args.directory, args.output_directory)
+    if not os.path.exists(args.output_directory):
+        os.mkdir(args.output_directory)
 
     paths = list(Path(args.directory).glob('*.sbf'))
+    log.info('%d paths to process', len(paths))
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
         futures = [executor.submit(describe_surface, path) for path in paths]
         for f in as_completed(futures):
             name, coeffs = f.result()
-            np.save(os.path.join(args.output_directory, name), coeffs)
-            log.info('%s done', name)
+            np.save(path.join(args.output_directory, name), coeffs)
+    log.info('Finished %s', args.directory)
 
 if __name__ == '__main__':
     main()
