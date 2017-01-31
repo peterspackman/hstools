@@ -1,1 +1,1 @@
-all = ['decompose', 'lebedev']
+all = ['decompose', 'lebedev', 'search']

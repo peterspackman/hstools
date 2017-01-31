@@ -27,6 +27,19 @@ def spherical_to_cartesian(rtp):
 def interpolate(idxs, norms):
     return np.mean(norms[idxs])
 
+def mean_radius(pts):
+    center = np.mean(pts, axis=1)
+    pts = pts.transpose() - center
+    d2 = pts[:, 0] **2 + pts[:, 1] **2 + pts[:, 2] **2
+    norms = np.sqrt(d2)
+    mean_radius = np.mean(norms)
+    return mean_radius
+
+def mean_radius2(pts):
+    return np.mean(np.linalg.norm(pts.transpose() -
+                   np.mean(pts, axis=1), axis=1))
+
+
 def describe_surface(filename, degree=131, export_mesh=False):
     name = Path(filename).stem
     f = sbf.File(filename)
@@ -101,6 +114,16 @@ def sht(values, grid, l_max=20):
 def export_mesh(verts, faces, filename='output.ply'):
     mesh = trimesh.Trimesh(vertices=verts, faces=faces)
     trimesh.io.export.export_mesh(mesh, filename)
+
+def read_radius(arrfile, root):
+    parent = arrfile.parent.name
+    sbf_file = Path(root, parent, arrfile.with_suffix('.sbf').name)
+    f = sbf.File(sbf_file)
+    f.read()
+    radius = mean_radius(f['vertices'].data)
+    return radius
+
+
 
 def main():
     import argparse
