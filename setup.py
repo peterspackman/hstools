@@ -19,12 +19,14 @@ setup(name='hstools',
       license='GPLv3',
       packages=find_packages(),
       package_data={
-         'hstools': ['*.h5']  # include all templates
+         'hstools': ['*.h5'],  # include all h5 files,
+         'hstools': ['*.bin']  # and all numpy array files
       },
       install_requires=['numpy', 'h5py', 'sbf', 'scipy', 'trimesh'],
       entry_points={
           'console_scripts': [
               'hsdecompose = hstools.decompose:main',
+              'hs-search-csd = hstools.gui:main'
           ]
       },
       zip_safe=False,

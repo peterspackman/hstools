@@ -24,20 +24,24 @@ def spherical_to_cartesian(rtp):
     return xyz
 
 
-def interpolate(idxs, norms):
+def _interpolate(idxs, norms):
     return np.mean(norms[idxs])
 
-def mean_radius(pts):
-    center = np.mean(pts, axis=1)
-    pts = pts.transpose() - center
+
+def shift_to_origin(pts):
+    """reoriginate a set of points to be centered about [0, 0, 0]"""
+    center = np.mean(pts, axis=0)
+    return pts - center 
+
+def mean_radius(pts, reoriginate=False):
+    """Calculate the mean radius (distance to origin) of a set
+    of vertices"""
+    if reoriginate:
+        pts = shift_to_origin(pts)
     d2 = pts[:, 0] **2 + pts[:, 1] **2 + pts[:, 2] **2
     norms = np.sqrt(d2)
     mean_radius = np.mean(norms)
     return mean_radius
-
-def mean_radius2(pts):
-    return np.mean(np.linalg.norm(pts.transpose() -
-                   np.mean(pts, axis=1), axis=1))
 
 
 def describe_surface(filename, degree=131, export_mesh=False):
@@ -78,11 +82,20 @@ def describe_surface(filename, degree=131, export_mesh=False):
     log.debug('Interpolating values')
     nn = tree.query(grid_cartesian, 1)
     log.debug('Done')
-    values = np.array([interpolate(idxs, norms) for idxs in nn[1]])
-    return name, sht(values, grid)
+    values = np.array([_interpolate(idxs, norms) for idxs in nn[1]])
+    return name, mean_radius, sht(values, grid)
 
 def reconstruct_surface(coeffs, l_max=20, degree=131):
-    """Reconstruct the HS by distorting a sphere"""
+    """Reconstruct the HS by distorting a spherical mesh, generated
+    from a lebedev grid.
+    
+    Arguments:
+    coeffs -- the set of spherical harmonic coefficients 
+    
+    Keyword arguments:
+    l_max -- maximum angular momenta to reconstruct to (default 20)
+    degree -- grid degree to use (see lebedev grids)
+    """
     grid = lebedev_grid(degree=degree)
     # grid[:, 0] goes from 0 -> 2 PI
     # grid[:, 1] goes from 0 -> PI
@@ -102,6 +115,15 @@ def reconstruct_surface(coeffs, l_max=20, degree=131):
     return verts, faces
 
 def sht(values, grid, l_max=20):
+    """Perform a spherical harmonic transform given a grid and a set of values
+
+    Arguments:
+    values -- set of scalar function values associated with grid points
+    grid -- set of grid points
+
+    Keyword arguments:
+    l_max -- maximum angular momenta to integrate to (default 20)
+    """
     coefficients = np.zeros((l_max + 1)*(l_max + 1), dtype=np.complex128)
     lm = 0
     for l in range(0, l_max + 1):
@@ -112,6 +134,15 @@ def sht(values, grid, l_max=20):
     return coefficients
 
 def export_mesh(verts, faces, filename='output.ply'):
+    """Export a mesh file in .ply format
+
+    Arguments:
+    verts -- set of vertices
+    faces -- faces of the mesh
+
+    Keyword arguments:
+    filename -- name of the mesh file to write (default 'output.ply')
+    """
     mesh = trimesh.Trimesh(vertices=verts, faces=faces)
     trimesh.io.export.export_mesh(mesh, filename)
 
@@ -123,7 +154,8 @@ def read_radius(arrfile, root):
     radius = mean_radius(f['vertices'].data)
     return radius
 
-
+def create_surfaces():
+    pass
 
 def main():
     import argparse
@@ -134,6 +166,8 @@ def main():
                         help='Maximum angular momentum')
     parser.add_argument('--log-file', default=None,
                         help='Log to file instead of stdout')
+    parser.add_argument('--suffix', '-s', default='.sbf',
+                        help='File suffix to find sbf files')
     parser.add_argument('--log-level', default='INFO',
                         help='Log level')
     parser.add_argument('--jobs', '-j', default=4, type=int,
