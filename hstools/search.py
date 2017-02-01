@@ -5,22 +5,42 @@ from pathlib import Path
 from collections import namedtuple
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from .decompose import describe_surface
 
 log = logging.getLogger(__name__)
+Shape = namedtuple('Shape', 'name invariants')
+SearchResult = namedtuple('SearchResult', 'name proximity invariants')
 
 class ShapeMatcher(object):
     def __init__(self, ids, invariants):
         self.ids = ids
         self.invariants = invariants
-        print('Constructing tree')
+        log.debug('Constructing tree from %d invariants', len(invariants))
         self.tree = KDTree(invariants)
 
-    def search(self, invariants, n):
-        idxs = self.tree.query(invariants, n)
-        print(idxs)
-        distances, indexes = idxs
-        return distances, self.ids[indexes]
+    def search_invariants(self, invariants, n=10):
+        log.debug('Searching for %d closest points', n)
+        distances, indexes = self.tree.query(invariants, n)
+        return [SearchResult(name.decode('utf-8'), d, inv) 
+                for name, d, inv in 
+                zip(self.ids[indexes], distances, self.invariants[indexes])]
 
+    def search_shape(self, shape, n=10):
+        log.debug('Searching for closest shapes to %s', shape.name)
+        return self.search_invariants(shape.invariants, n=n)
+
+
+def get_chemical_formula(search_result):
+    return search.result.name.split('-')[1].split('_')[0]
+
+
+def get_shape_description(sbf_file, use_radius=True):
+    log.debug('Describing surface with spherical harmonics')
+    name, r, coeffs = describe_surface(sbf_file)
+    log.debug('Making invariants')
+    invariants = np.insert(make_invariants(coeffs), 0, r)
+    return Shape(name, invariants)
+    
 
 def load_default_data(directory=os.path.dirname(__file__)): 
     names = np.fromfile(os.path.join(directory, 'universe-names.bin'), dtype='S64')
