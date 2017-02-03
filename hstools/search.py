@@ -150,6 +150,8 @@ def main():
                         help='Log to file instead of stdout')
     parser.add_argument('--suffix', '-s', default='.sbf',
                         help='File suffix to find sbf files')
+    parser.add_argument('--results', '-n', default=10, type=int,
+                        help='Number of matches to print out per surface')
     parser.add_argument('--log-level', default='INFO',
                         help='Log level')
     parser.add_argument('--jobs', '-j', default=4, type=int,
@@ -169,7 +171,7 @@ def main():
         futures = [executor.submit(get_shape_description, path) for path in paths]
         for f in as_completed(futures):
             shape = f.result()
-            results = matcher.search_shape(shape)
+            results = matcher.search_shape(shape, n=args.results)
             print('{}:'.format(shape.name))
             for result in results:
                 print('\t{}'.format(result.name))
