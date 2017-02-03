@@ -146,18 +146,10 @@ def export_mesh(verts, faces, filename='output.ply'):
     mesh = trimesh.Trimesh(vertices=verts, faces=faces)
     trimesh.io.export.export_mesh(mesh, filename)
 
-def read_radius(arrfile, root):
-    parent = arrfile.parent.name
-    sbf_file = Path(root, parent, arrfile.with_suffix('.sbf').name)
-    f = sbf.File(sbf_file)
-    f.read()
-    radius = mean_radius(f['vertices'].data)
-    return radius
-
-def create_surfaces():
-    pass
-
 def main():
+    """Read through all sbf files in a directory, writing
+    numpy arrays of sht coefficients for each shape encountered.
+    """
     import argparse
     import os
     parser = argparse.ArgumentParser()

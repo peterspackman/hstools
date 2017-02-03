@@ -25,8 +25,8 @@ setup(name='hstools',
       install_requires=['numpy', 'h5py', 'sbf', 'scipy', 'trimesh'],
       entry_points={
           'console_scripts': [
-              'hsdecompose = hstools.decompose:main',
-              'hs-search-csd = hstools.gui:main'
+              'hstools-describe = hstools.decompose:main',
+              'hstools-search = hstools.search:main'
           ]
       },
       zip_safe=False,
