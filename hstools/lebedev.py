@@ -6,11 +6,12 @@ from the h5file
 
 """
 from os.path import dirname, abspath, join
-import h5py as h5
+import sbf
 import numpy as np
 
 DIR = dirname(abspath(__file__))
-LEBEDEV_GRID_FILE = join(DIR, 'lebedev.h5')
+LEBEDEV_GRID_FILE = join(DIR, 'lebedev.sbf')
+_GRIDS = sbf.read_file(LEBEDEV_GRID_FILE)
 
 AVAILABLE_GRIDS = [i for i in range(3, 32, 2)] + [i for i in range(35, 132, 6)]
 MAX_DEGREE = max(AVAILABLE_GRIDS)
@@ -37,8 +38,7 @@ def lebedev_grid(degree=21):
         raise ValueError("maximum degree is {}".format(MAX_DEGREE))
     else:
         degree = next(x for x in AVAILABLE_GRIDS if x >= degree)
-    with h5.File(LEBEDEV_GRID_FILE, 'r') as grids:
-        rule = grids[str(degree)].value
+    rule = _GRIDS[str(degree)].data
     return rule
 
 

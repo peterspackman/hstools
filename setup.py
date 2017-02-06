@@ -22,7 +22,7 @@ setup(name='hstools',
          'hstools': ['*.h5'],  # include all h5 files,
          'hstools': ['*.bin']  # and all numpy array files
       },
-      install_requires=['numpy', 'h5py', 'sbf', 'scipy', 'trimesh'],
+      install_requires=['numpy', 'sbf', 'scipy', 'trimesh'],
       entry_points={
           'console_scripts': [
               'hstools-describe = hstools.decompose:main',
