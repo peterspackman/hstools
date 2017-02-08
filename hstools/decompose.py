@@ -9,6 +9,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 log = logging.getLogger('decompose')
 
+
 def spherical_to_cartesian(rtp):
     """
     Given an N by 3 array of (r, theta, phi) spherical coordinates
@@ -32,26 +33,27 @@ def _interpolate(idxs, norms):
 
 def shift_to_origin(pts):
     """reoriginate a set of points to be centered about [0, 0, 0]
-    
+
     Arguments:
     pts -- set of points to reoriginate
     """
     center = np.mean(pts, axis=0)
-    return pts - center 
+    return pts - center
+
 
 def mean_radius(pts, reoriginate=False):
     """Calculate the mean radius (distance to origin) of a set
     of vertices
-    
+
     Arguments:
     pts -- set of points to calculate the mean norm
-    
+
     Keyword arguments:
     reoriginate -- shift the points to be centered about [0,0,0] first
     (default False)"""
     if reoriginate:
         pts = shift_to_origin(pts)
-    d2 = pts[:, 0] **2 + pts[:, 1] **2 + pts[:, 2] **2
+    d2 = pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2
     norms = np.sqrt(d2)
     mean_radius = np.mean(norms)
     return mean_radius
@@ -61,7 +63,7 @@ def describe_surface(filename, degree=131):
     """Given an SBF, describe the set of vertices inside
     using spherical harmonics. Will scale the mesh to be of unit
     mean radius.
-    
+
     Arguments:
     filename -- name of the SBF to open
 
@@ -78,17 +80,18 @@ def describe_surface(filename, degree=131):
     log.debug('Loaded vertex data')
     center = np.mean(pts, axis=0)
     # shift to be centered about the origin
-    pts = pts - center 
+    pts = pts - center
 
     # this is faster for some reason than np.apply_along_axis
-    norms = np.sqrt(pts[:,0] **2 + pts[:, 1] **2 + pts[:, 2] **2)
+    norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
     mean_radius = np.mean(norms)
     pts = pts / mean_radius
-    norms = norms / mean_radius 
+    norms = norms / mean_radius
     pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
     log.debug('Normalized points')
     grid = lebedev_grid(degree=degree)
-    grid_cartesian= spherical_to_cartesian(np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
+    grid_cartesian = spherical_to_cartesian(
+            np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
     log.debug('Constructing tree')
     tree = KDTree(pts_normalized)
     log.debug('Done')
@@ -102,10 +105,10 @@ def describe_surface(filename, degree=131):
 def reconstruct_surface(coeffs, l_max=20, degree=131):
     """Reconstruct the HS by distorting a spherical mesh, generated
     from a lebedev grid.
-    
+
     Arguments:
-    coeffs -- the set of spherical harmonic coefficients 
-    
+    coeffs -- the set of spherical harmonic coefficients
+
     Keyword arguments:
     l_max -- maximum angular momenta to reconstruct to (default 20)
     degree -- grid degree to use (see lebedev grids)
@@ -127,6 +130,7 @@ def reconstruct_surface(coeffs, l_max=20, degree=131):
     verts = spherical_to_cartesian(verts)
     faces = ConvexHull(sphere).simplices
     return verts, faces
+
 
 def sht(values, grid, l_max=20):
     """Perform a spherical harmonic transform given a grid and a set of values
@@ -190,4 +194,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    

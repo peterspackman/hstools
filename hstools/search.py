@@ -11,12 +11,13 @@ log = logging.getLogger(__name__)
 Shape = namedtuple('Shape', 'name invariants')
 SearchResult = namedtuple('SearchResult', 'name proximity invariants')
 
+
 class ShapeMatcher(object):
     def __init__(self, ids, invariants):
-        """Match other shapes based on euclidean distance. 
+        """Match other shapes based on euclidean distance.
         Constructs a KDTree in order to do nearest neighbour queries.
         For large datasets it might take a second or two to build the tree.
-        
+
         Arguments:
         ids -- set names/identifiers for the shapes
         invariants -- 2D array of invariants that describe the shapes
@@ -37,8 +38,8 @@ class ShapeMatcher(object):
         """
         log.debug('Searching for %d closest points', n)
         distances, indexes = self.tree.query(invariants, n)
-        return [SearchResult(name.decode('utf-8'), d, inv) 
-                for name, d, inv in 
+        return [SearchResult(name.decode('utf-8'), d, inv)
+                for name, d, inv in
                 zip(self.ids[indexes], distances, self.invariants[indexes])]
 
     def search_shape(self, shape, n=10):
@@ -69,8 +70,6 @@ class ShapeMatcher(object):
         return ShapeMatcher(names, invariants)
 
 
-
-
 def get_chemical_formula(search_result):
     """Convenience function to extract molecular formula from the names/ids
     in the 'universe' dataset
@@ -96,16 +95,18 @@ def get_shape_description(sbf_file, use_radius=True):
     log.debug('Making invariants')
     invariants = np.insert(make_invariants(coeffs), 0, r)
     return Shape(name, invariants)
-    
 
-def load_default_data(directory=os.path.dirname(__file__)): 
+
+def load_default_data(directory=os.path.dirname(__file__)):
     """Load the data included with this module.
-    
+
     Keyword arguments:
-    directory -- the folder containing data to load 
+    directory -- the folder containing data to load
     (default is the location of this file)
     """
-    names = np.fromfile(os.path.join(directory, 'universe-names.bin'), dtype='S64')
+    names = np.fromfile(os.path.join(directory,
+                                     'universe-names.bin'),
+                        dtype='S64')
     invariants = np.fromfile(
             os.path.join(directory, 'universe-invariants.bin'),
             dtype=np.float64).reshape(names.size, 21)
@@ -113,9 +114,8 @@ def load_default_data(directory=os.path.dirname(__file__)):
     radii = np.fromfile(
             os.path.join(directory, 'universe-radii.bin'),
             dtype=np.float64)
-    
-    return names, invariants, radii
 
+    return names, invariants, radii
 
 
 def make_invariants(coefficients):
@@ -129,8 +129,10 @@ def make_invariants(coefficients):
     invariants = np.empty(shape=(size), dtype=np.float64)
     for i in range(0, size):
         l, u = i**2, (i+1)**2
-        invariants[i] = np.sum(coefficients[l:u+1] * np.conj(coefficients[l:u+1])).real
+        invariants[i] = np.sum(coefficients[l:u+1] *
+                               np.conj(coefficients[l:u+1])).real
     return invariants
+
 
 def add_files_from_directory(directory, data_dict={}):
     for f in Path(directory).glob('*.npy'):
@@ -147,7 +149,8 @@ def create_arrays(data_dict):
     names[:] = [key for key in keys]
     coefficients[:, :] = [value for value in values]
     invariants[:] = [make_invariants(c) for c in values]
-    return names, coefficients, invariants 
+    return names, coefficients, invariants
+
 
 def main():
     """Read through all sbf files in a directory, writing
@@ -176,10 +179,12 @@ def main():
     log.debug('Creating CSD matcher')
     matcher = ShapeMatcher.from_csd_data()
     log.debug('Done')
-    paths = list(Path(args.directory).glob('*{}'.format(args.suffix)))
+    paths = list(Path(args.directory).glob(
+                '*{}'.format(args.suffix)))
     log.info('%d paths to describe with sht', len(paths))
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
-        futures = [executor.submit(get_shape_description, path) for path in paths]
+        futures = [executor.submit(get_shape_description, path)
+                   for path in paths]
         for f in as_completed(futures):
             shape = f.result()
             results = matcher.search_shape(shape, n=args.results)

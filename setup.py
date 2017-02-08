@@ -19,7 +19,7 @@ setup(name='hstools',
       license='GPLv3',
       packages=find_packages(),
       package_data={
-         'hstools': ['*.sbf'],  # include all h5 files,
+         'hstools': ['*.sbf'],  # include all sbf files,
          'hstools': ['*.bin']  # and all numpy array files
       },
       install_requires=['numpy', 'sbf', 'scipy'],

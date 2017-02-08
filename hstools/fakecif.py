@@ -31,11 +31,14 @@ _atom_site_fract_z
 {cell_atoms}
 """
 
+
 def center_string(coord):
     return '\t'.join('{:.8f}'.format(c) for c in coord)
 
+
 def atom_string(atom):
     return '\t'.join([atom.label, atom.element, center_string(atom.center)])
+
 
 def output_fake_cif(path, atoms, cell_dims):
     cell_volume = cell_dims[0] * cell_dims[1] * cell_dims[2]
@@ -44,7 +47,8 @@ def output_fake_cif(path, atoms, cell_dims):
                                  a=cell_dims[0],
                                  b=cell_dims[1],
                                  c=cell_dims[2],
-                                 cell_volume=cell_volume, cell_atoms=cell_atoms)
+                                 cell_volume=cell_volume,
+                                 cell_atoms=cell_atoms)
     with path.open('w') as f:
         f.write(output)
 
@@ -55,12 +59,14 @@ def bounding_box(atoms):
         minimum = min(a.center[i] for a in atoms)
         maximum = max(a.center[i] for a in atoms)
         bounds.append([minimum, maximum])
-    return bounds 
+    return bounds
+
 
 def convert_to_fractional_coords(atoms, cell_dims):
     for atom in atoms:
         for i in range(0, 3):
             atom.center[i] /= cell_dims[i]
+
 
 def process_xyz_file(path):
     element_count = defaultdict(int)
@@ -74,9 +80,12 @@ def process_xyz_file(path):
                 element = tokens[0]
                 center = [float(x) for x in tokens[1:4]]
                 element_count[element] += 1
-                atoms.append(Atom(element, '{}{}'.format(element, element_count[element]),center))
+                atoms.append(Atom(element,
+                                  '{}{}'.format(element,
+                                                element_count[element]),
+                                  center))
     bounds = bounding_box(atoms)
-    cell_dims = [round(x2 - x1) * 1.05 for x1, x2 in bounds ]
+    cell_dims = [round(x2 - x1) * 1.05 for x1, x2 in bounds]
 # shift the minimum to be at the origin
     for atom in atoms:
         for i in range(0, 3):
@@ -94,4 +103,3 @@ def process_xyz_files():
 
 if __name__ == '__main__':
     process_xyz_files()
-

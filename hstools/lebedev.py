@@ -16,6 +16,7 @@ _GRIDS = sbf.read_file(LEBEDEV_GRID_FILE)
 AVAILABLE_GRIDS = [i for i in range(3, 32, 2)] + [i for i in range(35, 132, 6)]
 MAX_DEGREE = max(AVAILABLE_GRIDS)
 
+
 def lebedev_grid(degree=21):
     """
     Returns the *angular* lebedev grid capable of exactly
@@ -34,7 +35,7 @@ def lebedev_grid(degree=21):
            [ 4.71238898,  3.14159265,  0.16666667]])
     """
     if degree > MAX_DEGREE:
-        #error
+        # error
         raise ValueError("maximum degree is {}".format(MAX_DEGREE))
     else:
         degree = next(x for x in AVAILABLE_GRIDS if x >= degree)
@@ -63,6 +64,7 @@ def integrate_lambda(grid, func):
     """
 
     return np.sum(func(grid[:, 0], grid[:, 1]) * grid[:, 2]) * 4 * np.pi
+
 
 def integrate_values(grid, values):
     """

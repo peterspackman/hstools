@@ -1,7 +1,8 @@
-all = ['decompose', 'lebedev', 'search', 'gui']
 from .search import ShapeMatcher, Shape
 from warnings import warn
+all = ['decompose', 'lebedev', 'search', 'gui']
 __MATCHER__ = None
+
 
 class MatcherBox():
     """Simple storage class for caching
@@ -10,6 +11,7 @@ class MatcherBox():
 
 __matcher = MatcherBox()
 __matcher.universe_matcher = None
+
 
 def csd_matcher():
     """Create the matcher from the bundled data extracted
