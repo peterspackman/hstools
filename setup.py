@@ -19,10 +19,9 @@ setup(name='hstools',
       license='GPLv3',
       packages=find_packages(),
       package_data={
-         'hstools': ['*.h5'],  # include all h5 files,
          'hstools': ['*.bin']  # and all numpy array files
       },
-      install_requires=['numpy', 'sbf', 'scipy', 'trimesh'],
+      install_requires=['numpy', 'sbf', 'scipy'],
       entry_points={
           'console_scripts': [
               'hstools-describe = hstools.decompose:main',

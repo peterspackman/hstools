@@ -53,6 +53,23 @@ class ShapeMatcher(object):
         log.debug('Searching for closest shapes to %s', shape.name)
         return self.search_invariants(shape.invariants, n=n)
 
+    @staticmethod
+    def from_csd_data(l_max=20, use_radius=True):
+        """Construct a CSD matcher based on the bundled data
+
+        Keyword arguments:
+        l_max -- maximum angular momenta to use for invariants
+        (default 20)
+        use_radius -- use the mean radius as the first invariant
+        (default True)
+        """
+        names, invariants, radii = load_default_data()
+        if use_radius:
+            invariants = np.insert(invariants, 0, radii, axis=1)
+        return ShapeMatcher(names, invariants)
+
+
+
 
 def get_chemical_formula(search_result):
     """Convenience function to extract molecular formula from the names/ids
@@ -99,12 +116,6 @@ def load_default_data(directory=os.path.dirname(__file__)):
     
     return names, invariants, radii
 
-
-def get_csd_matcher(l_max=20, use_radius=True):
-    names, invariants, radii = load_default_data()
-    if use_radius:
-        invariants = np.insert(invariants, 0, radii, axis=1)
-    return ShapeMatcher(names, invariants)
 
 
 def make_invariants(coefficients):
@@ -163,7 +174,7 @@ def main():
         logging.basicConfig(level=args.log_level)
     log.info('Starting %s, jobs: %d', args.directory, args.jobs)
     log.debug('Creating CSD matcher')
-    matcher = get_csd_matcher()
+    matcher = ShapeMatcher.from_csd_data()
     log.debug('Done')
     paths = list(Path(args.directory).glob('*{}'.format(args.suffix)))
     log.info('%d paths to describe with sht', len(paths))

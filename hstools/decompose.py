@@ -1,6 +1,5 @@
 from scipy.spatial import KDTree, ConvexHull
 from scipy.special import sph_harm
-import trimesh
 import numpy as np
 import sbf
 from .lebedev import lebedev_grid, integrate_values
@@ -14,6 +13,9 @@ def spherical_to_cartesian(rtp):
     """
     Given an N by 3 array of (r, theta, phi) spherical coordinates
     return an N by 3 array of Cartesian(x, y, z) coordinates.
+
+    Arguments:
+    rtp -- set of r, theta, phi coordinates
     """
     xyz = np.zeros(rtp.shape)
 
@@ -29,13 +31,24 @@ def _interpolate(idxs, norms):
 
 
 def shift_to_origin(pts):
-    """reoriginate a set of points to be centered about [0, 0, 0]"""
+    """reoriginate a set of points to be centered about [0, 0, 0]
+    
+    Arguments:
+    pts -- set of points to reoriginate
+    """
     center = np.mean(pts, axis=0)
     return pts - center 
 
 def mean_radius(pts, reoriginate=False):
     """Calculate the mean radius (distance to origin) of a set
-    of vertices"""
+    of vertices
+    
+    Arguments:
+    pts -- set of points to calculate the mean norm
+    
+    Keyword arguments:
+    reoriginate -- shift the points to be centered about [0,0,0] first
+    (default False)"""
     if reoriginate:
         pts = shift_to_origin(pts)
     d2 = pts[:, 0] **2 + pts[:, 1] **2 + pts[:, 2] **2
@@ -44,7 +57,19 @@ def mean_radius(pts, reoriginate=False):
     return mean_radius
 
 
-def describe_surface(filename, degree=131, export_mesh=False):
+def describe_surface(filename, degree=131):
+    """Given an SBF, describe the set of vertices inside
+    using spherical harmonics. Will scale the mesh to be of unit
+    mean radius.
+    
+    Arguments:
+    filename -- name of the SBF to open
+
+    Keyword arguments:
+    degree -- the degree of lebedev grid to use for integration
+    (default 131)
+    (default False)
+    """
     name = Path(filename).stem
     f = sbf.File(filename)
     f.read()
@@ -54,10 +79,6 @@ def describe_surface(filename, degree=131, export_mesh=False):
     center = np.mean(pts, axis=0)
     # shift to be centered about the origin
     pts = pts - center 
-    if export_mesh:
-        faces = f['faces'].data.transpose() - 1
-        mesh = trimesh.Trimesh(vertices=pts, faces=faces)
-        trimesh.io.export.export_mesh(mesh, 'original.ply')
 
     # this is faster for some reason than np.apply_along_axis
     norms = np.sqrt(pts[:,0] **2 + pts[:, 1] **2 + pts[:, 2] **2)
@@ -68,14 +89,6 @@ def describe_surface(filename, degree=131, export_mesh=False):
     log.debug('Normalized points')
     grid = lebedev_grid(degree=degree)
     grid_cartesian= spherical_to_cartesian(np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
-    if export_mesh:
-        faces = ConvexHull(pts_normalized).simplices
-        mesh = trimesh.Trimesh(vertices=pts_normalized, faces=faces)
-        trimesh.io.export.export_mesh(mesh, 'sphere.ply')
-        faces = ConvexHull(grid_cartesian).simplices
-        mesh = trimesh.Trimesh(vertices=grid_cartesian, faces=faces)
-        trimesh.io.export.export_mesh(mesh, 'sphere-lebedev.ply')
-
     log.debug('Constructing tree')
     tree = KDTree(pts_normalized)
     log.debug('Done')
@@ -84,6 +97,7 @@ def describe_surface(filename, degree=131, export_mesh=False):
     log.debug('Done')
     values = np.array([_interpolate(idxs, norms) for idxs in nn[1]])
     return name, mean_radius, sht(values, grid)
+
 
 def reconstruct_surface(coeffs, l_max=20, degree=131):
     """Reconstruct the HS by distorting a spherical mesh, generated
@@ -133,18 +147,6 @@ def sht(values, grid, l_max=20):
             lm += 1
     return coefficients
 
-def export_mesh(verts, faces, filename='output.ply'):
-    """Export a mesh file in .ply format
-
-    Arguments:
-    verts -- set of vertices
-    faces -- faces of the mesh
-
-    Keyword arguments:
-    filename -- name of the mesh file to write (default 'output.ply')
-    """
-    mesh = trimesh.Trimesh(vertices=verts, faces=faces)
-    trimesh.io.export.export_mesh(mesh, filename)
 
 def main():
     """Read through all sbf files in a directory, writing
