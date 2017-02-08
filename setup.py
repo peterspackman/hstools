@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='hstools',
-      version='0.1.1',
+      version='0.1.5',
       description='Tools for analysing hirshfeld surfaces',
       url='http://github.com/peterspackman/hstools',
       author='Peter Spackman',
@@ -19,6 +19,7 @@ setup(name='hstools',
       license='GPLv3',
       packages=find_packages(),
       package_data={
+         'hstools': ['*.sbf'],  # include all h5 files,
          'hstools': ['*.bin']  # and all numpy array files
       },
       install_requires=['numpy', 'sbf', 'scipy'],
