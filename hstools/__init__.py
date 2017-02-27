@@ -1,6 +1,6 @@
 from .search import ShapeMatcher, Shape
 from warnings import warn
-all = ['decompose', 'lebedev', 'search', 'gui']
+all = ['decompose', 'lebedev', 'search', 'gui', 'notebook']
 __MATCHER__ = None
 
 

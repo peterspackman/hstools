@@ -2,6 +2,8 @@
 import argparse
 from pathlib import Path
 from collections import namedtuple, defaultdict
+import logging
+log = logging.getLogger('fakecif')
 
 Atom = namedtuple('Atom', 'element label center')
 
@@ -15,9 +17,9 @@ loop_
 _symmetry_equiv_pos_site_id
 _symmetry_equiv_pos_as_xyz
 1 x,y,z
-_cell_size_a                   {a}(1)
-_cell_size_b                   {b}(1)
-_cell_size_c                   {c}(1)
+_cell_length_a                   {a}(1)
+_cell_length_b                   {b}(1)
+_cell_length_c                   {c}(1)
 _cell_angle_alpha                90.00(1)
 _cell_angle_beta                 90.00(1)
 _cell_angle_gamma                90.00(1)
@@ -63,6 +65,7 @@ def bounding_box(atoms):
 
 
 def convert_to_fractional_coords(atoms, cell_dims):
+    log.debug('Converting to fraction coords')
     for atom in atoms:
         for i in range(0, 3):
             atom.center[i] /= cell_dims[i]
@@ -85,21 +88,55 @@ def process_xyz_file(path):
                                                 element_count[element]),
                                   center))
     bounds = bounding_box(atoms)
-    cell_dims = [round(x2 - x1) * 1.05 for x1, x2 in bounds]
+    cell_dims = [round(x2 - x1) * 1.5 for x1, x2 in bounds]
+    dim = max(cell_dims)
 # shift the minimum to be at the origin
     for atom in atoms:
         for i in range(0, 3):
             atom.center[i] -= bounds[i][0]
+    cell_dims = [dim, dim, dim]
+    convert_to_fractional_coords(atoms, cell_dims)
     return atoms, cell_dims
 
 
-def process_xyz_files():
-    pattern = '*xyz'
-    current_directory = Path('.')
-    for path in current_directory.glob(pattern):
-        atoms, cell_dims = process_xyz_file(path)
-        output_fake_cif(path.with_suffix('.cif'), atoms, cell_dims)
+def make_cif(input_path):
+    atoms, cell_dims = process_xyz_file(input_path)
+    cif_path = input_path.with_suffix('.cif')
+    log.info('Writing CIF to %s', cif_path)
+    output_fake_cif(cif_path, atoms, cell_dims)
 
 
-if __name__ == '__main__':
-    process_xyz_files()
+def main():
+    """Read through all xyz files in a directory, writing
+    fake CIFs for each of them
+    """
+    import argparse
+    import os
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    parser = argparse.ArgumentParser()
+    parser.add_argument('directory')
+    parser.add_argument('--log-file', default=None,
+                        help='Log to file instead of stdout')
+    parser.add_argument('--suffix', '-s', default='.xyz',
+                        help='File suffix to find xyz files')
+    parser.add_argument('--log-level', default='INFO',
+                        help='Log level')
+    parser.add_argument('--jobs', '-j', default=1, type=int,
+                        help='Number of parallel jobs to run')
+    args = parser.parse_args()
+
+    if args.log_file:
+        logging.basicConfig(filename=args.log_file, level=args.log_level)
+    else:
+        logging.basicConfig(level=args.log_level)
+
+    log.info('Searching in %s', 
+             args.directory)
+
+    paths = list(Path(args.directory).glob('*' + args.suffix))
+    log.info('%d xyz files to process', len(paths))
+    with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+        futures = [executor.submit(make_cif, path) for path in paths]
+        for f in as_completed(futures):
+            pass
+    log.info('Finished %s', args.directory)

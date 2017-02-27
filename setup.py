@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='hstools',
-      version='0.1.5',
+      version='0.1.7',
       description='Tools for analysing hirshfeld surfaces',
       url='http://github.com/peterspackman/hstools',
       author='Peter Spackman',
@@ -26,7 +26,8 @@ setup(name='hstools',
       entry_points={
           'console_scripts': [
               'hstools-describe = hstools.decompose:main',
-              'hstools-search = hstools.search:main'
+              'hstools-search = hstools.search:main',
+              'hstools-fakecif = hstools.fakecif:main',
           ]
       },
       zip_safe=False,
