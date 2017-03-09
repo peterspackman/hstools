@@ -24,6 +24,7 @@ def create_figure(surface, colorscale='Viridis'):
             z = vertices[:, 2],
             colorbar = go.ColorBar(title=colors[0]),
             colorscale = colorscale,
+            reversescale=True,
             intensity = colors[1],
             i = faces[:, 0],
             j = faces[:, 1],
