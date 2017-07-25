@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from collections import namedtuple
 import os
+import sbf
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from .decompose import describe_surface
 
@@ -104,17 +105,12 @@ def load_default_data(directory=os.path.dirname(__file__)):
     directory -- the folder containing data to load
     (default is the location of this file)
     """
-    names = np.fromfile(os.path.join(directory,
-                                     'universe-names.bin'),
-                        dtype='S64')
-    invariants = np.fromfile(
-            os.path.join(directory, 'universe-invariants.bin'),
-            dtype=np.float64).reshape(names.size, 21)
-
-    radii = np.fromfile(
-            os.path.join(directory, 'universe-radii.bin'),
-            dtype=np.float64)
-
+    contents = sbf.read_file(os.path.join(directory, 'main_group.sbf'))
+    names = contents['names'].data
+    dims = names.shape
+    names = names.view('S{}'.format(dims[1])).reshape((dims[0],))
+    invariants = contents['invariants'].data
+    radii = contents['radii'].data
     return names, invariants, radii
 
 
