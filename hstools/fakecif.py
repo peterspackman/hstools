@@ -135,8 +135,6 @@ def main():
 
     paths = list(Path(args.directory).glob('*' + args.suffix))
     log.info('%d xyz files to process', len(paths))
-    with ThreadPoolExecutor(max_workers=args.jobs) as executor:
-        futures = [executor.submit(make_cif, path) for path in paths]
-        for f in as_completed(futures):
-            pass
+    for path in paths:
+        make_cif(path)
     log.info('Finished %s', args.directory)

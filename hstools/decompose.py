@@ -4,6 +4,7 @@ import numpy as np
 import sbf
 from .lebedev import lebedev_grid, integrate_values
 import logging
+import time
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -59,7 +60,12 @@ def mean_radius(pts, reoriginate=False):
     return mean_radius
 
 
-def describe_surface(filename, degree=131):
+def values_from_grid(vals, ix):
+    res = np.array([_interpolate(idxs, vals) for idxs in ix])
+    return res
+
+
+def describe_surface(filename, degree=131, properties=None):
     """Given an SBF, describe the set of vertices inside
     using spherical harmonics. Will scale the mesh to be of unit
     mean radius.
@@ -72,6 +78,9 @@ def describe_surface(filename, degree=131):
     (default 131)
     (default False)
     """
+    if not properties:
+        properties = []
+
     name = Path(filename).stem
     f = sbf.File(filename)
     f.read()
@@ -98,8 +107,14 @@ def describe_surface(filename, degree=131):
     log.debug('Interpolating values')
     nn = tree.query(grid_cartesian, 1)
     log.debug('Done')
-    values = np.array([_interpolate(idxs, norms) for idxs in nn[1]])
-    return name, mean_radius, sht(values, grid)
+    values = values_from_grid(norms, nn[1])
+    property_arrays = {'shape': values}
+
+    for prop in properties:
+        property_arrays[prop] =  values_from_grid(f[prop].data, nn[1])
+    property_coefficients = { name: sht(value, grid) for name, value in property_arrays.items()}
+
+    return name, mean_radius, property_coefficients
 
 
 def reconstruct_surface(coeffs, l_max=20, degree=131):

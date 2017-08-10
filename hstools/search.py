@@ -71,7 +71,7 @@ class ShapeMatcher(object):
         return ShapeMatcher(names, invariants)
 
 
-def get_chemical_formula(search_result):
+def chemical_formula(search_result):
     """Convenience function to extract molecular formula from the names/ids
     in the 'universe' dataset
 
@@ -81,7 +81,7 @@ def get_chemical_formula(search_result):
     return search.result.name.split('-')[1].split('_')[0]
 
 
-def get_shape_description(sbf_file, use_radius=True):
+def surface_description(sbf_file, property_name='shape', properties=None, use_radius=True):
     """Describe a shape/isosurface using spherical harmonics.
     Returns a Shape object
 
@@ -92,9 +92,15 @@ def get_shape_description(sbf_file, use_radius=True):
     use_radius -- include mean_radius as the first invariant
     """
     log.debug('Describing surface with spherical harmonics')
-    name, r, coeffs = describe_surface(sbf_file)
+    if not properties:
+        properties = []
+    if property_name not in properties:
+        properties.append(property_name)
+    name, r, coeffs = describe_surface(sbf_file, properties=properties)
     log.debug('Making invariants')
-    invariants = np.insert(make_invariants(coeffs), 0, r)
+    invariants  = make_invariants(coeffs[property_name])
+    if property_name == 'shape' and use_radius:
+        invariants = np.insert(invariants, 0, r)
     return Shape(name, invariants)
 
 
@@ -179,7 +185,7 @@ def main():
                 '*{}'.format(args.suffix)))
     log.info('%d paths to describe with sht', len(paths))
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
-        futures = [executor.submit(get_shape_description, path)
+        futures = [executor.submit(surface_description, path)
                    for path in paths]
         for f in as_completed(futures):
             shape = f.result()
