@@ -1,12 +1,13 @@
-from scipy.spatial import KDTree
-import numpy as np
-import logging
-from pathlib import Path
-from collections import namedtuple
-import os
-import sbf
+"""Search module"""
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from .decompose import describe_surface
+import logging
+import os
+from pathlib import Path
+from scipy.spatial import cKDTree as KDTree
+import numpy as np
+from collections import namedtuple
+import sbf
+from .decompose import describe_surface, combination_desc
 
 log = logging.getLogger(__name__)
 Shape = namedtuple('Shape', 'name invariants')
@@ -70,6 +71,24 @@ class ShapeMatcher(object):
             invariants = np.insert(invariants, 0, radii, axis=1)
         return ShapeMatcher(names, invariants)
 
+    @staticmethod
+    def from_shapes(shapes, l_max=20):
+        """Construct a shapematcher object from a list of shapes
+
+        Arguments:
+        shapes -- A list of Shape objects
+        Keyword arguments:
+        l_max -- maximuma angular momenta to use for invariants
+        (default 20)
+        """
+        invariants, names = [], []
+        for name, s in shapes.items():
+            invariants.append(s.invariants)
+            names.append(name)
+        invariants = np.array(invariants)
+        names = np.array(names, dtype='|S64')
+        return ShapeMatcher(names, invariants)
+
 
 def chemical_formula(search_result):
     """Convenience function to extract molecular formula from the names/ids
@@ -94,13 +113,19 @@ def surface_description(sbf_file, property_name='shape', properties=None, use_ra
     log.debug('Describing surface with spherical harmonics')
     if not properties:
         properties = []
-    if property_name not in properties:
+
+    if property_name != 'shape' and property_name not in properties:
         properties.append(property_name)
-    name, r, coeffs = describe_surface(sbf_file, properties=properties)
-    log.debug('Making invariants')
-    invariants  = make_invariants(coeffs[property_name])
-    if property_name == 'shape' and use_radius:
-        invariants = np.insert(invariants, 0, r)
+    if property_name == 'combined':
+        name, r, esp, coeffs = combination_desc(sbf_file)
+        invariants = make_invariants(coeffs)
+        invariants = np.insert(invariants, 0, [r, esp])
+    else:
+        name, r, coeffs = describe_surface(sbf_file, properties=properties)
+        invariants  = make_invariants(coeffs[property_name])
+        log.debug('Making invariants')
+        if property_name == 'shape' and use_radius:
+            invariants = np.insert(invariants, 0, r)
     return Shape(name, invariants)
 
 

@@ -1,4 +1,4 @@
-from scipy.spatial import KDTree, ConvexHull
+from scipy.spatial import cKDTree as KDTree, ConvexHull
 from scipy.special import sph_harm
 import numpy as np
 import sbf
@@ -89,13 +89,13 @@ def describe_surface(filename, degree=131, properties=None):
     log.debug('Loaded vertex data')
     center = np.mean(pts, axis=0)
     # shift to be centered about the origin
-    pts = pts - center
+    pts -= center
 
     # this is faster for some reason than np.apply_along_axis
     norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
     mean_radius = np.mean(norms)
-    pts = pts / mean_radius
-    norms = norms / mean_radius
+    pts /= mean_radius
+    norms /= mean_radius
     pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
     log.debug('Normalized points')
     grid = lebedev_grid(degree=degree)
@@ -115,6 +115,55 @@ def describe_surface(filename, degree=131, properties=None):
     property_coefficients = { name: sht(value, grid) for name, value in property_arrays.items()}
 
     return name, mean_radius, property_coefficients
+
+
+def combination_desc(filename, degree=131):
+    """Given an SBF, describe the set of vertices and their esp using sht.
+    Will scale the mesh to be of unit mean radius.
+
+    Arguments:
+    filename -- name of the SBF to open
+
+    Keyword arguments:
+    degree -- the degree of lebedev grid to use for integration
+    (default 131)
+    (default False)
+    """
+    name = Path(filename).stem
+    f = sbf.File(filename)
+    f.read()
+    pts = f['vertices'].data.transpose()
+
+    log.debug('Loaded vertex data')
+    center = np.mean(pts, axis=0)
+    # shift to be centered about the origin
+    pts -= center
+
+    # this is faster for some reason than np.apply_along_axis
+    norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
+    mean_radius = np.mean(norms)
+    pts /= mean_radius
+    norms /= mean_radius
+    pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
+    log.debug('Normalized points')
+    grid = lebedev_grid(degree=degree)
+    grid_cartesian = spherical_to_cartesian(
+            np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
+    log.debug('Constructing tree')
+    tree = KDTree(pts_normalized)
+    log.debug('Done')
+    log.debug('Interpolating values')
+    nn = tree.query(grid_cartesian, 1)
+    log.debug('Done')
+    shape = values_from_grid(norms, nn[1])
+    esp =  values_from_grid(f['electric_potential'].data, nn[1])
+    esp_max = np.max(np.abs(esp))
+    esp /= esp_max
+    combined = np.zeros(esp.shape, dtype=np.complex128)
+    combined = shape + np.conj(esp)
+    coefficients = sht(combined, grid)
+    return name, mean_radius, esp_max, coefficients
+
 
 
 def reconstruct_surface(coeffs, l_max=20, degree=131):

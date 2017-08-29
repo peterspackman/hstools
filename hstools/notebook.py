@@ -1,3 +1,4 @@
+from .decompose import shift_to_origin
 import pandas as pd
 import numpy as np
 import sbf
@@ -10,7 +11,7 @@ def read_hs(filename, with_colors='d_norm'):
     f = sbf.File(filename)
     f.read()
     vertices = f['vertices'].data.transpose()
-    #vertices = vertices - vertices.mean(axis=0)
+    vertices = shift_to_origin(vertices)
     faces = f['faces'].data.transpose() -1
     colors = with_colors, f[with_colors].data
     return vertices, faces, colors   
