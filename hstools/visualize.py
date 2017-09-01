@@ -11,15 +11,16 @@ LOG = logging.getLogger(__name__)
 
 class Isosurface:
     """Wrapper class around an isosurface/mesh"""
-    def __init__(self, vertices, faces, vertex_normals, vertex_colors, **kwargs):
+    def __init__(self, vertices, faces, vertex_normals, available_properties, surface_property='d_norm'):
         self.vtype = [('position', np.float32, 3),
                       ('normal', np.float32, 3),
-                      ('color', np.float32, 4)]
+                      ('color', np.float32, 1)]
 
+        self.available_properties = available_properties
         self.vertex_buffer = np.zeros(vertices.shape[0], self.vtype)
         self.vertex_buffer['position'] = vertices
         self.vertex_buffer['normal'] = vertex_normals
-        self.vertex_buffer['color'] = vertex_colors
+        self.vertex_buffer['color'] = self.available_properties[surface_property]
         self.index_buffer = np.zeros(faces.shape, dtype=np.uint32)
         self.index_buffer[:, :] = faces[:, :]
     
@@ -29,20 +30,29 @@ class Isosurface:
             uniform mat4   u_model;         // Model matrix
             uniform mat4   u_view;          // View matrix
             uniform mat4   u_projection;    // Projection matrix
+            uniform mat3   u_colors;      // colors for shading
             attribute vec3 position;      // Vertex position
             attribute vec3 normal;        // Vertex normal
-            attribute vec4 color; // Vertex color
+            attribute float color; // Vertex color
             varying vec3   v_normal;        // Interpolated normal (out)
             varying vec3   v_position;      // Interpolated position (out)
             varying vec4 v_color; // Vertex color
+
+            vec4 colormap(float value) {
+                int index = 0;
+                if (value < 0) index = 2;
+                vec3 color = u_colors[index];
+                vec3 mid = u_colors[1];
+                vec3 result = color + (mid - color) * (1 - abs(value));
+                return vec4(result[0],result[1],result[2],1);
+            }
 
             void main()
             {
                 // Assign varying variables
                 v_normal   = normal;
                 v_position = position;
-                v_color = color;
-
+                v_color = colormap(color);
                 // Final position
                 gl_Position = u_projection * u_view * u_model * vec4(position,1.0);
             }
@@ -96,7 +106,7 @@ class Isosurface:
         return self.index_buffer.view(gloo.IndexBuffer)
 
     @staticmethod
-    def from_sbf_file(filename, surface_property='d_norm', colormap='bwr_r'):
+    def from_sbf_file(filename, surface_property='d_norm'):
         surface_data = sbf.read_file(filename)
         # set center to origin
         positions = shift_to_origin(surface_data['vertices'].data.transpose())
@@ -104,21 +114,19 @@ class Isosurface:
         positions /= radius
         faces = surface_data['faces'].data.transpose() - 1
         vertex_normals = surface_data['vertex normals'].data.transpose()
-        color_vals = surface_data[surface_property].data
-        colors = values_to_colors(color_vals, colormap=plt.get_cmap(colormap))
-        return Isosurface(positions, faces, vertex_normals, colors)
+        surface_properties = {}
 
-
-def values_to_colors(vals, colormap=plt.get_cmap('bwr_r')):
-    maxval = np.max(vals)
-    minval = np.min(vals)
-    normalized = vals[:] - minval
-    normalized /= (maxval - minval) 
-    return colormap(normalized)
+        for dset in surface_data.datasets():
+            if dset.data.shape == (positions.shape[0],):
+                vals = dset.data
+                vals -= np.mean(vals)
+                vals[vals > 0] /= np.abs(np.max(vals))
+                vals[vals < 0] /= np.abs(np.min(vals))
+                surface_properties[dset.name] = vals
+        return Isosurface(positions, faces, vertex_normals, surface_properties, surface_property=surface_property)
 
 
 class Renderer:
-
     def __init__(self, render_object, **kwargs):
         self.window = app.Window(**kwargs)
         self.render_object = render_object
@@ -126,12 +134,15 @@ class Renderer:
         self.program = gloo.Program(self.render_object.vertex_shader,
                                     self.render_object.fragment_shader)
         self.program.bind(self.render_object.vertices)
-        self.program["u_light_position"] = (-2, -2, 2)
-        self.program["u_light_intensity"] = (1, 1, 1)
+        self.set_light_position([-2, -2, 2])
+        self.set_light_intensity([1, 1, 1])
         self.program['u_model'] = np.eye(4, dtype=np.float32)
         self.view = glm.translation(0, 0, -5) # camera position
         self.model = np.eye(4, dtype=np.float32)
         self.program['u_view'] = self.view
+        self.program['u_colors'] = [[0, 0, 1],
+                                    [1, 1, 1],
+                                    [1, 0, 0]]
         self.phi, self.theta = (40, 30)
 
         @self.window.event
@@ -207,13 +218,16 @@ class Renderer:
             self.phi += 1.0 # degrees
         self.update_modelview()
 
+    def set_light_position(self, position):
+        self.program['u_light_position'] = position
 
-    def set_theta(self, value):
-        self.theta = value
+    def set_light_intensity(self, intensity):
+        self.program["u_light_intensity"] = intensity
 
-    def set_phi(self, value):
-        self.phi = value
-
+    def set_camera_position(self, position):
+        self.view = glm.translation(*position) # camera position
+        self.program['u_view'] = self.view
+    
 
 def main():
     import argparse
@@ -227,9 +241,7 @@ def main():
                         help='Log level to print')
     args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
-    iso = Isosurface.from_sbf_file(args.filename,
-                                   surface_property=args.surface_property,
-                                   colormap=args.color_map)
+    iso = Isosurface.from_sbf_file(args.filename, surface_property=args.surface_property)
     renderer = Renderer(iso, width=1024, height=1024,
                         color=(0.30, 0.30, 0.35, 1.00))
     app.run(interactive=True)
