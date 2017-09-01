@@ -168,6 +168,12 @@ class Renderer:
             # Rotate cube
             self.update_camera()
 
+        @self.window.timer(1 / 5.0)
+        def timer(dt):
+            self.window.set_title("FPS: {:3.1f}".format(self.window.fps).encode())
+
+
+
         @self.window.event
         def on_init():
             gl.glEnable(gl.GL_DEPTH_TEST)
