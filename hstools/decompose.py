@@ -107,6 +107,7 @@ def describe_surface(filename, degree=131, properties=None):
     log.debug('Interpolating values')
     nn = tree.query(grid_cartesian, 1)
     log.debug('Done')
+    # interpolate our values from the grid (faster than scipy.griddata by... a lot)
     values = values_from_grid(norms, nn[1])
     property_arrays = {'shape': values}
 
@@ -210,7 +211,8 @@ def sht(values, grid, l_max=20):
     lm = 0
     for l in range(0, l_max + 1):
         for m in range(-l, l + 1):
-            vals = sph_harm(m, l, grid[:, 0], grid[:, 1]) * values
+            vals = sph_harm(m, l, grid[:, 0], grid[:, 1])
+            vals *= values
             coefficients[lm] = integrate_values(grid, vals)
             lm += 1
     return coefficients
