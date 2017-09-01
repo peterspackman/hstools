@@ -1,5 +1,6 @@
 """Module for visualizing a HS with glumpy"""
 import logging
+import random
 import sys
 from glumpy import app, gl, glm, gloo
 from glumpy.transforms import Trackball, Position
@@ -35,16 +36,25 @@ class Isosurface:
             attribute vec3 position;      // Vertex position
             attribute vec3 normal;        // Vertex normal
             attribute float color; // Vertex color
+            uniform float u_min_color;
+            uniform float u_max_color;
             varying vec3   v_normal;        // Interpolated normal (out)
             varying vec3   v_position;      // Interpolated position (out)
             varying vec4 v_color; // Vertex color
 
             vec4 colormap(float value) {
                 int index = 0;
-                if (value < 0) index = 2;
+                float factor = 0;
+                if (value < 0) {
+                    factor = 1.0 - value / u_min_color;
+                    index = 2;
+                }
+                else {
+                    factor = 1.0 - value / u_max_color;
+                }
                 vec3 color = u_colors[index];
                 vec3 mid = u_colors[1];
-                vec3 result = color + (mid - color) * (1 - abs(value));
+                vec3 result = color + (mid - color) * factor;
                 return vec4(result[0],result[1],result[2],1);
             }
 
@@ -94,7 +104,7 @@ class Isosurface:
                 // 2. The color/intensities of the light: light.intensities
 
                 // Final color
-                gl_FragColor = v_color * (0.4 + 0.6*brightness * vec4(u_light_intensity, 1));
+                gl_FragColor = v_color * (0.5 + 0.5 * brightness * vec4(u_light_intensity, 1));
             }
         """
 
@@ -105,6 +115,10 @@ class Isosurface:
     @property
     def indices(self):
         return self.index_buffer.view(gloo.IndexBuffer)
+
+    def change_surface_property(self, new_property, program):
+        if new_property in self.available_properties.keys():
+            self.vertex_buffer['color'] = self.available_properties[new_property]
 
     @staticmethod
     def from_sbf_file(filename, surface_property='d_norm'):
@@ -119,11 +133,7 @@ class Isosurface:
 
         for dset in surface_data.datasets():
             if dset.data.shape == (positions.shape[0],):
-                vals = dset.data
-                vals -= np.mean(vals)
-                vals[vals > 0] /= np.abs(np.max(vals))
-                vals[vals < 0] /= np.abs(np.min(vals))
-                surface_properties[dset.name] = vals
+                surface_properties[dset.name] = dset.data
         return Isosurface(positions, faces, vertex_normals, surface_properties, surface_property=surface_property)
 
 
@@ -138,6 +148,8 @@ class Renderer:
         self.set_light_position([-2, -2, 2])
         self.set_light_intensity([1, 1, 1])
         self.program['u_model'] = np.eye(4, dtype=np.float32)
+        self.program['u_min_color'] = np.min(self.render_object.vertex_buffer['color'])
+        self.program['u_max_color'] = np.max(self.render_object.vertex_buffer['color'])
         self.view = glm.translation(0, 0, -5) # camera position
         self.model = np.eye(4, dtype=np.float32)
         self.program['u_view'] = self.view
@@ -171,8 +183,13 @@ class Renderer:
                 self.window.close()
                 app.quit()
                 sys.exit(0)
-            if character == 'a':
-                self.animating = not self.animating
+            if character == 'r':
+                # random colormap
+                self.program['u_colors'] = np.random.rand(3,3) 
+            if character == 'p':
+                available = list(self.render_object.available_properties.keys())
+                self.change_surface_property(random.choice(available))
+
             LOG.debug('Character entered (character: %s)'% character)
             LOG.debug('Character == q {}'.format(character == 'q'))
 
@@ -185,6 +202,13 @@ class Renderer:
         self.model = np.eye(4, dtype=np.float32)
         self.program['u_model'] = self.model
         self.program['u_normal'] = np.array(np.matrix(np.dot(self.view, self.model)).I.T)
+    
+    def change_surface_property(self, new_property):
+        self.render_object.change_surface_property(new_property, self.program)
+        self.program['u_min_color'] = np.min(self.render_object.vertex_buffer['color'])
+        self.program['u_max_color'] = np.max(self.render_object.vertex_buffer['color'])
+        # rebind to the program
+        self.program.bind(self.render_object.vertices)
     
     def update_camera(self):
         # Rotate cube
@@ -216,7 +240,7 @@ def main():
     iso = Isosurface.from_sbf_file(args.filename, surface_property=args.surface_property)
     renderer = Renderer(iso, width=1024, height=1024,
                         color=(0.30, 0.30, 0.35, 1.00))
-    app.run(interactive=True)
+    app.run(framerate=60)
 
 if __name__ == '__main__':
     main()
