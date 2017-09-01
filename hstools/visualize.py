@@ -2,6 +2,7 @@
 import logging
 import sys
 from glumpy import app, gl, glm, gloo
+from glumpy.transforms import Trackball, Position
 from hstools.decompose import mean_radius, shift_to_origin
 import matplotlib.pyplot as plt
 import numpy as np
@@ -54,7 +55,7 @@ class Isosurface:
                 v_position = position;
                 v_color = colormap(color);
                 // Final position
-                gl_Position = u_projection * u_view * u_model * vec4(position,1.0);
+                gl_Position = <transform>;
             }
         """
 
@@ -93,7 +94,7 @@ class Isosurface:
                 // 2. The color/intensities of the light: light.intensities
 
                 // Final color
-                gl_FragColor = v_color * (0.1 + 0.9*brightness * vec4(u_light_intensity, 1));
+                gl_FragColor = v_color * (0.4 + 0.6*brightness * vec4(u_light_intensity, 1));
             }
         """
 
@@ -143,7 +144,9 @@ class Renderer:
         self.program['u_colors'] = [[0, 0, 1],
                                     [1, 1, 1],
                                     [1, 0, 0]]
-        self.phi, self.theta = (40, 30)
+
+        self.program['transform'] = Trackball(Position("position"))
+        self.window.attach(self.program['transform'])
 
         @self.window.event
         def on_draw(dt):
@@ -152,10 +155,6 @@ class Renderer:
             self.program.draw(gl.GL_TRIANGLES, self.render_object.indices)
             # Rotate cube
             self.update_camera()
-
-        @self.window.event
-        def on_resize(width, height):
-            self.program['u_projection'] = glm.perspective(45.0, width / float(height), 2.0, 100.0)
 
         @self.window.event
         def on_init():
@@ -181,41 +180,14 @@ class Renderer:
         def on_key_release(symbol, modifiers):
             LOG.debug('Key released (symbol=%s, modifiers=%s)', symbol, modifiers)
 
-        @self.window.event
-        def on_mouse_press(x, y, button):
-            LOG.debug('Mouse button pressed (x=%.1f, y=%.1f, button=%d)', x, y, button)
-
-        @self.window.event
-        def on_mouse_release(x, y, button):
-            LOG.debug('Mouse button released (x=%.1f, y=%.1f, button=%d)', x, y, button)
-
-        @self.window.event
-        def on_mouse_motion(x, y, dx, dy):
-            LOG.debug('Mouse motion (x=%.1f, y=%.1f, dx=%.1f, dy=%.1f)',
-                      x, y, dx, dy)
-
-        @self.window.event
-        def on_mouse_drag(x, y, dx, dy, button):
-            LOG.debug('Mouse drag (x=%.1f, y=%.1f, dx=%.1f, dy=%.1f, button=%d)',
-                      x, y, dx, dy, button)
-
-        @self.window.event
-        def on_mouse_scroll(x, y, dx, dy):
-            LOG.debug('Mouse scroll (x=%.1f, y=%.1f, dx=%.1f, dy=%.1f)', x, y, dx, dy)
-    
     def update_modelview(self):
         self.view = self.program['u_view'].reshape(4, 4)
         self.model = np.eye(4, dtype=np.float32)
-        glm.rotate(self.model, self.theta, 0, 0, 1)
-        glm.rotate(self.model, self.phi, 0, 1, 0)
         self.program['u_model'] = self.model
         self.program['u_normal'] = np.array(np.matrix(np.dot(self.view, self.model)).I.T)
     
     def update_camera(self):
         # Rotate cube
-        if self.animating:
-            self.theta += 0.9 # degrees
-            self.phi += 1.0 # degrees
         self.update_modelview()
 
     def set_light_position(self, position):
