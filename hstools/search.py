@@ -90,6 +90,23 @@ class ShapeMatcher(object):
         names = np.array(names, dtype='|S64')
         return ShapeMatcher(names, invariants)
 
+    @staticmethod
+    def from_surface_files(files, property_name='shape'):
+        """Construct a CSD matcher based on the bundled data
+
+        Keyword arguments:
+        l_max -- maximum angular momenta to use for invariants
+        (default 20)
+        use_radius -- use the mean radius as the first invariant
+        (default True)
+        """
+        shapes = {}
+        for f in files:
+            shapes['f.stem'] = surface_description(f, property_name=property_name)
+
+        return ShapeMatcher.from_shapes(shapes)
+
+
 
 def chemical_formula(search_result):
     """Convenience function to extract molecular formula from the names/ids
@@ -160,23 +177,6 @@ def make_invariants(coefficients):
         invariants[i] = np.sum(coefficients[l:u+1] *
                                np.conj(coefficients[l:u+1])).real
     return invariants
-
-def make_invariants_shtns(coefficients):
-    """Construct the 'N' type invariants from sht coefficients.
-    If coefficients is of length n, the size of the result will be sqrt(n)
-
-    Arguments:
-    coefficients -- the set of spherical harmonic coefficients
-    """
-    size = int(np.sqrt(len(coefficients)))
-    sh = shtns.sht(size,size)
-    invariants = np.empty(shape=(size), dtype=np.float64)
-    for i in range(0, size):
-        l, u = i * i,  (i+1)*(i+1)
-        invariants[i] = np.sum(coefficients[l:u+1] *
-                np.conj(coefficients[l:u+1])).real
-    return invariants
-
 
 
 def add_files_from_directory(directory, data_dict={}):

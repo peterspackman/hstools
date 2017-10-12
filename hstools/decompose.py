@@ -1,33 +1,14 @@
-from scipy.spatial import cKDTree as KDTree, ConvexHull
-from scipy.special import sph_harm
+"""Decompose a surface into sht"""
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import logging
+from pathlib import Path
 import numpy as np
 import sbf
-from .lebedev import lebedev_grid, integrate_values
-import logging
-import time
-from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import shtns
+from scipy.spatial import cKDTree as KDTree, ConvexHull
+from .sht import SHT
+from .utils import spherical_to_cartesian
 
-log = logging.getLogger('decompose')
-
-
-def spherical_to_cartesian(rtp):
-    """
-    Given an N by 3 array of (r, theta, phi) spherical coordinates
-    return an N by 3 array of Cartesian(x, y, z) coordinates.
-
-    Arguments:
-    rtp -- set of r, theta, phi coordinates
-    """
-    xyz = np.zeros(rtp.shape)
-
-    xyz[:, 0] = rtp[:, 0] * np.sin(rtp[:, 1]) * np.cos(rtp[:, 2])
-    xyz[:, 1] = rtp[:, 0] * np.sin(rtp[:, 1]) * np.sin(rtp[:, 2])
-    xyz[:, 2] = rtp[:, 0] * np.cos(rtp[:, 1])
-
-    return xyz
-
+LOG = logging.getLogger('decompose')
 
 def _interpolate(idxs, norms):
     return np.mean(norms[idxs])
@@ -57,16 +38,17 @@ def mean_radius(pts, reoriginate=False):
         pts = shift_to_origin(pts)
     d2 = pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2
     norms = np.sqrt(d2)
-    mean_radius = np.mean(norms)
-    return mean_radius
+    mean_norm = np.mean(norms)
+    return mean_norm
 
 
 def values_from_grid(vals, ix):
+    """Get a set of values from a grid, and a set of indices"""
     res = np.array([_interpolate(idxs, vals) for idxs in ix])
     return res
 
 
-def describe_surface(filename, degree=131, properties=None):
+def describe_surface(filename, l_max=20, properties=None):
     """Given an SBF, describe the set of vertices inside
     using spherical harmonics. Will scale the mesh to be of unit
     mean radius.
@@ -75,9 +57,10 @@ def describe_surface(filename, degree=131, properties=None):
     filename -- name of the SBF to open
 
     Keyword arguments:
-    degree -- the degree of lebedev grid to use for integration
-    (default 131)
-    (default False)
+    l_max -- the maximum l to integrate to
+    (default 20)
+    properties -- properties to also describe
+    (default None)
     """
     if not properties:
         properties = []
@@ -87,98 +70,40 @@ def describe_surface(filename, degree=131, properties=None):
     f.read()
     pts = f['vertices'].data.transpose()
 
-    log.debug('Loaded vertex data')
+    LOG.debug('Loaded vertex data')
     center = np.mean(pts, axis=0)
     # shift to be centered about the origin
     pts -= center
 
     # this is faster for some reason than np.apply_along_axis
     norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
-    mean_radius = np.mean(norms)
-    pts /= mean_radius
-    norms /= mean_radius
+    mean_norm = np.mean(norms)
+    pts /= mean_norm
+    norms /= mean_norm
     pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
-    log.debug('Normalized points')
-    grid = lebedev_grid(degree=degree)
+    LOG.debug('Normalized points')
+    sht = SHT(l_max)
+    grid = sht.grid
     grid_cartesian = spherical_to_cartesian(
             np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
-    log.debug('Constructing tree')
+    LOG.debug('Constructing tree')
     tree = KDTree(pts_normalized)
-    log.debug('Done')
-    log.debug('Interpolating values')
+    LOG.debug('Done')
+    LOG.debug('Interpolating values')
     nn = tree.query(grid_cartesian, 1)
-    log.debug('Done')
+    LOG.debug('Done')
     # interpolate our values from the grid (faster than scipy.griddata by... a lot)
     values = values_from_grid(norms, nn[1])
     property_arrays = {'shape': values}
 
     for prop in properties:
         property_arrays[prop] =  values_from_grid(f[prop].data, nn[1])
-    property_coefficients = { name: sht(value, grid) for name, value in property_arrays.items()}
+    property_coefficients = { name: sht.analyse(value) for name, value in property_arrays.items()}
 
-    return name, mean_radius, property_coefficients
-
-
-def describe_surface_shtns(filename, degree=131, properties=None):
-    """Given an SBF, describe the set of vertices inside
-    using spherical harmonics. Will scale the mesh to be of unit
-    mean radius.
-
-    Arguments:
-    filename -- name of the SBF to open
-
-    Keyword arguments:
-    degree -- the degree of lebedev grid to use for integration
-    (default 131)
-    (default False)
-    """
-    if not properties:
-        properties = []
-
-    name = Path(filename).stem
-    f = sbf.File(filename)
-    f.read()
-    pts = f['vertices'].data.transpose()
-
-    log.debug('Loaded vertex data')
-    center = np.mean(pts, axis=0)
-    # shift to be centered about the origin
-    pts -= center
-
-    # this is faster for some reason than np.apply_along_axis
-    norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
-    mean_radius = np.mean(norms)
-    pts /= mean_radius
-    norms /= mean_radius
-    pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
-    log.debug('Normalized points')
-    sh = shtns.sht(20,20)
-    nlat, nphi = sh.set_grid()
-    phi, theta = np.meshgrid(np.arccos(sh.cos_theta), np.arange(nphi)*(2*np.pi/nphi))
-    grid = np.vstack((theta.flatten(),phi.flatten())).transpose()
-    grid_cartesian = spherical_to_cartesian(
-            np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
-    log.debug('Constructing tree')
-    tree = KDTree(pts_normalized)
-    log.debug('Done')
-    log.debug('Interpolating values')
-    nn = tree.query(grid_cartesian, 1)
-    log.debug('Done')
-    # interpolate our values from the grid (faster than scipy.griddata by... a lot)
-    desired_shape = sh.spat_shape
-    values = np.array(values_from_grid(norms, nn[1]).reshape(desired_shape),
-                                       dtype=np.complex128)
-    property_arrays = {'shape': values}
-
-    for prop in properties:
-        property_arrays[prop] =  np.array(values_from_grid(f[prop].data, nn[1]).reshape(desired_shape),
-                                          dtype=np.complex128)
-    property_coefficients = { name: sh.analys_cplx(value) for name, value in property_arrays.items()}
-
-    return name, mean_radius, property_coefficients
+    return name, mean_norm, property_coefficients
 
 
-def combination_desc_shtns(filename, degree=131):
+def combination_desc(filename, l_max=20):
     """Given an SBF, describe the set of vertices and their esp using sht.
     Will scale the mesh to be of unit mean radius.
 
@@ -186,40 +111,35 @@ def combination_desc_shtns(filename, degree=131):
     filename -- name of the SBF to open
 
     Keyword arguments:
-    degree -- the degree of lebedev grid to use for integration
-    (default 131)
-    (default False)
+
     """
     name = Path(filename).stem
     f = sbf.File(filename)
     f.read()
     pts = f['vertices'].data.transpose()
 
-    log.debug('Loaded vertex data')
+    LOG.debug('Loaded vertex data')
     center = np.mean(pts, axis=0)
     # shift to be centered about the origin
     pts -= center
 
     # this is faster for some reason than np.apply_along_axis
     norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
-    mean_radius = np.mean(norms)
-    pts /= mean_radius
-    norms /= mean_radius
+    mean_norm = np.mean(norms)
+    pts /= mean_norm
+    norms /= mean_norm
     pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
-    log.debug('Normalized points')
-    sh = shtns.sht(20,20)
-    nlat, nphi = sh.set_grid()
-    phi, theta = np.meshgrid(np.arccos(sh.cos_theta), np.arange(nphi)*(2*np.pi/nphi))
-    grid = np.vstack((theta.flatten(),phi.flatten())).transpose()
-
+    LOG.debug('Normalized points')
+    sht = SHT(l_max)
+    grid = sht.grid
     grid_cartesian = spherical_to_cartesian(
             np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
-    log.debug('Constructing tree')
+    LOG.debug('Constructing tree')
     tree = KDTree(pts_normalized)
-    log.debug('Done')
-    log.debug('Interpolating values')
+    LOG.debug('Done')
+    LOG.debug('Interpolating values')
     nn = tree.query(grid_cartesian, 1)
-    log.debug('Done')
+    LOG.debug('Done')
     shape = values_from_grid(norms, nn[1])
     esp =  values_from_grid(f['electric_potential'].data, nn[1])
     # normalize esp to be in [0,1], keep track of min and range
@@ -230,64 +150,9 @@ def combination_desc_shtns(filename, degree=131):
     combined = np.zeros(esp.shape, dtype=np.complex128)
     combined.real = shape
     combined.imag = esp
-    desired_shape = sh.spat_shape[::-1]
-    coefficients = sh.analys_cplx(np.array(combined.reshape(desired_shape),
-                                           dtype=np.complex128).transpose())
-    return name, mean_radius, esp_min, esp_scale, coefficients
 
-
-
-def combination_desc(filename, degree=131):
-    """Given an SBF, describe the set of vertices and their esp using sht.
-    Will scale the mesh to be of unit mean radius.
-
-    Arguments:
-    filename -- name of the SBF to open
-
-    Keyword arguments:
-    degree -- the degree of lebedev grid to use for integration
-    (default 131)
-    (default False)
-    """
-    name = Path(filename).stem
-    f = sbf.File(filename)
-    f.read()
-    pts = f['vertices'].data.transpose()
-
-    log.debug('Loaded vertex data')
-    center = np.mean(pts, axis=0)
-    # shift to be centered about the origin
-    pts -= center
-
-    # this is faster for some reason than np.apply_along_axis
-    norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
-    mean_radius = np.mean(norms)
-    pts /= mean_radius
-    norms /= mean_radius
-    pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
-    log.debug('Normalized points')
-    grid = lebedev_grid(degree=degree)
-    grid_cartesian = spherical_to_cartesian(
-            np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
-    log.debug('Constructing tree')
-    tree = KDTree(pts_normalized)
-    log.debug('Done')
-    log.debug('Interpolating values')
-    nn = tree.query(grid_cartesian, 1)
-    log.debug('Done')
-    shape = values_from_grid(norms, nn[1])
-    esp =  values_from_grid(f['electric_potential'].data, nn[1])
-    # normalize esp to be in [0,1], keep track of min and range
-    esp_min = np.min(esp)
-    esp_scale = np.abs(np.max(esp) - np.min(esp))
-    esp = esp - esp_min
-    esp /= esp_scale
-    combined = np.zeros(esp.shape, dtype=np.complex128)
-    combined.real = shape
-    combined.imag = esp
-    coefficients = sht(combined, grid)
-    return name, mean_radius, esp_min, esp_scale, coefficients
-
+    coefficients = sht.analyse(combined)
+    return name, mean_norm, esp_min, esp_scale, coefficients
 
 
 def reconstruct_surface(coeffs, l_max=20, degree=131, color_min=0.0, color_scale=1.0):
@@ -301,72 +166,20 @@ def reconstruct_surface(coeffs, l_max=20, degree=131, color_min=0.0, color_scale
     l_max -- maximum angular momenta to reconstruct to (default 20)
     degree -- grid degree to use (see lebedev grids)
     """
-    grid = lebedev_grid(degree=degree)
+    sht = SHT(l_max)
+    grid = sht.grid
     # grid[:, 0] goes from 0 -> 2 PI
     # grid[:, 1] goes from 0 -> PI
     rtp = np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]]
     verts = rtp.copy()
     colors = np.zeros(grid.shape[0])
     sphere = spherical_to_cartesian(rtp)
-    radius = np.zeros(len(verts), dtype=np.complex)
-    l_m = 0
-    for l in range(0, l_max + 1):
-        for m in range(-l, l + 1):
-            ylm = sph_harm(m, l, grid[:, 0], grid[:, 1])
-            radius[:] += coeffs[l_m] * ylm
-            l_m += 1
+    radius = sht.synthesis(coeffs)
     verts[:, 0] = radius[:].real
     colors[:] = radius.imag * color_scale + color_min 
     verts = spherical_to_cartesian(verts)
     faces = ConvexHull(sphere).simplices
     return verts, faces, colors
-
-
-def reconstruct_surface_shtns(coeffs, l_max=20, degree=131, color_min=0.0, color_scale=1.0):
-    """Reconstruct the HS by distorting a spherical mesh, generated
-    from a lebedev grid.
-
-    Arguments:
-    coeffs -- the set of spherical harmonic coefficients
-
-    Keyword arguments:
-    l_max -- maximum angular momenta to reconstruct to (default 20)
-    degree -- grid degree to use (see lebedev grids)
-    """
-    grid = lebedev_grid(degree=degree)
-    sh = shtns.sht(l_max,l_max)
-    nlat, nphi = sh.set_grid()
-    theta, phi = np.meshgrid(np.arccos(sh.cos_theta), np.arange(nphi)*(2*np.pi/nphi))
-    verts = np.vstack((np.ones(theta.flatten().shape[0]),
-                      theta.flatten(), phi.flatten())).transpose()
-    faces = ConvexHull(spherical_to_cartesian(verts)).simplices
-    s = sh.synth_cplx(coeffs).transpose()
-    verts[:, 0] = s.real.flatten()
-    colors = s.imag.flatten() * color_scale + color_min
-    verts = spherical_to_cartesian(verts)
-    return verts, faces, colors
-
-
-
-def sht(values, grid, l_max=20):
-    """Perform a spherical harmonic transform given a grid and a set of values
-
-    Arguments:
-    values -- set of scalar function values associated with grid points
-    grid -- set of grid points
-
-    Keyword arguments:
-    l_max -- maximum angular momenta to integrate to (default 20)
-    """
-    coefficients = np.zeros((l_max + 1)*(l_max + 1), dtype=np.complex128)
-    lm = 0
-    for l in range(0, l_max + 1):
-        for m in range(-l, l + 1):
-            vals = np.conj(sph_harm(m, l, grid[:, 0], grid[:, 1]))
-            vals *= values
-            coefficients[lm] = integrate_values(grid, vals)
-            lm += 1
-    return coefficients
 
 
 def main():
@@ -394,20 +207,20 @@ def main():
         logging.basicConfig(filename=args.log_file, level=args.log_level)
     else:
         logging.basicConfig(level=args.log_level)
-    log.info('Starting %s, output: %s', args.directory, args.output_directory)
+    LOG.info('Starting %s, output: %s', args.directory, args.output_directory)
     if not os.path.exists(args.output_directory):
         os.mkdir(args.output_directory)
 
     paths = list(Path(args.directory).glob('*.sbf'))
-    log.info('%d paths to process', len(paths))
+    LOG.info('%d paths to process', len(paths))
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
         futures = [executor.submit(describe_surface, path) for path in paths]
         for f in as_completed(futures):
             name, coeffs = f.result()
             array_file = os.path.join(args.output_directory, name)
-            log.info('Saving array to %s', array_file)
+            LOG.info('Saving array to %s', array_file)
             np.save(array_file, coeffs)
-    log.info('Finished %s', args.directory)
+    LOG.info('Finished %s', args.directory)
 
 if __name__ == '__main__':
     main()
