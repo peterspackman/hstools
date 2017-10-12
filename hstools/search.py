@@ -8,6 +8,7 @@ import numpy as np
 from collections import namedtuple
 import sbf
 from .decompose import describe_surface, combination_desc
+import shtns
 
 log = logging.getLogger(__name__)
 Shape = namedtuple('Shape', 'name invariants')
@@ -117,9 +118,9 @@ def surface_description(sbf_file, property_name='shape', properties=None, use_ra
     if property_name != 'shape' and property_name not in properties:
         properties.append(property_name)
     if property_name == 'combined':
-        name, r, esp, coeffs = combination_desc(sbf_file)
+        name, r, esp_min, esp_range, coeffs = combination_desc(sbf_file)
         invariants = make_invariants(coeffs)
-        invariants = np.insert(invariants, 0, [r, esp])
+        invariants = np.insert(invariants, 0, [r, esp_min, esp_range])
     else:
         name, r, coeffs = describe_surface(sbf_file, properties=properties)
         invariants  = make_invariants(coeffs[property_name])
@@ -159,6 +160,23 @@ def make_invariants(coefficients):
         invariants[i] = np.sum(coefficients[l:u+1] *
                                np.conj(coefficients[l:u+1])).real
     return invariants
+
+def make_invariants_shtns(coefficients):
+    """Construct the 'N' type invariants from sht coefficients.
+    If coefficients is of length n, the size of the result will be sqrt(n)
+
+    Arguments:
+    coefficients -- the set of spherical harmonic coefficients
+    """
+    size = int(np.sqrt(len(coefficients)))
+    sh = shtns.sht(size,size)
+    invariants = np.empty(shape=(size), dtype=np.float64)
+    for i in range(0, size):
+        l, u = i * i,  (i+1)*(i+1)
+        invariants[i] = np.sum(coefficients[l:u+1] *
+                np.conj(coefficients[l:u+1])).real
+    return invariants
+
 
 
 def add_files_from_directory(directory, data_dict={}):

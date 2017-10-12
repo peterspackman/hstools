@@ -7,6 +7,7 @@ import logging
 import time
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import shtns
 
 log = logging.getLogger('decompose')
 
@@ -118,6 +119,124 @@ def describe_surface(filename, degree=131, properties=None):
     return name, mean_radius, property_coefficients
 
 
+def describe_surface_shtns(filename, degree=131, properties=None):
+    """Given an SBF, describe the set of vertices inside
+    using spherical harmonics. Will scale the mesh to be of unit
+    mean radius.
+
+    Arguments:
+    filename -- name of the SBF to open
+
+    Keyword arguments:
+    degree -- the degree of lebedev grid to use for integration
+    (default 131)
+    (default False)
+    """
+    if not properties:
+        properties = []
+
+    name = Path(filename).stem
+    f = sbf.File(filename)
+    f.read()
+    pts = f['vertices'].data.transpose()
+
+    log.debug('Loaded vertex data')
+    center = np.mean(pts, axis=0)
+    # shift to be centered about the origin
+    pts -= center
+
+    # this is faster for some reason than np.apply_along_axis
+    norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
+    mean_radius = np.mean(norms)
+    pts /= mean_radius
+    norms /= mean_radius
+    pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
+    log.debug('Normalized points')
+    sh = shtns.sht(20,20)
+    nlat, nphi = sh.set_grid()
+    phi, theta = np.meshgrid(np.arccos(sh.cos_theta), np.arange(nphi)*(2*np.pi/nphi))
+    grid = np.vstack((theta.flatten(),phi.flatten())).transpose()
+    grid_cartesian = spherical_to_cartesian(
+            np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
+    log.debug('Constructing tree')
+    tree = KDTree(pts_normalized)
+    log.debug('Done')
+    log.debug('Interpolating values')
+    nn = tree.query(grid_cartesian, 1)
+    log.debug('Done')
+    # interpolate our values from the grid (faster than scipy.griddata by... a lot)
+    desired_shape = sh.spat_shape
+    values = np.array(values_from_grid(norms, nn[1]).reshape(desired_shape),
+                                       dtype=np.complex128)
+    property_arrays = {'shape': values}
+
+    for prop in properties:
+        property_arrays[prop] =  np.array(values_from_grid(f[prop].data, nn[1]).reshape(desired_shape),
+                                          dtype=np.complex128)
+    property_coefficients = { name: sh.analys_cplx(value) for name, value in property_arrays.items()}
+
+    return name, mean_radius, property_coefficients
+
+
+def combination_desc_shtns(filename, degree=131):
+    """Given an SBF, describe the set of vertices and their esp using sht.
+    Will scale the mesh to be of unit mean radius.
+
+    Arguments:
+    filename -- name of the SBF to open
+
+    Keyword arguments:
+    degree -- the degree of lebedev grid to use for integration
+    (default 131)
+    (default False)
+    """
+    name = Path(filename).stem
+    f = sbf.File(filename)
+    f.read()
+    pts = f['vertices'].data.transpose()
+
+    log.debug('Loaded vertex data')
+    center = np.mean(pts, axis=0)
+    # shift to be centered about the origin
+    pts -= center
+
+    # this is faster for some reason than np.apply_along_axis
+    norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
+    mean_radius = np.mean(norms)
+    pts /= mean_radius
+    norms /= mean_radius
+    pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
+    log.debug('Normalized points')
+    sh = shtns.sht(20,20)
+    nlat, nphi = sh.set_grid()
+    phi, theta = np.meshgrid(np.arccos(sh.cos_theta), np.arange(nphi)*(2*np.pi/nphi))
+    grid = np.vstack((theta.flatten(),phi.flatten())).transpose()
+
+    grid_cartesian = spherical_to_cartesian(
+            np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
+    log.debug('Constructing tree')
+    tree = KDTree(pts_normalized)
+    log.debug('Done')
+    log.debug('Interpolating values')
+    nn = tree.query(grid_cartesian, 1)
+    log.debug('Done')
+    shape = values_from_grid(norms, nn[1])
+    esp =  values_from_grid(f['electric_potential'].data, nn[1])
+    # normalize esp to be in [0,1], keep track of min and range
+    esp_min = np.min(esp)
+    esp_scale = np.abs(np.max(esp) - np.min(esp))
+    esp = esp - esp_min
+    esp /= esp_scale
+    combined = np.zeros(esp.shape, dtype=np.complex128)
+    combined.real = shape
+    combined.imag = esp
+    desired_shape = sh.spat_shape[::-1]
+    coefficients = sh.analys_cplx(np.array(combined.reshape(desired_shape),
+                                           dtype=np.complex128).transpose())
+    return name, mean_radius, esp_min, esp_scale, coefficients
+
+
+
 def combination_desc(filename, degree=131):
     """Given an SBF, describe the set of vertices and their esp using sht.
     Will scale the mesh to be of unit mean radius.
@@ -158,16 +277,20 @@ def combination_desc(filename, degree=131):
     log.debug('Done')
     shape = values_from_grid(norms, nn[1])
     esp =  values_from_grid(f['electric_potential'].data, nn[1])
-    esp_max = np.max(np.abs(esp))
-    esp /= esp_max
+    # normalize esp to be in [0,1], keep track of min and range
+    esp_min = np.min(esp)
+    esp_scale = np.abs(np.max(esp) - np.min(esp))
+    esp = esp - esp_min
+    esp /= esp_scale
     combined = np.zeros(esp.shape, dtype=np.complex128)
-    combined = shape + np.conj(esp)
+    combined.real = shape
+    combined.imag = esp
     coefficients = sht(combined, grid)
-    return name, mean_radius, esp_max, coefficients
+    return name, mean_radius, esp_min, esp_scale, coefficients
 
 
 
-def reconstruct_surface(coeffs, l_max=20, degree=131):
+def reconstruct_surface(coeffs, l_max=20, degree=131, color_min=0.0, color_scale=1.0):
     """Reconstruct the HS by distorting a spherical mesh, generated
     from a lebedev grid.
 
@@ -183,6 +306,7 @@ def reconstruct_surface(coeffs, l_max=20, degree=131):
     # grid[:, 1] goes from 0 -> PI
     rtp = np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]]
     verts = rtp.copy()
+    colors = np.zeros(grid.shape[0])
     sphere = spherical_to_cartesian(rtp)
     radius = np.zeros(len(verts), dtype=np.complex)
     l_m = 0
@@ -192,9 +316,36 @@ def reconstruct_surface(coeffs, l_max=20, degree=131):
             radius[:] += coeffs[l_m] * ylm
             l_m += 1
     verts[:, 0] = radius[:].real
+    colors[:] = radius.imag * color_scale + color_min 
     verts = spherical_to_cartesian(verts)
     faces = ConvexHull(sphere).simplices
-    return verts, faces
+    return verts, faces, colors
+
+
+def reconstruct_surface_shtns(coeffs, l_max=20, degree=131, color_min=0.0, color_scale=1.0):
+    """Reconstruct the HS by distorting a spherical mesh, generated
+    from a lebedev grid.
+
+    Arguments:
+    coeffs -- the set of spherical harmonic coefficients
+
+    Keyword arguments:
+    l_max -- maximum angular momenta to reconstruct to (default 20)
+    degree -- grid degree to use (see lebedev grids)
+    """
+    grid = lebedev_grid(degree=degree)
+    sh = shtns.sht(l_max,l_max)
+    nlat, nphi = sh.set_grid()
+    theta, phi = np.meshgrid(np.arccos(sh.cos_theta), np.arange(nphi)*(2*np.pi/nphi))
+    verts = np.vstack((np.ones(theta.flatten().shape[0]),
+                      theta.flatten(), phi.flatten())).transpose()
+    faces = ConvexHull(spherical_to_cartesian(verts)).simplices
+    s = sh.synth_cplx(coeffs).transpose()
+    verts[:, 0] = s.real.flatten()
+    colors = s.imag.flatten() * color_scale + color_min
+    verts = spherical_to_cartesian(verts)
+    return verts, faces, colors
+
 
 
 def sht(values, grid, l_max=20):
@@ -211,7 +362,7 @@ def sht(values, grid, l_max=20):
     lm = 0
     for l in range(0, l_max + 1):
         for m in range(-l, l + 1):
-            vals = sph_harm(m, l, grid[:, 0], grid[:, 1])
+            vals = np.conj(sph_harm(m, l, grid[:, 0], grid[:, 1]))
             vals *= values
             coefficients[lm] = integrate_values(grid, vals)
             lm += 1

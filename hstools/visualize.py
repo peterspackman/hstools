@@ -3,7 +3,7 @@ import logging
 import random
 import sys
 from glumpy import app, gl, glm, gloo
-from glumpy.transforms import Trackball, Position
+from glumpy.transforms import OrthographicProjection, Trackball, Position
 from hstools.decompose import mean_radius, shift_to_origin
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +13,7 @@ LOG = logging.getLogger(__name__)
 
 class Isosurface:
     """Wrapper class around an isosurface/mesh"""
-    def __init__(self, vertices, faces, vertex_normals, available_properties, surface_property='d_norm'):
+    def __init__(self, vertices, faces, vertex_normals, available_properties, surface_property='electric_potential'):
         self.vtype = [('position', np.float32, 3),
                       ('normal', np.float32, 3),
                       ('color', np.float32, 1)]
@@ -95,7 +95,8 @@ class Isosurface:
                 vec3 surfaceToLight = u_light_position - position;
 
                 // Calculate the cosine of the angle of incidence (brightness)
-                float brightness = dot(normal, surfaceToLight) /
+                float ref = dot(normal, surfaceToLight);
+                float brightness = ref /
                                 (length(surfaceToLight) * length(normal));
                 brightness = max(min(brightness,1.0),0.0);
 
@@ -104,7 +105,7 @@ class Isosurface:
                 // 2. The color/intensities of the light: light.intensities
 
                 // Final color
-                gl_FragColor = v_color * (0.5 + 0.5 * brightness * vec4(u_light_intensity, 1));
+                gl_FragColor = v_color * (0.9 + 0.0 * brightness * vec4(u_light_intensity, 1));
             }
         """
 
@@ -121,12 +122,19 @@ class Isosurface:
             self.vertex_buffer['color'] = self.available_properties[new_property]
 
     @staticmethod
-    def from_sbf_file(filename, surface_property='d_norm'):
+    def from_sbf_file(filename, surface_property='electric_potential',
+                      xy=(0,0), orient=True):
         surface_data = sbf.read_file(filename)
         # set center to origin
         positions = shift_to_origin(surface_data['vertices'].data.transpose())
         radius = mean_radius(positions)
-        positions /= radius
+        positions /= radius * 20
+        if orient:
+            from sklearn.decomposition import PCA
+            pca = PCA(n_components=3)
+            positions = pca.fit_transform(positions)
+        offset = np.array([xy[0], xy[1], 0.0]) 
+        positions += offset
         faces = surface_data['faces'].data.transpose() - 1
         vertex_normals = surface_data['vertex normals'].data.transpose()
         surface_properties = {}
@@ -138,33 +146,38 @@ class Isosurface:
 
 
 class Renderer:
-    def __init__(self, render_object, **kwargs):
+    def __init__(self, render_objects, **kwargs):
         self.window = app.Window(**kwargs)
-        self.render_object = render_object
+        self.render_objects = render_objects
         self.animating = True
-        self.program = gloo.Program(self.render_object.vertex_shader,
-                                    self.render_object.fragment_shader)
-        self.program.bind(self.render_object.vertices)
-        self.set_light_position([-2, -2, 2])
-        self.set_light_intensity([1, 1, 1])
-        self.program['u_model'] = np.eye(4, dtype=np.float32)
-        self.program['u_min_color'] = np.min(self.render_object.vertex_buffer['color'])
-        self.program['u_max_color'] = np.max(self.render_object.vertex_buffer['color'])
-        self.view = glm.translation(0, 0, -5) # camera position
-        self.model = np.eye(4, dtype=np.float32)
-        self.program['u_view'] = self.view
-        self.program['u_colors'] = [[0, 0, 1],
-                                    [1, 1, 1],
-                                    [1, 0, 0]]
+        self.programs = []        
+        for obj in self.render_objects:
+            self.programs.append(gloo.Program(obj.vertex_shader,
+                                 obj.fragment_shader))
+            self.programs[-1].bind(obj.vertices)
 
-        self.program['transform'] = Trackball(Position("position"))
-        self.window.attach(self.program['transform'])
+        self.set_light_position([0, 0, 2])
+        self.set_light_intensity([1, 1, 1])
+        self.view = glm.translation(0, 0, 1) # camera position
+        self.model = np.eye(4, dtype=np.float32)
+        for obj, prog in zip(self.render_objects, self.programs):
+            prog['u_model'] = np.eye(4, dtype=np.float32)
+            prog['u_min_color'] = np.min(obj.vertex_buffer['color'])
+            prog['u_max_color'] = np.max(obj.vertex_buffer['color'])
+            prog['u_view'] = self.view
+            prog['u_colors'] = [[0, 0, 1],
+                                [1, 1, 1],
+                                [1, 0, 0]]
+
+            prog['transform'] = Trackball(Position("position"), theta=0, phi=0)
+            self.window.attach(prog['transform'])
 
         @self.window.event
         def on_draw(dt):
             self.window.clear()
             gl.glEnable(gl.GL_DEPTH_TEST)
-            self.program.draw(gl.GL_TRIANGLES, self.render_object.indices)
+            for obj, prog in zip(self.render_objects, self.programs):
+                prog.draw(gl.GL_TRIANGLES, obj.indices)
             # Rotate cube
             self.update_camera()
 
@@ -191,9 +204,10 @@ class Renderer:
                 sys.exit(0)
             if character == 'r':
                 # random colormap
-                self.program['u_colors'] = np.random.rand(3,3) 
+                for prog in self.programs:
+                    prog['u_colors'] = np.random.rand(3,3) 
             if character == 'p':
-                available = list(self.render_object.available_properties.keys())
+                available = list(self.render_objects[0].available_properties.keys())
                 self.change_surface_property(random.choice(available))
 
             LOG.debug('Character entered (character: %s)'% character)
@@ -204,49 +218,72 @@ class Renderer:
             LOG.debug('Key released (symbol=%s, modifiers=%s)', symbol, modifiers)
 
     def update_modelview(self):
-        self.view = self.program['u_view'].reshape(4, 4)
-        self.model = np.eye(4, dtype=np.float32)
-        self.program['u_model'] = self.model
-        self.program['u_normal'] = np.array(np.matrix(np.dot(self.view, self.model)).I.T)
+        for prog in self.programs:
+            self.view = prog['u_view'].reshape(4, 4)
+            self.model = np.eye(4, dtype=np.float32)
+            prog['u_model'] = self.model
+            prog['u_normal'] = np.array(np.matrix(np.dot(self.view, self.model)).I.T)
     
     def change_surface_property(self, new_property):
-        self.render_object.change_surface_property(new_property, self.program)
-        self.program['u_min_color'] = np.min(self.render_object.vertex_buffer['color'])
-        self.program['u_max_color'] = np.max(self.render_object.vertex_buffer['color'])
-        # rebind to the program
-        self.program.bind(self.render_object.vertices)
+
+        for obj, prog in zip(self.render_objects, self.programs):
+            obj.change_surface_property(new_property, prog)
+            prog['u_min_color'] = np.min(obj.vertex_buffer['color'])
+            prog['u_max_color'] = np.max(obj.vertex_buffer['color'])
+            obj.change_surface_property(new_property, prog)
+            prog.bind(obj.vertices)
     
     def update_camera(self):
         # Rotate cube
         self.update_modelview()
 
     def set_light_position(self, position):
-        self.program['u_light_position'] = position
+        for prog in self.programs:
+            prog['u_light_position'] = position
 
     def set_light_intensity(self, intensity):
-        self.program["u_light_intensity"] = intensity
+        for prog in self.programs:
+            prog["u_light_intensity"] = intensity
 
     def set_camera_position(self, position):
         self.view = glm.translation(*position) # camera position
-        self.program['u_view'] = self.view
+        for prog in self.programs:
+            prog['u_view'] = self.view
     
+
+def nearest_square_r(n):
+    return round(np.sqrt(n))
 
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('filename', default=None)
+    parser.add_argument('filenames', nargs='*')
     parser.add_argument('--color-map', '-c', default='bwr_r',
                         help='Colormap for surface')
-    parser.add_argument('--surface-property', '-p', default='d_norm',
+    parser.add_argument('--surface-property', '-p', default='electric_potential',
                         help='Property to color on surface')
     parser.add_argument('--log-level', '-l', default='INFO',
                         help='Log level to print')
+    parser.add_argument('--sep', '-s', default=0.2, type=float,
+                        help='separation distance')
     args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
-    iso = Isosurface.from_sbf_file(args.filename, surface_property=args.surface_property)
-    renderer = Renderer(iso, width=1024, height=1024,
-                        color=(0.30, 0.30, 0.35, 1.00))
+    objs = []
+    n = len(args.filenames)
+    col = nearest_square_r(n)
+    col = col if col > np.sqrt(n) else col + 1
+
+    xv, yv = np.meshgrid(np.linspace(-1, 1, col),
+                         np.linspace(-1, 1, col))
+    for f, x, y in zip(args.filenames, xv.flatten(), yv.flatten()):
+        objs.append(Isosurface.from_sbf_file(f,
+                    surface_property=args.surface_property,
+                    xy=(x*args.sep,y*args.sep),
+                    orient=True))
+    renderer = Renderer(objs, width=1024, height=1024,
+                        color=(1.0, 1.0, 1.0, 1.00))
     app.run(framerate=60)
 
 if __name__ == '__main__':
+
     main()
