@@ -7,11 +7,10 @@ from scipy.spatial import cKDTree as KDTree
 import numpy as np
 from collections import namedtuple
 import sbf
-from .decompose import describe_surface, combination_desc
+from .decompose import describe_surface, combination_desc, Shape
 import shtns
 
 log = logging.getLogger(__name__)
-Shape = namedtuple('Shape', 'name invariants')
 SearchResult = namedtuple('SearchResult', 'name proximity invariants')
 
 
@@ -118,34 +117,6 @@ def chemical_formula(search_result):
     return search.result.name.split('-')[1].split('_')[0]
 
 
-def surface_description(sbf_file, property_name='shape', properties=None, use_radius=True):
-    """Describe a shape/isosurface using spherical harmonics.
-    Returns a Shape object
-
-    Arguments:
-    sbf_file -- filename or Path object locating a valid surface file
-
-    Keyword Arguments:
-    use_radius -- include mean_radius as the first invariant
-    """
-    log.debug('Describing surface with spherical harmonics')
-    if not properties:
-        properties = []
-
-    if property_name != 'shape' and property_name not in properties:
-        properties.append(property_name)
-    if property_name == 'combined':
-        name, r, esp_min, esp_range, coeffs = combination_desc(sbf_file)
-        invariants = make_invariants(coeffs)
-        invariants = np.insert(invariants, 0, [r, esp_min, esp_range])
-    else:
-        name, r, coeffs = describe_surface(sbf_file, properties=properties)
-        invariants  = make_invariants(coeffs[property_name])
-        log.debug('Making invariants')
-        if property_name == 'shape' and use_radius:
-            invariants = np.insert(invariants, 0, r)
-    return Shape(name, invariants)
-
 
 def load_default_data(directory=os.path.dirname(__file__)):
     """Load the data included with this module.
@@ -162,21 +133,6 @@ def load_default_data(directory=os.path.dirname(__file__)):
     radii = contents['radii'].data
     return names, invariants, radii
 
-
-def make_invariants(coefficients):
-    """Construct the 'N' type invariants from sht coefficients.
-    If coefficients is of length n, the size of the result will be sqrt(n)
-
-    Arguments:
-    coefficients -- the set of spherical harmonic coefficients
-    """
-    size = int(np.sqrt(len(coefficients)))
-    invariants = np.empty(shape=(size), dtype=np.float64)
-    for i in range(0, size):
-        l, u = i**2, (i+1)**2
-        invariants[i] = np.sum(coefficients[l:u+1] *
-                               np.conj(coefficients[l:u+1])).real
-    return invariants
 
 
 def add_files_from_directory(directory, data_dict={}):

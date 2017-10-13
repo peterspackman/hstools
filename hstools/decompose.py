@@ -1,4 +1,5 @@
 """Decompose a surface into sht"""
+from collections import namedtuple
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import logging
 from pathlib import Path
@@ -9,6 +10,7 @@ from .sht import SHT
 from .utils import spherical_to_cartesian
 
 LOG = logging.getLogger('decompose')
+Shape = namedtuple('Shape', 'name invariants')
 
 def _interpolate(idxs, norms):
     return np.mean(norms[idxs])
@@ -103,7 +105,7 @@ def describe_surface(filename, l_max=20, properties=None):
     return name, mean_norm, property_coefficients
 
 
-def combination_desc(filename, l_max=20):
+def combination_desc(filename, l_max=20, prop='electric_potential'):
     """Given an SBF, describe the set of vertices and their esp using sht.
     Will scale the mesh to be of unit mean radius.
 
@@ -141,15 +143,18 @@ def combination_desc(filename, l_max=20):
     nn = tree.query(grid_cartesian, 1)
     LOG.debug('Done')
     shape = values_from_grid(norms, nn[1])
-    esp =  values_from_grid(f['electric_potential'].data, nn[1])
-    # normalize esp to be in [0,1], keep track of min and range
-    esp_min = np.min(esp)
-    esp_scale = np.abs(np.max(esp) - np.min(esp))
-    esp = esp - esp_min
-    esp /= esp_scale
-    combined = np.zeros(esp.shape, dtype=np.complex128)
+    property_values =  values_from_grid(f[prop].data, nn[1])
+    others = [mean_norm]
+    if prop == 'electric_potential':
+        # normalize esp to be in [0,1], keep track of min and range
+        esp_min = np.min(esp)
+        esp_scale = np.abs(np.max(esp) - np.min(esp))
+        esp = esp - esp_min
+        esp /= esp_scale
+        others += [esp_min, esp_scale]
+    combined = np.zeros(property_values.shape, dtype=np.complex128)
     combined.real = shape
-    combined.imag = esp
+    combined.imag = property_values
 
     coefficients = sht.analyse(combined)
     return name, mean_norm, esp_min, esp_scale, coefficients
@@ -182,19 +187,70 @@ def reconstruct_surface(coeffs, l_max=20, degree=131, color_min=0.0, color_scale
     return verts, faces, colors
 
 
+def surface_description(sbf_file, property_name='shape', properties=None, use_radius=True):
+    """Describe a shape/isosurface using spherical harmonics.
+    Returns a Shape object
+
+    Arguments:
+    sbf_file -- filename or Path object locating a valid surface file
+
+    Keyword Arguments:
+    use_radius -- include mean_radius as the first invariant
+    """
+    LOG.debug('Describing surface with spherical harmonics')
+    if not properties:
+        properties = []
+
+    if property_name != 'shape' and property_name not in properties:
+        properties.append(property_name)
+    elif property_name == 'combined':
+        name, others, coeffs = combination_desc(sbf_file)
+        invariants = make_invariants(coeffs)
+        invariants = np.insert(invariants, 0, others)
+    elif property_name == 'combined_dnorm':
+        name, others, coeffs = combination_desc(sbf_file, prop='d_norm')
+        invariants = make_invariants(coeffs)
+        invariants = np.insert(invariants, 0, others)
+    else:
+        name, r, coeffs = describe_surface(sbf_file, properties=properties)
+        invariants  = make_invariants(coeffs[property_name])
+        LOG.debug('Making invariants')
+        if property_name == 'shape' and use_radius:
+            invariants = np.insert(invariants, 0, r)
+    return Shape(name, invariants)
+
+
+def make_invariants(coefficients):
+    """Construct the 'N' type invariants from sht coefficients.
+    If coefficients is of length n, the size of the result will be sqrt(n)
+
+    Arguments:
+    coefficients -- the set of spherical harmonic coefficients
+    """
+    size = int(np.sqrt(len(coefficients)))
+    invariants = np.empty(shape=(size), dtype=np.float64)
+    for i in range(0, size):
+        l, u = i**2, (i+1)**2
+        invariants[i] = np.sum(coefficients[l:u+1] *
+                               np.conj(coefficients[l:u+1])).real
+    return invariants
+
+
 def main():
     """Read through all sbf files in a directory, writing
     numpy arrays of sht coefficients for each shape encountered.
     """
     import argparse
+    import pickle
     import os
+    from tqdm import tqdm
     parser = argparse.ArgumentParser()
     parser.add_argument('directory')
     parser.add_argument('-l', '--lmax', default=20, type=int,
                         help='Maximum angular momentum')
     parser.add_argument('--log-file', default=None,
                         help='Log to file instead of stdout')
-    parser.add_argument('--suffix', '-s', default='.sbf',
+    parser.add_argument('--suffix', '-s', default='-hs.sbf',
                         help='File suffix to find sbf files')
     parser.add_argument('--log-level', default='INFO',
                         help='Log level')
@@ -211,15 +267,16 @@ def main():
     if not os.path.exists(args.output_directory):
         os.mkdir(args.output_directory)
 
-    paths = list(Path(args.directory).glob('*.sbf'))
+    paths = list(Path(args.directory).glob('*'+args.suffix))
     LOG.info('%d paths to process', len(paths))
+    shapes = []
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
-        futures = [executor.submit(describe_surface, path) for path in paths]
-        for f in as_completed(futures):
-            name, coeffs = f.result()
-            array_file = os.path.join(args.output_directory, name)
-            LOG.info('Saving array to %s', array_file)
-            np.save(array_file, coeffs)
+        futures = [executor.submit(surface_description, str(path)) for path in paths]
+        for f in tqdm(as_completed(futures)):
+            shapes.append(f.result())
+
+    with Path(args.directory, 'shapes.bin').open('wb') as f:
+        pickle.dump(shapes, f)
     LOG.info('Finished %s', args.directory)
 
 if __name__ == '__main__':
