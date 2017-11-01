@@ -16,4 +16,3 @@ def spherical_to_cartesian(rtp):
     xyz[:, 2] = rtp[:, 0] * np.cos(rtp[:, 1])
 
     return xyz
-
