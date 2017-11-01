@@ -24,11 +24,11 @@ class SHT:
     def grid(self):
         """Return the set of angular grid points for this sht"""
         if self._shtns:
-            nlat, nphi = self._shtns.set_grid()
-            phi, theta = np.meshgrid(np.arccos(self._shtns.cos_theta), np.arange(nphi)*(2*np.pi/nphi))
-            return np.vstack((theta.flatten(),phi.flatten())).transpose()
-        else:
-            return lebedev_grid(degree=131)
+            _, nphi = self._shtns.set_grid()
+            phi, theta = np.meshgrid(np.arccos(self._shtns.cos_theta),
+                                     np.arange(nphi)*(2*np.pi/nphi))
+            return np.vstack((theta.flatten(), phi.flatten())).transpose()
+        return lebedev_grid(degree=131)
 
     def analyse(self, values):
         """Perform a spherical harmonic transform given a grid and a set of values
@@ -40,18 +40,17 @@ class SHT:
             desired_shape = self._shtns.spat_shape[::-1]
             return self._shtns.analys_cplx(
                 np.array(values, dtype=np.complex128).reshape(desired_shape).transpose())
-        else:
-            coefficients = np.zeros((self.l_max + 1)*(self.l_max + 1),
-                                    dtype=np.complex128)
-            lm = 0
-            grid = self.grid
-            for l in range(0, self.l_max + 1):
-                for m in range(-l, l + 1):
-                    vals = np.conj(sph_harm(m, l, grid[:, 0], grid[:, 1]))
-                    vals *= values
-                    coefficients[lm] = integrate_values(grid, vals)
-                    lm += 1
-            return coefficients
+        coefficients = np.zeros((self.l_max + 1)*(self.l_max + 1),
+                                dtype=np.complex128)
+        lm = 0
+        grid = self.grid
+        for l in range(0, self.l_max + 1):
+            for m in range(-l, l + 1):
+                vals = np.conj(sph_harm(m, l, grid[:, 0], grid[:, 1]))
+                vals *= values
+                coefficients[lm] = integrate_values(grid, vals)
+                lm += 1
+        return coefficients
 
 
     def synthesis(self, coefficients):
@@ -62,16 +61,15 @@ class SHT:
         """
         if self._shtns:
             return self._shtns.synth_cplx(coefficients).transpose().flatten()
-        else:
-            grid = self.grid
-            values = np.zeros(len(grid), dtype=np.complex)
-            l_m = 0
-            for l in range(0, self.l_max + 1):
-                for m in range(-l, l + 1):
-                    ylm = sph_harm(m, l, grid[:, 0], grid[:, 1])
-                    values[:] += coefficients[l_m] * ylm
-                    l_m += 1
-            return values
+        grid = self.grid
+        values = np.zeros(len(grid), dtype=np.complex)
+        l_m = 0
+        for l in range(0, self.l_max + 1):
+            for m in range(-l, l + 1):
+                ylm = sph_harm(m, l, grid[:, 0], grid[:, 1])
+                values[:] += coefficients[l_m] * ylm
+                l_m += 1
+        return values
 
 
     @property

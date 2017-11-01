@@ -331,7 +331,7 @@ def nearest_square_r(n):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('filenames', nargs='*')
+    parser.add_argument('filenames', nargs='+')
     parser.add_argument('--color-map', '-c', default='bwr_r',
                         help='Colormap for surface')
     parser.add_argument('--surface-property', '-p', default='electric_potential',

@@ -39,27 +39,29 @@ def mean_radius(pts, reoriginate=False):
     (default False)"""
     if reoriginate:
         pts = shift_to_origin(pts)
-    d2 = pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2
-    norms = np.sqrt(d2)
+    square_distance = pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2
+    norms = np.sqrt(square_distance)
     mean_norm = np.mean(norms)
     return mean_norm
 
 
 def centroid(verts, faces):
-    normals = np.cross(verts[faces[:,1]] - verts[faces[:,0]],
-                       verts[faces[:,2]] - verts[faces[:,0]])
-    volume = inner1d(verts[faces[:,0]], normals).sum() / 6
-    centroid = np.sum(normals[:] * (
-                          (verts[faces[:,0]] + verts[faces[:,1]])**2 +
-                          (verts[faces[:,1]] + verts[faces[:,2]])**2 +
-                          (verts[faces[:,2]] + verts[faces[:,0]])**2
-                      ), axis=0)
-    return centroid/(24 * 2 * volume)
+    """Calculate the centroid of a mesh based on volume of
+    tetrahedrons formed by the faces"""
+    normals = np.cross(verts[faces[:, 1]] - verts[faces[:, 0]],
+                       verts[faces[:, 2]] - verts[faces[:, 0]])
+    volume = inner1d(verts[faces[:, 0]], normals).sum() / 6
+    cent = np.sum(normals[:] * (
+        (verts[faces[:, 0]] + verts[faces[:, 1]])**2 +
+        (verts[faces[:, 1]] + verts[faces[:, 2]])**2 +
+        (verts[faces[:, 2]] + verts[faces[:, 0]])**2
+        ), axis=0)
+    return cent / (24 * 2 * volume)
 
 
-def values_from_grid(vals, ix):
+def values_from_grid(vals, indices):
     """Get a set of values from a grid, and a set of indices"""
-    res = np.array([_interpolate(idxs, vals) for idxs in ix])
+    res = np.array([_interpolate(idxs, vals) for idxs in indices])
     return res
 
 
@@ -76,15 +78,11 @@ def sht_isosurface(filename, l_max=20, prop='electric_potential'):
 
     """
     name = Path(filename).stem
-    f = sbf.File(filename)
-    f.read()
-    pts = f['vertices'].data.transpose()
-    faces = f['faces'].data.transpose() - 1
-
+    datafile = sbf.read_file(filename)
+    pts = datafile['vertices'].data.transpose()
     LOG.debug('Loaded vertex data')
-    center = np.mean(pts, axis=0)
     # shift to be centered about the origin
-    pts -= center
+    pts -= np.mean(pts, axis=0)
 
     # this is faster for some reason than np.apply_along_axis
     norms = np.sqrt(pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2)
@@ -94,17 +92,16 @@ def sht_isosurface(filename, l_max=20, prop='electric_potential'):
     pts_normalized = pts / np.reshape(norms, (pts.shape[0], 1))
     LOG.debug('Normalized points')
     sht = SHT(l_max)
-    grid = sht.grid
     grid_cartesian = spherical_to_cartesian(
-            np.c_[np.ones(grid.shape[0]), grid[:, 1], grid[:, 0]])
+        np.c_[np.ones(sht.grid.shape[0]), sht.grid[:, 1], sht.grid[:, 0]])
     LOG.debug('Constructing tree')
     tree = KDTree(pts_normalized)
     LOG.debug('Done')
     LOG.debug('Interpolating values')
-    nn = tree.query(grid_cartesian, 1)
+    nearest = tree.query(grid_cartesian, 1)
     LOG.debug('Done')
-    shape = values_from_grid(norms, nn[1])
-    property_values =  values_from_grid(f[prop].data, nn[1])
+    shape = values_from_grid(norms, nearest[1])
+    property_values = values_from_grid(datafile[prop].data, nearest[1])
     # normalize property to be in [0,1], keep track of min and range
     prop_min = np.min(property_values)
     prop_scale = np.abs(np.max(property_values) - np.min(property_values))
@@ -116,11 +113,10 @@ def sht_isosurface(filename, l_max=20, prop='electric_potential'):
     combined.real = shape
     combined.imag = property_values
 
-    coefficients = sht.analyse(combined)
-    return name, others, coefficients
+    return name, others, sht.analyse(combined)
 
 
-def reconstruct_surface(coeffs, l_max=20, degree=131, color_min=0.0, color_scale=1.0):
+def reconstruct_surface(coeffs, l_max=20, color_min=0.0, color_scale=1.0):
     """Reconstruct the HS by distorting a spherical mesh, generated
     from a lebedev grid.
 
@@ -141,7 +137,7 @@ def reconstruct_surface(coeffs, l_max=20, degree=131, color_min=0.0, color_scale
     sphere = spherical_to_cartesian(rtp)
     radius = sht.synthesis(coeffs)
     verts[:, 0] = radius[:].real
-    colors[:] = radius.imag * color_scale + color_min 
+    colors[:] = radius.imag * color_scale + color_min
     verts = spherical_to_cartesian(verts)
     faces = ConvexHull(sphere).simplices
     return verts, faces, colors
@@ -175,9 +171,9 @@ def make_invariants(coefficients):
     size = int(np.sqrt(len(coefficients)))
     invariants = np.empty(shape=(size), dtype=np.float64)
     for i in range(0, size):
-        l, u = i**2, (i+1)**2
-        invariants[i] = np.sum(coefficients[l:u+1] *
-                               np.conj(coefficients[l:u+1])).real
+        lower, upper = i**2, (i+1)**2
+        invariants[i] = np.sum(coefficients[lower:upper+1] *
+                               np.conj(coefficients[lower:upper+1])).real
     return invariants
 
 
@@ -218,11 +214,11 @@ def main():
     shapes = []
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
         futures = [executor.submit(surface_description, str(path)) for path in paths]
-        for f in tqdm(as_completed(futures), total=num_paths, desc='SHT', unit='file'):
-            shapes.append(f.result())
+        for future in tqdm(as_completed(futures), total=num_paths, desc='SHT', unit='file'):
+            shapes.append(future.result())
 
-    with Path(args.directory, 'shapes'+ args.suffix + '.bin').open('wb') as f:
-        pickle.dump(shapes, f)
+    with Path(args.directory, 'shapes'+ args.suffix + '.bin').open('wb') as shapes_file:
+        pickle.dump(shapes, shapes_file)
     LOG.info('Finished %s', args.directory)
 
 if __name__ == '__main__':
