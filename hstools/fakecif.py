@@ -78,7 +78,7 @@ def process_xyz_file(path):
         n = int(f.readline().strip())
         comment = f.readline().strip()
         for line in f:
-            tokens = line.split()
+            tokens = line.strip().split()
             if (len(tokens) == 4):
                 element = tokens[0]
                 center = [float(x) for x in tokens[1:4]]
@@ -87,6 +87,8 @@ def process_xyz_file(path):
                                   '{}{}'.format(element,
                                                 element_count[element]),
                                   center))
+            else:
+                print('too many tokens ({})'.format(len(tokens)))
     bounds = bounding_box(atoms)
     cell_dims = [round(x2 - x1) * 1.5 for x1, x2 in bounds]
     dim = max(cell_dims)

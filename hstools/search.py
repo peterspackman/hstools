@@ -6,12 +6,28 @@ from pathlib import Path
 from scipy.spatial import cKDTree as KDTree
 import numpy as np
 from collections import namedtuple
+from .decompose import sht_isosurface, Shape
+import pandas as pd
 import sbf
-from .decompose import describe_surface, combination_desc, Shape
 import shtns
 
-log = logging.getLogger(__name__)
-SearchResult = namedtuple('SearchResult', 'name proximity invariants')
+LOG = logging.getLogger(__name__)
+__SearchResult = namedtuple('SearchResult', 'name proximity invariants')
+
+class SearchResult(__SearchResult):
+    @property
+    def chemical_formula(self):
+        """Convenience function to extract molecular formula from the names/ids
+        in the provided dataset
+        """
+        return self.name.split('-')[1].split('_')[0]
+
+    @property
+    def csd_refcode(self):
+        """Convenience function to extract CSD refcode from the names/ids
+        in the provided datasets
+        """
+        return self.name.split('-')[0]
 
 
 class ShapeMatcher(object):
@@ -26,10 +42,10 @@ class ShapeMatcher(object):
         """
         self.ids = ids
         self.invariants = invariants
-        log.debug('Constructing tree from %d invariants', len(invariants))
+        LOG.debug('Constructing tree from %d invariants', len(invariants))
         self.tree = KDTree(invariants)
 
-    def search_invariants(self, invariants, n=10):
+    def search_invariants(self, invariants, n=10, df=False):
         """Search for matches based on invariants.
 
         Arguments:
@@ -37,14 +53,27 @@ class ShapeMatcher(object):
 
         Keyword arguments:
         n -- number of matches to return (default 10)
+        df -- return matches as a pandas DataFrame (default False)
         """
-        log.debug('Searching for %d closest points', n)
+        if n == 'max':
+            n = len(self.invariants)
+        LOG.debug('Searching for %d closest points', n)
         distances, indexes = self.tree.query(invariants, n)
-        return [SearchResult(name.decode('utf-8'), d, inv)
-                for name, d, inv in
-                zip(self.ids[indexes], distances, self.invariants[indexes])]
+        invariants = self.invariants[indexes]
+        # Need to handle case of n == 1 correctly
+        if isinstance(indexes, int):
+            ids = self.ids[indexes].decode('utf-8')
+            return SearchResult(ids, distances, invariants)
+        else:
+            ids = [x.decode('utf-8') for x in self.ids[indexes]]
+        if df:
+            return pd.DataFrame({'ID': ids, 'Proximity': distances}).set_index('ID')
+        else:
+            return [SearchResult(n, d, i)
+                        for n, d, i in
+                        zip(ids, distances, invariants)]
 
-    def search_shape(self, shape, n=10):
+    def search_shape(self, shape, **kwargs):
         """Search for matches based on a shape object. (convenience function)
 
         Arguments:
@@ -52,12 +81,14 @@ class ShapeMatcher(object):
 
         Keyword arguments:
         n -- number of matches to return (default 10)
+        df -- return matches as a pandas DataFrame (default False)
         """
-        log.debug('Searching for closest shapes to %s', shape.name)
-        return self.search_invariants(shape.invariants, n=n)
+        LOG.debug('Searching for closest shapes to %s', shape.name)
+        # delegate to search_invariants method
+        return self.search_invariants(shape.invariants, **kwargs)
 
     @staticmethod
-    def from_csd_data(l_max=20, use_radius=True):
+    def from_datafile(filename, l_max=20):
         """Construct a CSD matcher based on the bundled data
 
         Keyword arguments:
@@ -66,9 +97,7 @@ class ShapeMatcher(object):
         use_radius -- use the mean radius as the first invariant
         (default True)
         """
-        names, invariants, radii = load_default_data()
-        if use_radius:
-            invariants = np.insert(invariants, 0, radii, axis=1)
+        names, invariants = load_data(filename)
         return ShapeMatcher(names, invariants)
 
     @staticmethod
@@ -82,9 +111,14 @@ class ShapeMatcher(object):
         (default 20)
         """
         invariants, names = [], []
-        for name, s in shapes.items():
-            invariants.append(s.invariants)
-            names.append(name)
+        if isinstance(shapes, dict):
+            for name, s in shapes.items():
+                invariants.append(s.invariants)
+                names.append(name)
+        else:
+            for s in shapes:
+                invariants.append(s.invariants)
+                names.append(s.name)
         invariants = np.array(invariants)
         names = np.array(names, dtype='|S64')
         return ShapeMatcher(names, invariants)
@@ -107,31 +141,21 @@ class ShapeMatcher(object):
 
 
 
-def chemical_formula(search_result):
-    """Convenience function to extract molecular formula from the names/ids
-    in the 'universe' dataset
-
-    Arguments:
-    search_result -- SearchResult object
-    """
-    return search.result.name.split('-')[1].split('_')[0]
 
 
-
-def load_default_data(directory=os.path.dirname(__file__)):
+def load_data(filename):
     """Load the data included with this module.
 
     Keyword arguments:
     directory -- the folder containing data to load
     (default is the location of this file)
     """
-    contents = sbf.read_file(os.path.join(directory, 'main_group.sbf'))
+    contents = sbf.read_file(filename)
     names = contents['names'].data
     dims = names.shape
     names = names.view('S{}'.format(dims[1])).reshape((dims[0],))
     invariants = contents['invariants'].data
-    radii = contents['radii'].data
-    return names, invariants, radii
+    return names, invariants
 
 
 
@@ -163,36 +187,44 @@ def main():
     parser.add_argument('directory')
     parser.add_argument('--log-file', default=None,
                         help='Log to file instead of stdout')
-    parser.add_argument('--suffix', '-s', default='.sbf',
+    parser.add_argument('--suffix', '-s', default='-hs.sbf',
                         help='File suffix to find sbf files')
     parser.add_argument('--results', '-n', default=10, type=int,
                         help='Number of matches to print out per surface')
+    parser.add_argument('--surface-type', '-t', default='hirshfeld', type=str,
+                        choices={'hirshfeld', 'promolecule'},
+                        help='Surface type to match against')
     parser.add_argument('--log-level', default='INFO',
                         help='Log level')
-    parser.add_argument('--jobs', '-j', default=4, type=int,
+    parser.add_argument('--jobs', '-j', default=1, type=int,
                         help='Number of parallel jobs to run')
     args = parser.parse_args()
     if args.log_file:
         logging.basicConfig(filename=args.log_file, level=args.log_level)
     else:
         logging.basicConfig(level=args.log_level)
-    log.info('Starting %s, jobs: %d', args.directory, args.jobs)
-    log.debug('Creating CSD matcher')
-    matcher = ShapeMatcher.from_csd_data()
-    log.debug('Done')
+    LOG.info('Starting %s, jobs: %d', args.directory, args.jobs)
+    LOG.debug('Creating CSD matcher')
+    from . import csd_matcher
+    from .decompose import surface_description
+    matcher = csd_matcher(args.surface_type)
+    LOG.debug('Done')
     paths = list(Path(args.directory).glob(
                 '*{}'.format(args.suffix)))
-    log.info('%d paths to describe with sht', len(paths))
+    LOG.info('%d paths to describe with sht', len(paths))
     with ProcessPoolExecutor(max_workers=args.jobs) as executor:
         futures = [executor.submit(surface_description, path)
                    for path in paths]
         for f in as_completed(futures):
             shape = f.result()
-            results = matcher.search_shape(shape, n=args.results)
-            print('{}:'.format(shape.name))
-            for result in results:
-                print('\t{}'.format(result.name))
-    log.info('Finished in "%s"', args.directory)
+            results = matcher.search_shape(shape, n=args.results, df=True)
+            print()
+            print(shape.name)
+            print()
+            print(results)
+            print()
+            print()
+    LOG.info('Finished in "%s"', args.directory)
 
 if __name__ == '__main__':
     main()

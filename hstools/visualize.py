@@ -4,12 +4,54 @@ import random
 import sys
 from glumpy import app, gl, glm, gloo
 from glumpy.transforms import OrthographicProjection, Trackball, Position
-from hstools.decompose import mean_radius, shift_to_origin
+from glumpy.graphics.text import FontManager
+from glumpy.graphics.collections import GlyphCollection
+from hstools.decompose import mean_radius, shift_to_origin, sht_isosurface, reconstruct_surface
 import matplotlib.pyplot as plt
 import numpy as np
 import sbf
 
+jab = ("`Twas brillig, and the slithy toves\n"
+"  Did gyre and gimble in the wabe:\n"
+"All mimsy were the borogoves,\n"
+"  And the mome raths outgrabe.\n"
+"\n"
+"\"Beware the Jabberwock, my son!\n"
+"  The jaws that bite, the claws that catch!\n"
+"Beware the Jubjub bird, and shun\n"
+"  The frumious Bandersnatch!\"\n"
+"He took his vorpal sword in hand:\n"
+"  Long time the manxome foe he sought --\n"
+"So rested he by the Tumtum tree,\n"
+"  And stood awhile in thought.\n"
+"And, as in uffish thought he stood,\n"
+"  The Jabberwock, with eyes of flame,\n"
+"Came whiffling through the tulgey wood,\n"
+"  And burbled as it came!\n"
+"One, two! One, two! And through and through\n"
+"  The vorpal blade went snicker-snack!\n"
+"He left it dead, and with its head\n"
+"  He went galumphing back.\n"
+"\"And, has thou slain the Jabberwock?\n"
+"  Come to my arms, my beamish boy!\n"
+"O frabjous day! Callooh! Callay!'\n"
+"  He chortled in his joy.\n"
+"\n"
+"`Twas brillig, and the slithy toves\n"
+"  Did gyre and gimble in the wabe;\n"
+"All mimsy were the borogoves,\n"
+"  And the mome raths outgrabe.\n" )
+
+
 LOG = logging.getLogger(__name__)
+
+def normalize_vec3(arr):
+    """ Normalize a numpy array of 3 component vectors shape=(n,3) """
+    lens = np.sqrt( arr[:,0]**2 + arr[:,1]**2 + arr[:,2]**2 )
+    arr[:,0] /= lens
+    arr[:,1] /= lens
+    arr[:,2] /= lens
+    return arr
 
 class Isosurface:
     """Wrapper class around an isosurface/mesh"""
@@ -123,7 +165,7 @@ class Isosurface:
 
     @staticmethod
     def from_sbf_file(filename, surface_property='electric_potential',
-                      xy=(0,0), orient=True):
+                      offset=(0,0,0), orient=True):
         surface_data = sbf.read_file(filename)
         # set center to origin
         positions = shift_to_origin(surface_data['vertices'].data.transpose())
@@ -133,7 +175,7 @@ class Isosurface:
             from sklearn.decomposition import PCA
             pca = PCA(n_components=3)
             positions = pca.fit_transform(positions)
-        offset = np.array([xy[0], xy[1], 0.0]) 
+        offset = np.array(offset)
         positions += offset
         faces = surface_data['faces'].data.transpose() - 1
         vertex_normals = surface_data['vertex normals'].data.transpose()
@@ -143,6 +185,32 @@ class Isosurface:
             if dset.data.shape == (positions.shape[0],):
                 surface_properties[dset.name] = dset.data
         return Isosurface(positions, faces, vertex_normals, surface_properties, surface_property=surface_property)
+
+    @staticmethod
+    def from_sht_coefficients(filename, offset=(0,0,0), property='d_norm', orient=True):
+        name, others, coeffs = sht_isosurface(filename, prop=property)
+        mean_radius, color_min, color_scale = others
+        verts, faces, colors = reconstruct_surface(coeffs, color_min=color_min,
+                                                   color_scale=color_scale)
+
+        # calculate vertex normals
+        normals = np.zeros(verts.shape, dtype=verts.dtype )
+        tris = verts[faces]
+        n = np.cross(tris[::,1 ] - tris[::,0]  , tris[::,2 ] - tris[::,0] )
+        normalize_vec3(n)
+        normals[ faces[:,0] ] += n
+        normals[ faces[:,1] ] += n
+        normals[ faces[:,2] ] += n
+        normalize_vec3(normals)
+        if orient:
+            from sklearn.decomposition import PCA
+            pca = PCA(n_components=3)
+            verts = pca.fit_transform(verts)
+
+        verts /= 20
+        offset = np.array(offset)
+        verts += offset
+        return Isosurface(verts, faces, normals, {'color': colors}, surface_property='color')
 
 
 class Renderer:
@@ -171,6 +239,12 @@ class Renderer:
 
             prog['transform'] = Trackball(Position("position"), theta=0, phi=0)
             self.window.attach(prog['transform'])
+            glyphs = GlyphCollection(transform=Trackball(Position()))
+            glyphs.append(jab, FontManager.get("Roboto-Regular.ttf"))
+            self.window.attach(glyphs["transform"])
+            self.window.attach(glyphs["viewport"])
+
+
 
         @self.window.event
         def on_draw(dt):
@@ -266,20 +340,43 @@ def main():
                         help='Log level to print')
     parser.add_argument('--sep', '-s', default=0.2, type=float,
                         help='separation distance')
+    parser.add_argument('--reconstruct', '-r', default=False, type=bool,
+                        help='Reconstruct shapes via SHT')
+    parser.add_argument('--orient', default=False, type=bool,
+                        help='Orient the shapes via PCA')
+
     args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
     objs = []
     n = len(args.filenames)
-    col = nearest_square_r(n)
-    col = col if col > np.sqrt(n) else col + 1
+    if n > 1:
+        col = nearest_square_r(n)
+        col = col if col >= np.sqrt(n) else col + 1
 
-    xv, yv = np.meshgrid(np.linspace(-1, 1, col),
-                         np.linspace(-1, 1, col))
-    for f, x, y in zip(args.filenames, xv.flatten(), yv.flatten()):
+        xv, yv = np.meshgrid(np.linspace(-1, 1, col),
+                             np.linspace(-1, 1, col))
+        for f, x, y in zip(args.filenames, xv.flatten(), yv.flatten()):
+            if args.reconstruct:
+                objs.append(Isosurface.from_sht_coefficients(f,
+                            offset=(x*args.sep,y*args.sep, -args.sep*1.5),
+                            property=args.surface_property,
+                            orient=args.orient))
+
+            objs.append(Isosurface.from_sbf_file(f,
+                        surface_property=args.surface_property,
+                        offset=(x*args.sep,y*args.sep, 0),
+                        orient=args.orient))
+    else:
+        f = args.filenames[0]
+        if args.reconstruct:
+            objs.append(Isosurface.from_sht_coefficients(f,
+                        property=args.surface_property,
+                        offset=(0,0,-args.sep*1.5),
+                        orient=args.orient))
         objs.append(Isosurface.from_sbf_file(f,
                     surface_property=args.surface_property,
-                    xy=(x*args.sep,y*args.sep),
-                    orient=True))
+                    orient=args.orient))
+
     renderer = Renderer(objs, width=1024, height=1024,
                         color=(1.0, 1.0, 1.0, 1.00))
     app.run(framerate=60)
