@@ -187,11 +187,15 @@ class Isosurface:
         return Isosurface(positions, faces, vertex_normals, surface_properties, surface_property=surface_property)
 
     @staticmethod
-    def from_sht_coefficients(filename, offset=(0,0,0), property='d_norm', orient=True):
-        name, others, coeffs = sht_isosurface(filename, prop=property)
+    def from_sht_coefficients(filename, offset=(0,0,0), property='d_norm', orient=True,
+                              lmax=20, error=False):
+        test = {} if error else None
+        name, others, coeffs = sht_isosurface(filename, prop=property, l_max=lmax, 
+                                              test=test)
         mean_radius, color_min, color_scale = others
         verts, faces, colors = reconstruct_surface(coeffs, color_min=color_min,
-                                                   color_scale=color_scale)
+                                                   color_scale=color_scale,
+                                                   l_max=lmax, test=test)
 
         # calculate vertex normals
         normals = np.zeros(verts.shape, dtype=verts.dtype )
@@ -344,6 +348,10 @@ def main():
                         help='Reconstruct shapes via SHT')
     parser.add_argument('--orient', default=False, type=bool,
                         help='Orient the shapes via PCA')
+    parser.add_argument('--lmax', default=20, type=int,
+                        help='Maximum angular momenta')
+    parser.add_argument('--error', default=False, type=bool,
+                        help='Show errors in reconstruction')
 
     args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
@@ -360,7 +368,9 @@ def main():
                 objs.append(Isosurface.from_sht_coefficients(f,
                             offset=(x*args.sep,y*args.sep, -args.sep*1.5),
                             property=args.surface_property,
-                            orient=args.orient))
+                            orient=args.orient,
+                            lmax=args.lmax,
+                            error=args.error))
 
             objs.append(Isosurface.from_sbf_file(f,
                         surface_property=args.surface_property,
@@ -372,7 +382,9 @@ def main():
             objs.append(Isosurface.from_sht_coefficients(f,
                         property=args.surface_property,
                         offset=(0,0,-args.sep*1.5),
-                        orient=args.orient))
+                        orient=args.orient,
+                        lmax=arg.lmax,
+                        error=args.error))
         objs.append(Isosurface.from_sbf_file(f,
                     surface_property=args.surface_property,
                     orient=args.orient))

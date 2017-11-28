@@ -139,6 +139,9 @@ class ShapeMatcher(object):
 
         return ShapeMatcher.from_shapes(shapes)
 
+    def all(self):
+        return self.search_invariants(self.invariants[0], n=len(self.invariants))
+
 
 
 

@@ -60,7 +60,8 @@ class SHT:
         values -- set of complex scalar function values associated with grid points
         """
         if self._shtns:
-            return self._shtns.synth_cplx(coefficients).transpose().flatten()
+            max_coeff = (self.l_max+1)**2
+            return self._shtns.synth_cplx(coefficients[:max_coeff]).transpose().flatten()
         grid = self.grid
         values = np.zeros(len(grid), dtype=np.complex)
         l_m = 0

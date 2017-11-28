@@ -65,7 +65,8 @@ def values_from_grid(vals, indices):
     return res
 
 
-def sht_isosurface(filename, l_max=20, prop='electric_potential'):
+def sht_isosurface(filename, l_max=20, prop='electric_potential', 
+                   test=None):
     """Given an SBF, describe the set of vertices and their esp using sht.
     Will scale the mesh to be of unit mean radius.
 
@@ -75,9 +76,13 @@ def sht_isosurface(filename, l_max=20, prop='electric_potential'):
     Keyword arguments:
     prop -- the name of the vertex property to describe in combination
     with the shape (or radius)
+    l_max -- maximum angular momenta
+    test -- use to keep the actual shape and property values for
+    examination of accuracy of descriptor
 
     """
     name = Path(filename).stem
+    LOG.debug('Describing %s surface with spherical harmonics', name)
     datafile = sbf.read_file(filename)
     pts = datafile['vertices'].data.transpose()
     LOG.debug('Loaded vertex data')
@@ -102,6 +107,10 @@ def sht_isosurface(filename, l_max=20, prop='electric_potential'):
     LOG.debug('Done')
     shape = values_from_grid(norms, nearest[1])
     property_values = values_from_grid(datafile[prop].data, nearest[1])
+
+    if test is not None:
+        test['actual'] = shape
+
     # normalize property to be in [0,1], keep track of min and range
     prop_min = np.min(property_values)
     prop_scale = np.abs(np.max(property_values) - np.min(property_values))
@@ -116,7 +125,8 @@ def sht_isosurface(filename, l_max=20, prop='electric_potential'):
     return name, others, sht.analyse(combined)
 
 
-def reconstruct_surface(coeffs, l_max=20, color_min=0.0, color_scale=1.0):
+def reconstruct_surface(coeffs, l_max=20, color_min=0.0, color_scale=1.0,
+                        test=None):
     """Reconstruct the HS by distorting a spherical mesh, generated
     from a lebedev grid.
 
@@ -126,6 +136,7 @@ def reconstruct_surface(coeffs, l_max=20, color_min=0.0, color_scale=1.0):
     Keyword arguments:
     l_max -- maximum angular momenta to reconstruct to (default 20)
     degree -- grid degree to use (see lebedev grids)
+    test -- if present, print out error stats to debug
     """
     sht = SHT(l_max)
     grid = sht.grid
@@ -138,6 +149,10 @@ def reconstruct_surface(coeffs, l_max=20, color_min=0.0, color_scale=1.0):
     radius = sht.synthesis(coeffs)
     verts[:, 0] = radius[:].real
     colors[:] = radius.imag * color_scale + color_min
+    if test is not None:
+        test['reconstructed'] = radius.real
+        shape_err = np.sqrt(np.mean((test['reconstructed'] - test['actual'])**2))
+        LOG.debug('Error (shape): %f', shape_err)
     verts = spherical_to_cartesian(verts)
     faces = ConvexHull(sphere).simplices
     return verts, faces, colors
@@ -154,7 +169,6 @@ def surface_description(sbf_file, prop='d_norm'):
     Keyword Arguments:
     prop -- Additional property to use in description
     """
-    LOG.debug('Describing surface with spherical harmonics')
     name, others, coeffs = sht_isosurface(sbf_file, prop=prop)
     invariants = make_invariants(coeffs)
     invariants = np.insert(invariants, 0, others)
