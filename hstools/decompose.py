@@ -14,6 +14,15 @@ LOG = logging.getLogger('decompose')
 Shape = namedtuple('Shape', 'name invariants')
 
 def _interpolate(idxs, norms):
+    """ Interpolate values from a given array (linear interpolation)
+
+    Example:
+    >>> vals = np.array(np.array([1.0, 2.0, 3.0, 4.0]))
+    >>> _interpolate([0,1,2], vals)
+    2.0
+    >>> _interpolate([0,1,3,3], vals)
+    2.75
+    """
     return np.mean(norms[idxs])
 
 
@@ -22,6 +31,11 @@ def shift_to_origin(pts):
 
     Arguments:
     pts -- set of points to reoriginate
+    >>> points = np.array([[0.0, 3.0, 3.0], [0.0, 0.0, 3.0], [0.0, 3.0, 0.0]])
+    >>> shift_to_origin(points)
+    array([[ 0.,  1.,  1.],
+           [ 0., -2.,  1.],
+           [ 0.,  1., -2.]])
     """
     center = np.mean(pts, axis=0)
     return pts - center
@@ -36,7 +50,16 @@ def mean_radius(pts, reoriginate=False):
 
     Keyword arguments:
     reoriginate -- shift the points to be centered about [0,0,0] first
-    (default False)"""
+    (default False)
+    
+    Examples:
+    >>> points = np.array([[0.0, 3.0, 3.0], [0.0, 0.0, 3.0], [0.0, 3.0, 0.0]])
+    >>> points_at_origin = np.array([[ 0.,  1.,  1.], [ 0., -2.,  1.], [ 0.,  1., -2.]])
+    >>> mean_radius(points) # doctest: +ELLIPSIS
+    3.41421356...
+    >>> mean_radius(points, reoriginate=True) == mean_radius(points_at_origin)
+    True
+    """
     if reoriginate:
         pts = shift_to_origin(pts)
     square_distance = pts[:, 0] ** 2 + pts[:, 1] ** 2 + pts[:, 2] ** 2
