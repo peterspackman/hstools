@@ -22,7 +22,12 @@ setup(name='hstools',
          'hstools': ['*.sbf'],  # include all sbf files,
          'hstools': ['*.bin']  # and all numpy array files
       },
-      install_requires=['numpy', 'sbf', 'scipy', 'pandas'],
+      install_requires=[
+          'numpy',
+          'sbf',
+          'scipy',
+          'pandas'
+      ],
       entry_points={
           'console_scripts': [
               'hstools-describe = hstools.decompose:main',

@@ -243,10 +243,10 @@ class Renderer:
 
             prog['transform'] = Trackball(Position("position"), theta=0, phi=0)
             self.window.attach(prog['transform'])
-            glyphs = GlyphCollection(transform=Trackball(Position()))
-            glyphs.append(jab, FontManager.get("Roboto-Regular.ttf"))
-            self.window.attach(glyphs["transform"])
-            self.window.attach(glyphs["viewport"])
+#            glyphs = GlyphCollection(transform=Trackball(Position()))
+#            glyphs.append(jab, FontManager.get("Roboto-Regular.ttf"))
+            #self.window.attach(glyphs["transform"])
+            #self.window.attach(glyphs["viewport"])
 
 
 
@@ -383,7 +383,7 @@ def main():
                         property=args.surface_property,
                         offset=(0,0,-args.sep*1.5),
                         orient=args.orient,
-                        lmax=arg.lmax,
+                        lmax=args.lmax,
                         error=args.error))
         objs.append(Isosurface.from_sbf_file(f,
                     surface_property=args.surface_property,
