@@ -59,8 +59,9 @@ def integrate_lambda(grid, func):
 
     >>> l11 = lambda theta, phi: scipy.special.sph_harm(1, 1, theta, phi)
     >>> l11vec = np.vectorize(l11)
-    >>> integrate_lambda(grid, l11vec)
-    (-6.539753433766185e-17+5.449794528138487e-17j)
+    >>> res = integrate_lambda(grid, l11vec)
+    >>> all(np.isclose(res, [0,0]))
+    True
     """
 
     return np.sum(func(grid[:, 0], grid[:, 1]) * grid[:, 2]) * 4 * np.pi

@@ -9,7 +9,6 @@ from collections import namedtuple
 from .decompose import sht_isosurface, Shape
 import pandas as pd
 import sbf
-import shtns
 
 LOG = logging.getLogger(__name__)
 __SearchResult = namedtuple('SearchResult', 'name proximity invariants')
