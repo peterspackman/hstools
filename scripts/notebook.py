@@ -1,4 +1,4 @@
-from .decompose import shift_to_origin
+from hstools.decompose import shift_to_origin
 import pandas as pd
 import numpy as np
 import sbf
