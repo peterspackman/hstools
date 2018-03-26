@@ -62,6 +62,8 @@ class SHT:
         if self._shtns:
             max_coeff = (self.l_max+1)**2
             return self._shtns.synth_cplx(coefficients[:max_coeff]).transpose().flatten()
+
+        # Fall back to the (much slower) python implementation
         grid = self.grid
         values = np.zeros(len(grid), dtype=np.complex)
         l_m = 0
